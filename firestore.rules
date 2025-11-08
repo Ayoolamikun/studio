@@ -1,0 +1,163 @@
+/**
+ * @fileoverview Firestore Security Rules for Corporate Magnate Cooperative Society Ltd.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict separation of concerns, using role-based access control for administrative functions and path-based ownership for user-specific data.  Loan applications and membership applications are secured, with only admins having read/write access. Investment plans are publicly readable. Contact form submissions are publicly writable but only admin-readable.  Admin profiles are only accessible by the admin themselves.
+ *
+ * Data Structure:
+ * - /loanApplications/{loanApplicationId}: Stores loan applications.
+ * - /investmentPlans/{investmentPlanId}: Stores investment plans.
+ * - /membershipApplications/{membershipApplicationId}: Stores membership applications.
+ * - /contactFormSubmissions/{contactFormSubmissionId}: Stores contact form submissions.
+ * - /admins/{adminId}: Stores admin user profiles.
+ * - /roles_admin/{userId}: Stores admin roles.
+ *
+ * Key Security Decisions:
+ * - Users cannot directly access loan applications or membership applications.
+ * - Investment plans are publicly readable to showcase available opportunities.
+ * - Contact form submissions are publicly writable for ease of contact but only readable by admins to protect user privacy.
+ * - Admin profiles are accessible only by the admin themselves to ensure data privacy and security.
+ * - Admin privileges are determined by the existence of a document in the `/roles_admin/{userId}` collection.
+ * - Listing loan and membership applications is only permitted for admins.
+ *
+ * Denormalization for Authorization:
+ *  - Admin access is determined by the existence of a document in `/roles_admin/{userId}`. This avoids having to store admin roles within the user document itself and centralizes role management.
+ *
+ * Structural Segregation:
+ * - Different types of data (loan applications, investment plans, etc.) are stored in separate collections to allow for granular access control.  Publicly readable data (investment plans) is separated from private data (loan applications) to minimize the risk of accidental exposure.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the current user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user with the given ID has admin privileges.
+     * @param {string} userId The user ID to check.
+     * @return {bool} True if the user is an admin, false otherwise.
+     */
+    function isAdmin(userId) {
+      return exists(/databases/$(database)/documents/roles_admin/$(userId));
+    }
+
+    /**
+     * @description Checks if the current user is the owner of the resource.
+     * @param {string} userId The user ID to check against.
+     * @return {bool} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the current user is the owner of the resource and the resource exists.
+     *              This is a stricter check for update/delete operations.
+     * @param {string} userId The user ID to check against.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for loan applications. Only admins can read and write.
+     * @path /loanApplications/{loanApplicationId}
+     * @allow (create) User with admin role creates a new loan application.
+     * @allow (get) User with admin role reads a loan application.
+     * @deny (create) Non-admin user attempts to create a loan application.
+     * @deny (get) Non-admin user attempts to read a loan application.
+     * @principle Enforces role-based access control for loan applications.
+     */
+    match /loanApplications/{loanApplicationId} {
+      allow get: if isAdmin(request.auth.uid);
+      allow list: if isAdmin(request.auth.uid);
+      allow create: if isAdmin(request.auth.uid);
+      allow update: if isAdmin(request.auth.uid) && resource != null;
+      allow delete: if isAdmin(request.auth.uid) && resource != null;
+    }
+
+    /**
+     * @description Rules for investment plans.  Publicly readable.
+     * @path /investmentPlans/{investmentPlanId}
+     * @allow (get) Any user (signed in or not) can read an investment plan.
+     * @allow (list) Any user (signed in or not) can list investment plans.
+     * @deny (create) Non-admin user attempts to create an investment plan.
+     * @principle Allows public read access to investment plans.
+     */
+    match /investmentPlans/{investmentPlanId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isAdmin(request.auth.uid);
+      allow update: if isAdmin(request.auth.uid) && resource != null;
+      allow delete: if isAdmin(request.auth.uid) && resource != null;
+    }
+
+    /**
+     * @description Rules for membership applications. Only admins can read and write.
+     * @path /membershipApplications/{membershipApplicationId}
+     * @allow (create) User with admin role creates a new membership application.
+     * @allow (get) User with admin role reads a membership application.
+     * @deny (create) Non-admin user attempts to create a membership application.
+     * @deny (get) Non-admin user attempts to read a membership application.
+     * @principle Enforces role-based access control for membership applications.
+     */
+    match /membershipApplications/{membershipApplicationId} {
+      allow get: if isAdmin(request.auth.uid);
+      allow list: if isAdmin(request.auth.uid);
+      allow create: if isAdmin(request.auth.uid);
+      allow update: if isAdmin(request.auth.uid) && resource != null;
+      allow delete: if isAdmin(request.auth.uid) && resource != null;
+    }
+
+    /**
+     * @description Rules for contact form submissions. Publicly writable, admin-readable.
+     * @path /contactFormSubmissions/{contactFormSubmissionId}
+     * @allow (create) Any user (signed in or not) can submit a contact form.
+     * @allow (get) User with admin role reads a contact form submission.
+     * @deny (get) Non-admin user attempts to read a contact form submission.
+     * @principle Allows public write access but restricts read access to admins.
+     */
+    match /contactFormSubmissions/{contactFormSubmissionId} {
+      allow get: if isAdmin(request.auth.uid);
+      allow list: if false; // No one can list contact form submissions
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for admin user profiles. Only accessible by the admin themselves.
+     * @path /admins/{adminId}
+     * @allow (get) Admin can read their own profile.
+     * @allow (create) Admin can create their own profile.
+     * @deny (get) Other users cannot read the admin profile.
+     * @principle Enforces path-based ownership for admin user profiles.
+     */
+    match /admins/{adminId} {
+      allow get: if isOwner(adminId);
+      allow list: if false;
+      allow create: if isOwner(adminId);
+      allow update: if isExistingOwner(adminId);
+      allow delete: if isExistingOwner(adminId);
+    }
+
+    /**
+     * @description Rules for admin roles. Existence indicates admin privileges.
+     * @path /roles_admin/{userId}
+     */
+    match /roles_admin/{userId} {
+        allow get: if isAdmin(request.auth.uid);
+        allow list: if isAdmin(request.auth.uid);
+        allow create: if isAdmin(request.auth.uid);
+        allow update: if isAdmin(request.auth.uid) && resource != null;
+        allow delete: if isAdmin(request.auth.uid) && resource != null;
+    }
+  }
+}
