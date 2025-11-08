@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-background",
+      "description": "Background image for hero section showing Nigerian professionals in a modern office.",
+      "imageUrl": "https://images.unsplash.com/photo-1761370980688-8438b7220d0b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxOaWdlcmlhbiUyMGJ1c2luZXNzfGVufDB8fHx8MTc2MjYwOTc3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "Nigerian business"
+    },
+    {
+      "id": "about-teamwork",
+      "description": "Image for about section showing diverse team collaborating.",
+      "imageUrl": "https://images.unsplash.com/photo-1635185481431-661b09594e6c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxidXNpbmVzcyUyMHRlYW13b3JrfGVufDB8fHx8MTc2MjYwOTc3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "business teamwork"
+    },
+    {
+      "id": "loan-personal",
+      "description": "Image for personal loan card.",
+      "imageUrl": "https://images.unsplash.com/photo-1518458028785-8fbcd101ebb9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb25hbCUyMGZpbmFuY2V8ZW58MHx8fHwxNzYyNjA5NzcyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "personal finance"
+    },
+    {
+      "id": "loan-civil",
+      "description": "Image for civil servant loan card.",
+      "imageUrl": "https://images.unsplash.com/photo-1573181759662-1c146525b21f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxnb3Zlcm5tZW50JTIwYnVpbGRpbmd8ZW58MHx8fHwxNzYyNTUwMzg4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "government building"
+    },
+    {
+      "id": "loan-sme",
+      "description": "Image for SME loan card.",
+      "imageUrl": "https://images.unsplash.com/photo-1571204829887-3b8d69e4094d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzbWFsbCUyMGJ1c2luZXNzfGVufDB8fHx8MTc2MjYwOTc3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "small business"
+    },
+    {
+      "id": "testimonial-1",
+      "description": "Avatar for the first testimonial.",
+      "imageUrl": "https://images.unsplash.com/photo-1484863137850-59afcfe05386?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxoYXBweSUyMHBlcnNvbnxlbnwwfHx8fDE3NjI2MDgzNzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "happy person"
+    },
+    {
+      "id": "testimonial-2",
+      "description": "Avatar for the second testimonial.",
+      "imageUrl": "https://images.unsplash.com/photo-1580489944761-15a19d654956?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzbWlsaW5nJTIwd29tYW58ZW58MHx8fHwxNzYyNTY0NDkxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "smiling woman"
+    },
+    {
+      "id": "bayelsa-map",
+      "description": "Image of a map showing Bayelsa, Nigeria.",
+      "imageUrl": "https://images.unsplash.com/photo-1742415105631-ead8ec62ccb0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxCYXllbHNhJTIwbWFwfGVufDB8fHx8MTc2MjYwOTc3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "Bayelsa map"
+    }
+  ]
 }
