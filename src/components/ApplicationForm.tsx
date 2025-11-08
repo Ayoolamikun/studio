@@ -31,7 +31,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full font-bold bg-primary hover:bg-primary/90">
+    <Button type="submit" disabled={pending} className="w-full font-bold bg-accent text-accent-foreground hover:bg-accent/90">
       {pending ? "Submitting..." : "Submit Application"}
     </Button>
   );
@@ -48,6 +48,9 @@ export default function ApplicationForm() {
       email: "",
       phoneNumber: "",
       amount: "",
+      typeOfService: undefined,
+      employmentType: undefined,
+      contactMethod: undefined,
     },
   });
 

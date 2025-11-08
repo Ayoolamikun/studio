@@ -1,6 +1,9 @@
 "use server";
 
+import { initializeFirebase } from "@/firebase/index";
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { applicationSchema, contactSchema } from "@/lib/schemas";
+import { collection } from "firebase/firestore";
 
 // This is a mock function to simulate sending an email.
 // In a real application, you would integrate an email service like Resend, SendGrid, or Nodemailer.
@@ -29,10 +32,10 @@ export async function submitApplication(prevState: any, formData: FormData) {
   // Handle file
   const documentFile = formData.get("document") as File;
   if(documentFile && documentFile.size > 0) {
-      rawData.document = documentFile;
-  } else {
-      delete rawData.document; // remove if no file
+      // For now, we'll just store the file name. In a real app, you'd upload this to Firebase Storage.
+      rawData.documentUrl = documentFile.name; 
   }
+  delete rawData.document; // remove file object
 
   const validatedFields = applicationSchema.safeParse(rawData);
 
@@ -42,22 +45,45 @@ export async function submitApplication(prevState: any, formData: FormData) {
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-
+  
   const { fullName, email, typeOfService } = validatedFields.data;
   
   try {
+    const { firestore } = initializeFirebase();
+    let collectionName = "";
+    let dataToSave: any = {
+      ...validatedFields.data,
+      submissionDate: new Date().toISOString(),
+      status: "pending",
+    };
+
+    switch(typeOfService) {
+      case "Loan":
+        collectionName = "loanApplications";
+        break;
+      case "Investment":
+        collectionName = "investmentPlans"; // Or a new collection for investment applications
+        dataToSave.planName = "Custom"; // Example data
+        break;
+      case "Membership":
+        collectionName = "membershipApplications";
+        break;
+      default:
+        throw new Error("Invalid service type");
+    }
+    
+    const collectionRef = collection(firestore, collectionName);
+    addDocumentNonBlocking(collectionRef, dataToSave);
+
+
+    // --- Email Notifications (can be moved to a Firebase Function later) ---
     const emailSubject = `New ${typeOfService} Application from ${fullName}`;
     const emailBody = `
       You have received a new application.
       
       Details:
       ${Object.entries(validatedFields.data)
-        .map(([key, value]) => {
-            if(key === 'document' && value instanceof File) {
-                return `${key}: ${value.name} (${(value.size / 1024).toFixed(2)} KB)`;
-            }
-            return `${key}: ${value}`;
-        })
+        .map(([key, value]) => `${key}: ${value}`)
         .join("\n")}
     `;
 
@@ -75,7 +101,8 @@ export async function submitApplication(prevState: any, formData: FormData) {
 
   } catch (error) {
     console.error("Form submission error:", error);
-    return { message: "An unexpected error occurred. Please try again." };
+    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+    return { message: `An unexpected error occurred: ${errorMessage}. Please try again.` };
   }
 }
 
@@ -97,6 +124,16 @@ export async function submitContactInquiry(prevState: any, formData: FormData) {
   const { name, email, message } = validatedFields.data;
 
   try {
+     const { firestore } = initializeFirebase();
+     const dataToSave = {
+        name,
+        email,
+        message,
+        submissionDate: new Date().toISOString(),
+     }
+     const collectionRef = collection(firestore, "contactFormSubmissions");
+     addDocumentNonBlocking(collectionRef, dataToSave);
+    
     const emailSubject = `New Contact Inquiry from ${name}`;
     const emailBody = `
       You have a new message from your website contact form.

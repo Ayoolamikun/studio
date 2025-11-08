@@ -9,20 +9,20 @@ html {
 
 @layer base {
   :root {
-    --background: 218 100% 95.1%;
+    --background: 216 100% 97%; /* Very light blue: #E6F0FF */
     --foreground: 210 100% 10%;
-    --card: 218 100% 98%;
+    --card: 216 100% 100%;
     --card-foreground: 210 100% 10%;
-    --popover: 218 100% 98%;
+    --popover: 216 100% 100%;
     --popover-foreground: 210 100% 10%;
-    --primary: 210 100% 20%;
+    --primary: 210 100% 20%; /* Deep blue: #003366 */
     --primary-foreground: 0 0% 98%;
     --secondary: 216 100% 90%;
     --secondary-foreground: 210 100% 20%;
     --muted: 216 100% 90%;
     --muted-foreground: 210 40% 45%;
-    --accent: 51 100% 50%;
-    --accent-foreground: 210 100% 20%;
+    --accent: 45 100% 50%; /* Gold: #FFD700 */
+    --accent-foreground: 210 100% 10%; /* Dark text on gold button */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 216 50% 85%;
@@ -50,19 +50,19 @@ html {
     --card-foreground: 0 0% 98%;
     --popover: 210 100% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 210 100% 20%;
+    --primary: 210 100% 20%; /* Deep blue: #003366 */
+    --primary-foreground: 0 0% 98%;
     --secondary: 210 100% 15%;
     --secondary-foreground: 0 0% 98%;
     --muted: 210 100% 15%;
     --muted-foreground: 210 40% 60%;
-    --accent: 51 100% 50%;
-    --accent-foreground: 210 100% 10%;
+    --accent: 45 100% 50%; /* Gold: #FFD700 */
+    --accent-foreground: 210 100% 10%; /* Dark text on gold button */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 210 100% 20%;
     --input: 210 100% 20%;
-    --ring: 51 100% 50%;
+    --ring: 45 100% 50%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;

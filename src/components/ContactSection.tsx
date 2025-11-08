@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Image from 'next/image';
 import { useFormState, useFormStatus } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,20 +14,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Mail, Phone, MapPin, Facebook, Instagram, Linkedin } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full font-bold bg-primary hover:bg-primary/90">
+    <Button type="submit" disabled={pending} className="w-full font-bold bg-primary hover:bg-primary/90 text-primary-foreground">
       {pending ? "Sending..." : "Send Message"}
     </Button>
   );
 }
 
 const ContactSection = ({ className }: { className?: string }) => {
-  const mapImage = PlaceHolderImages.find(p => p.id === 'bayelsa-map');
   const { toast } = useToast();
   const [state, formAction] = useFormState(submitContactInquiry, null);
 
@@ -86,17 +83,17 @@ const ContactSection = ({ className }: { className?: string }) => {
                 <Button variant="outline" size="icon" asChild><a href="#" aria-label="LinkedIn"><Linkedin /></a></Button>
             </div>
           </div>
-          <div className="pt-4">
-            {mapImage && (
-              <Image
-                src={mapImage.imageUrl}
-                alt={mapImage.description}
-                width={600}
-                height={400}
-                className="rounded-xl shadow-md w-full object-cover"
-                data-ai-hint={mapImage.imageHint}
-              />
-            )}
+          <div className="pt-4 h-[400px] w-full">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d508894.4958444399!2d5.992641042784852!3d4.924250269926442!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x104264421589e47b%3A0x42468cb50058a594!2sBayelsa!5e0!3m2!1sen!2sng!4v1700000000000"
+              width="100%"
+              height="100%"
+              className="rounded-xl shadow-md border-0"
+              allowFullScreen={false}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Map of Bayelsa, Nigeria"
+            ></iframe>
           </div>
         </div>
         
