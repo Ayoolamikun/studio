@@ -2,10 +2,11 @@
 "use server";
 
 import { initializeFirebase } from "@/firebase/index";
-import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { loanApplicationSchema, contactSchema } from "@/lib/schemas";
-import { collection } from "firebase/firestore";
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { addDocumentNonBlocking, setDocumentNonBlocking, WithId } from "@/firebase/non-blocking-updates";
+import { loanApplicationSchema } from "@/lib/schemas";
+import { contactSchema } from "@/lib/schemas";
+import { collection, doc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // This is a mock function to simulate sending an email.
 async function sendEmail(to: string, subject: string, body: string) {
@@ -40,42 +41,41 @@ export async function submitApplication(prevState: any, formData: FormData) {
   const { passportPhoto, idDocument, ...applicationData } = validatedFields.data;
   
   try {
+    const borrowerId = applicationData.bvn; // Use BVN as a temporary unique ID before auth
+    
     // 1. Upload files to Firebase Storage
-    const passportPhotoRef = ref(storage, `passports/${Date.now()}_${passportPhoto.name}`);
+    const passportPhotoRef = ref(storage, `borrowers/${borrowerId}/passport_${Date.now()}_${passportPhoto.name}`);
     await uploadBytes(passportPhotoRef, passportPhoto);
+    const passportUrl = await getDownloadURL(passportPhotoRef);
 
-    const idDocumentRef = ref(storage, `documents/${Date.now()}_${idDocument.name}`);
+    const idDocumentRef = ref(storage, `borrowers/${borrowerId}/id_${Date.now()}_${idDocument.name}`);
     await uploadBytes(idDocumentRef, idDocument);
+    const idDocumentUrl = await getDownloadURL(idDocumentRef);
 
-    // In a real app, you'd get the download URLs. For now, we'll store the path.
-    const passportUrl = passportPhotoRef.fullPath;
-    const idDocumentUrl = idDocumentRef.fullPath;
-
-    // 2. Create Borrower record (or find existing one)
-    // For now, we assume a new borrower for each application for simplicity.
+    // 2. Create Borrower record (or update if existing)
+    const borrowerRef = doc(firestore, "Borrowers", borrowerId);
     const borrowerData = {
-        fullName: applicationData.fullName,
+        name: applicationData.fullName,
+        phone: applicationData.phoneNumber,
         email: applicationData.email,
-        phoneNumber: applicationData.phoneNumber,
         bvn: applicationData.bvn,
-        homeAddress: applicationData.homeAddress,
-        employmentPlace: applicationData.employmentPlace,
+        employment: applicationData.employmentPlace,
+        address: applicationData.homeAddress,
         passportUrl,
         idDocumentUrl,
         createdAt: new Date().toISOString(),
     };
-
-    const borrowersCol = collection(firestore, "Borrowers");
-    const borrowerRef = await addDocumentNonBlocking(borrowersCol, borrowerData);
+    // Use set with merge to create or update the borrower profile
+    setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
     
     // 3. Create Loan record
     const loanData = {
-      borrowerId: borrowerRef.id,
+      borrowerId: borrowerId, // Link to the borrower using BVN
       amountRequested: parseFloat(applicationData.loanAmount),
       duration: parseInt(applicationData.loanDuration, 10),
       status: "pending",
       amountPaid: 0,
-      balance: parseFloat(applicationData.loanAmount), // initial balance
+      balance: parseFloat(applicationData.loanAmount), // Initial balance
       createdAt: new Date().toISOString(),
       excelImported: false,
     };
@@ -145,5 +145,35 @@ export async function submitContactInquiry(prevState: any, formData: FormData) {
   } catch (error) {
     console.error("Contact form error:", error);
     return { message: "An unexpected error occurred. Please try again." };
+  }
+}
+
+export async function uploadExcelFile(formData: FormData): Promise<{ success: boolean, message: string }> {
+  const file = formData.get('excelFile') as File;
+
+  if (!file) {
+    return { success: false, message: 'No file selected.' };
+  }
+
+  const { firestore } = initializeFirebase();
+  const storage = getStorage();
+
+  try {
+    const storageRef = ref(storage, `excel-imports/${Date.now()}-${file.name}`);
+    await uploadBytes(storageRef, file);
+    const fileUrl = await getDownloadURL(storageRef);
+
+    const excelFilesCol = collection(firestore, 'ExcelFiles');
+    await addDocumentNonBlocking(excelFilesCol, {
+      fileUrl,
+      uploadedAt: new Date().toISOString(),
+      processed: false,
+    });
+    
+    return { success: true, message: 'File uploaded successfully! It will be processed shortly.' };
+  } catch (error) {
+    console.error('Excel upload error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { success: false, message: `File upload failed: ${errorMessage}` };
   }
 }

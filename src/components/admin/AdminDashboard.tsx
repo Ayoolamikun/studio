@@ -1,8 +1,6 @@
 'use client';
 
-import {
-  LogOut,
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -10,10 +8,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarTrigger,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
 } from '@/components/ui/sidebar';
 
 import { Button } from '@/components/ui/button';
@@ -27,15 +21,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, signOut } from 'firebase/auth';
-import { useAuth, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useFirestore } from '@/firebase/provider';
+import { useAuth } from '@/firebase';
 import Logo from '@/components/Logo';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoanApplicationsTab } from './LoanApplicationsTab';
-import { MembershipApplicationsTab } from './MembershipApplicationsTab';
-import { ContactSubmissionsTab } from './ContactSubmissionsTab';
+import { LoanManagementTab } from './LoanManagementTab';
+import { ExcelImportTab } from './ExcelImportTab';
 
 
 function getInitials(name: string | null | undefined) {
@@ -47,26 +38,7 @@ function getInitials(name: string | null | undefined) {
 
 export function AdminDashboard({ user }: { user: User }) {
   const auth = useAuth();
-  const firestore = useFirestore();
-
-  const loanApplicationsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'loanApplications'), orderBy('submissionDate', 'desc')) : null,
-    [firestore]
-  );
-  const membershipApplicationsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'membershipApplications'), orderBy('submissionDate', 'desc')) : null,
-    [firestore]
-  );
-  const contactSubmissionsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'contactFormSubmissions'), orderBy('submissionDate', 'desc')) : null,
-    [firestore]
-  );
-
-  const { data: loanApplications, isLoading: loansLoading } = useCollection(loanApplicationsQuery);
-  const { data: membershipApplications, isLoading: membershipsLoading } = useCollection(membershipApplicationsQuery);
-  const { data: contactSubmissions, isLoading: contactsLoading } = useCollection(contactSubmissionsQuery);
-
-
+  
   const handleLogout = async () => {
     await signOut(auth);
     // Redirect handled by auth listener in main app layout
@@ -116,18 +88,14 @@ export function AdminDashboard({ user }: { user: User }) {
         <main className="flex-1 p-4 md:p-6">
           <Tabs defaultValue="loans">
             <TabsList>
-              <TabsTrigger value="loans">Loan Applications</TabsTrigger>
-              <TabsTrigger value="memberships">Membership Applications</TabsTrigger>
-              <TabsTrigger value="contact">Contact Submissions</TabsTrigger>
+              <TabsTrigger value="loans">Loan Management</TabsTrigger>
+              <TabsTrigger value="excel">Excel Import</TabsTrigger>
             </TabsList>
             <TabsContent value="loans">
-              <LoanApplicationsTab applications={loanApplications} isLoading={loansLoading} />
+              <LoanManagementTab />
             </TabsContent>
-            <TabsContent value="memberships">
-              <MembershipApplicationsTab applications={membershipApplications} isLoading={membershipsLoading} />
-            </TabsContent>
-            <TabsContent value="contact">
-                <ContactSubmissionsTab submissions={contactSubmissions} isLoading={contactsLoading} />
+            <TabsContent value="excel">
+              <ExcelImportTab />
             </TabsContent>
           </Tabs>
         </main>
