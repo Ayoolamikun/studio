@@ -1,254 +1,51 @@
 {
   "entities": {
-    "LoanApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "LoanApplication",
+    "Borrower": {
+      "title": "Borrower",
       "type": "object",
-      "description": "Represents a loan application submitted by a user.",
+      "description": "Represents a borrower (customer) in the system.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the loan application."
-        },
-        "fullName": {
-          "type": "string",
-          "description": "Full name of the applicant."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the applicant.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "Phone number of the applicant."
-        },
-        "typeOfService": {
-          "type": "string",
-          "description": "Type of service requested (Loan, Investment, Membership)."
-        },
-        "amountRequested": {
-          "type": "number",
-          "description": "Amount requested by the applicant."
-        },
-        "employmentType": {
-          "type": "string",
-          "description": "Employment type of the applicant (Civil Servant, SME, Individual)."
-        },
-        "documentUrl": {
-          "type": "string",
-          "description": "URL of the uploaded document (Payslip, ID, Collateral)."
-        },
-        "preferredContactMethod": {
-          "type": "string",
-          "description": "Preferred contact method (Phone/Email)."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the application was submitted.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "Current status of the loan application (e.g., pending, approved, rejected)."
-        },
-        "adminNotes": {
-          "type": "string",
-          "description": "Notes added by the administrator regarding the loan application."
-        }
+        "name": { "type": "string", "description": "Full name of the borrower." },
+        "phone": { "type": "string", "description": "Phone number of the borrower." },
+        "email": { "type": "string", "description": "Email of the borrower.", "format": "email" },
+        "bvn": { "type": "string", "description": "Bank Verification Number of the borrower." },
+        "employment": { "type": "string", "description": "Place of employment." },
+        "address": { "type": "string", "description": "Home address of the borrower." },
+        "passportUrl": { "type": "string", "description": "URL to the passport photograph in Firebase Storage." },
+        "idDocumentUrl": { "type": "string", "description": "URL to the ID document in Firebase Storage." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation." }
       },
-      "required": [
-        "id",
-        "fullName",
-        "email",
-        "phoneNumber",
-        "typeOfService",
-        "amountRequested",
-        "employmentType",
-        "documentUrl",
-        "preferredContactMethod",
-        "submissionDate",
-        "status"
-      ]
+      "required": ["name", "phone", "email", "bvn", "employment", "address", "createdAt"]
     },
-    "InvestmentPlan": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "InvestmentPlan",
+    "Loan": {
+      "title": "Loan",
       "type": "object",
-      "description": "Represents an investment plan offered by the cooperative.",
+      "description": "Represents a loan application and its status.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the investment plan."
-        },
-        "planName": {
-          "type": "string",
-          "description": "Name of the investment plan (e.g., Bronze, Silver, Platinum)."
-        },
-        "minimumInvestment": {
-          "type": "number",
-          "description": "Minimum investment amount for the plan."
-        },
-        "maximumInvestment": {
-          "type": "number",
-          "description": "Maximum investment amount for the plan."
-        },
-        "annualReturnRate": {
-          "type": "number",
-          "description": "Annual return rate for the investment plan (as a percentage)."
-        },
-        "description": {
-          "type": "string",
-          "description": "Detailed description of the investment plan."
-        }
+        "borrowerId": { "type": "string", "description": "ID of the borrower from the Borrowers collection." },
+        "amountRequested": { "type": "number", "description": "The principal amount requested." },
+        "duration": { "type": "number", "description": "Loan duration in months." },
+        "interestRate": { "type": "number", "description": "The flat interest rate applied." },
+        "totalRepayment": { "type": "number", "description": "Total amount to be repaid (Principal + Interest)." },
+        "amountPaid": { "type": "number", "description": "Total amount paid back by the borrower so far." },
+        "balance": { "type": "number", "description": "The remaining balance to be paid." },
+        "status": { "type": "string", "description": "Status of the loan.", "enum": ["pending", "approved", "rejected", "active", "paid", "overdue"] },
+        "notes": { "type": "string", "description": "Admin notes regarding the loan." },
+        "excelImported": { "type": "boolean", "description": "Flag if the loan was created/updated from an Excel import." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of loan application." }
       },
-      "required": [
-        "id",
-        "planName",
-        "minimumInvestment",
-        "maximumInvestment",
-        "annualReturnRate",
-        "description"
-      ]
+      "required": ["borrowerId", "amountRequested", "duration", "status", "createdAt"]
     },
-    "MembershipApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "MembershipApplication",
+    "ExcelFile": {
+      "title": "ExcelFile",
       "type": "object",
-      "description": "Represents a membership application submitted by a user.",
+      "description": "Metadata for an uploaded Excel file for monthly imports.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the membership application."
-        },
-        "fullName": {
-          "type": "string",
-          "description": "Full name of the applicant."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the applicant.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "Phone number of the applicant."
-        },
-        "address": {
-          "type": "string",
-          "description": "Address of the applicant."
-        },
-        "occupation": {
-          "type": "string",
-          "description": "Occupation of the applicant."
-        },
-        "reasonForJoining": {
-          "type": "string",
-          "description": "Reason for joining the cooperative."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the application was submitted.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "Current status of the membership application (e.g., pending, approved, rejected)."
-        },
-        "adminNotes": {
-          "type": "string",
-          "description": "Notes added by the administrator regarding the membership application."
-        }
+        "fileUrl": { "type": "string", "description": "URL to the raw Excel file in Firebase Storage." },
+        "uploadedAt": { "type": "string", "format": "date-time", "description": "Timestamp of upload." },
+        "processed": { "type": "boolean", "description": "Whether the file has been processed by the Cloud Function." }
       },
-      "required": [
-        "id",
-        "fullName",
-        "email",
-        "phoneNumber",
-        "address",
-        "occupation",
-        "reasonForJoining",
-        "submissionDate",
-        "status"
-      ]
-    },
-    "ContactFormSubmission": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ContactFormSubmission",
-      "type": "object",
-      "description": "Represents a contact form submission from the website.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the contact form submission."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the person submitting the form."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the person submitting the form.",
-          "format": "email"
-        },
-        "message": {
-          "type": "string",
-          "description": "Message content from the contact form."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the form was submitted.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "message",
-        "submissionDate"
-      ]
-    },
-    "AdminUser": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AdminUser",
-      "type": "object",
-      "description": "Represents an administrator user who manages the website and applications.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the admin user."
-        },
-        "username": {
-          "type": "string",
-          "description": "Username of the admin user."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the admin user.",
-          "format": "email"
-        },
-        "firstName": {
-          "type": "string",
-          "description": "First name of the admin user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "Last name of the admin user."
-        },
-        "role": {
-          "type": "string",
-          "description": "Role of the admin user (e.g., SuperAdmin, LoanApprover)."
-        }
-      },
-      "required": [
-        "id",
-        "username",
-        "email",
-        "firstName",
-        "lastName",
-        "role"
-      ]
+      "required": ["fileUrl", "uploadedAt", "processed"]
     }
   },
   "auth": {
@@ -260,86 +57,33 @@
   "firestore": {
     "structure": [
       {
-        "path": "/loanApplications/{loanApplicationId}",
+        "path": "/Borrowers/{borrowerId}",
         "definition": {
-          "entityName": "LoanApplication",
-          "schema": {
-            "$ref": "#/backend/entities/LoanApplication"
-          },
-          "description": "Stores loan applications submitted by users.  Admins have read/write access. Users cannot directly access this collection.",
-          "params": [
-            {
-              "name": "loanApplicationId",
-              "description": "Unique identifier for the loan application."
-            }
-          ]
+          "entityName": "Borrower",
+          "schema": { "$ref": "#/entities/Borrower" },
+          "description": "Stores all borrower profile data. Admins have full access. Borrowers can read/update their own data.",
+          "params": [{ "name": "borrowerId", "description": "Unique ID for the borrower, typically the Firebase Auth UID." }]
         }
       },
       {
-        "path": "/investmentPlans/{investmentPlanId}",
+        "path": "/Loans/{loanId}",
         "definition": {
-          "entityName": "InvestmentPlan",
-          "schema": {
-            "$ref": "#/backend/entities/InvestmentPlan"
-          },
-          "description": "Stores investment plans offered by the cooperative. Publicly readable.",
-          "params": [
-            {
-              "name": "investmentPlanId",
-              "description": "Unique identifier for the investment plan."
-            }
-          ]
+          "entityName": "Loan",
+          "schema": { "$ref": "#/entities/Loan" },
+          "description": "Stores all loan records. Linked to a borrower by borrowerId. Admins have full access. Borrowers can only read loans where their UID matches the borrowerId.",
+          "params": [{ "name": "loanId", "description": "Unique ID for the loan." }]
         }
       },
       {
-        "path": "/membershipApplications/{membershipApplicationId}",
+        "path": "/ExcelFiles/{excelId}",
         "definition": {
-          "entityName": "MembershipApplication",
-          "schema": {
-            "$ref": "#/backend/entities/MembershipApplication"
-          },
-          "description": "Stores membership applications submitted by users.  Admins have read/write access. Users cannot directly access this collection.",
-          "params": [
-            {
-              "name": "membershipApplicationId",
-              "description": "Unique identifier for the membership application."
-            }
-          ]
+          "entityName": "ExcelFile",
+          "schema": { "$ref": "#/entities/ExcelFile" },
+          "description": "Stores metadata for uploaded Excel files for batch processing. Admin-only access.",
+          "params": [{ "name": "excelId", "description": "Unique ID for the Excel file record." }]
         }
       },
-      {
-        "path": "/contactFormSubmissions/{contactFormSubmissionId}",
-        "definition": {
-          "entityName": "ContactFormSubmission",
-          "schema": {
-            "$ref": "#/backend/entities/ContactFormSubmission"
-          },
-          "description": "Stores contact form submissions from the website. Publicly writable, admin-readable.",
-          "params": [
-            {
-              "name": "contactFormSubmissionId",
-              "description": "Unique identifier for the contact form submission."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/admins/{adminId}",
-        "definition": {
-          "entityName": "AdminUser",
-          "schema": {
-            "$ref": "#/backend/entities/AdminUser"
-          },
-          "description": "Stores admin user profiles. Only accessible by the admin themselves.",
-          "params": [
-            {
-              "name": "adminId",
-              "description": "Unique identifier for the admin user."
-            }
-          ]
-        }
-      },
-      {
+       {
         "path": "/roles_admin/{userId}",
         "definition": {
           "entityName": "AdminUser",
@@ -356,6 +100,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the Corporate Magnate Cooperative Society Ltd's website and application, focusing on loan applications, investment plans, membership applications, contact form submissions, and admin user management. The structure prioritizes security, scalability, and debuggability by adhering to Authorization Independence, Structural Segregation, Access Modeling, and Data Clarity principles.\n\n**Authorization Independence:** Authorization independence is achieved through DBAC and Role-Based Access Control. Dedicated admin roles in `/roles_admin/{uid}` allow the segregation of duties such as loan approvals. \n\n**Structural Segregation:** The design ensures that documents with different access requirements are stored in separate collections. Loan applications, membership applications, investment plans, contact form submissions, and admin users are stored in their respective collections.\n\n**Access Modeling:**\n\n*   **Private Data:** Admin user data is secured using Path-Based ownership in `/admins/{adminId}`.\n*   **Global Roles (DBAC):** Admin roles are managed using the Existence over Content pattern with a dedicated collection, `/roles_admin/{uid}`. This approach simplifies security rules by checking for the existence of a document in the roles collection rather than relying on custom claims or complex data validation.\n\n**QAPs (Rules are not Filters):** The structure enables secure `list` operations by storing data with similar security requirements in the same collections. For example, only admins can list all loan applications or membership applications.\n\n**Invariants:** The structure supports the integrity of ownership, timestamps, and denormalized data by enforcing strict schema validation and naming conventions. Timestamps like `submissionDate` are consistently used across entities.\n\n**Collections Description:**\n\n*   `/loanApplications`: Stores all loan applications submitted through the website.\n*   `/investmentPlans`: Stores details of the various investment plans offered by the cooperative.\n*   `/membershipApplications`: Stores all membership applications submitted through the website.\n*   `/contactFormSubmissions`: Stores all contact form submissions received through the website.\n*   `/admins`: Stores admin user profiles and data.\n*   `/roles_admin`: Stores admin roles based on user id."
+    "reasoning": "The structure is designed to segregate borrower profiles from their loans for better data management and security. The Borrowers collection acts as the single source of truth for user information, linked via a Firebase Auth UID. The Loans collection contains all financial transaction details, referencing the borrower's ID. This allows a borrower to have multiple loans over time. The ExcelFiles collection is for admin use, tracking batch imports. Security rules will enforce that borrowers can only see their own data, while admins have broader access."
   }
 }

@@ -1,12 +1,13 @@
+
 "use server";
 
 import { initializeFirebase } from "@/firebase/index";
 import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { applicationSchema, contactSchema } from "@/lib/schemas";
+import { loanApplicationSchema, contactSchema } from "@/lib/schemas";
 import { collection } from "firebase/firestore";
+import { getStorage, ref, uploadBytes } from "firebase/storage";
 
 // This is a mock function to simulate sending an email.
-// In a real application, you would integrate an email service like Resend, SendGrid, or Nodemailer.
 async function sendEmail(to: string, subject: string, body: string) {
   console.log("--- Sending Email ---");
   console.log(`To: ${to}`);
@@ -23,21 +24,8 @@ async function sendEmail(to: string, subject: string, body: string) {
 
 export async function submitApplication(prevState: any, formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
-  
-  // Quick fix for amount to be string
-  if (typeof rawData.amount === 'number') {
-      rawData.amount = String(rawData.amount);
-  }
 
-  // Handle file
-  const documentFile = formData.get("document") as File;
-  if(documentFile && documentFile.size > 0) {
-      // For now, we'll just store the file name. In a real app, you'd upload this to Firebase Storage.
-      rawData.documentUrl = documentFile.name; 
-  }
-  delete rawData.document; // remove file object
-
-  const validatedFields = applicationSchema.safeParse(rawData);
+  const validatedFields = loanApplicationSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
     return {
@@ -46,55 +34,60 @@ export async function submitApplication(prevState: any, formData: FormData) {
     };
   }
   
-  const { fullName, email, typeOfService } = validatedFields.data;
+  const { firestore } = initializeFirebase();
+  const storage = getStorage();
+
+  const { passportPhoto, idDocument, ...applicationData } = validatedFields.data;
   
   try {
-    const { firestore } = initializeFirebase();
-    let collectionName = "";
-    let dataToSave: any = {
-      ...validatedFields.data,
-      submissionDate: new Date().toISOString(),
-      status: "pending",
+    // 1. Upload files to Firebase Storage
+    const passportPhotoRef = ref(storage, `passports/${Date.now()}_${passportPhoto.name}`);
+    await uploadBytes(passportPhotoRef, passportPhoto);
+
+    const idDocumentRef = ref(storage, `documents/${Date.now()}_${idDocument.name}`);
+    await uploadBytes(idDocumentRef, idDocument);
+
+    // In a real app, you'd get the download URLs. For now, we'll store the path.
+    const passportUrl = passportPhotoRef.fullPath;
+    const idDocumentUrl = idDocumentRef.fullPath;
+
+    // 2. Create Borrower record (or find existing one)
+    // For now, we assume a new borrower for each application for simplicity.
+    const borrowerData = {
+        fullName: applicationData.fullName,
+        email: applicationData.email,
+        phoneNumber: applicationData.phoneNumber,
+        bvn: applicationData.bvn,
+        homeAddress: applicationData.homeAddress,
+        employmentPlace: applicationData.employmentPlace,
+        passportUrl,
+        idDocumentUrl,
+        createdAt: new Date().toISOString(),
     };
 
-    switch(typeOfService) {
-      case "Loan":
-        collectionName = "loanApplications";
-        break;
-      case "Investment":
-        collectionName = "investmentPlans"; // Or a new collection for investment applications
-        dataToSave.planName = "Custom"; // Example data
-        break;
-      case "Membership":
-        collectionName = "membershipApplications";
-        break;
-      default:
-        throw new Error("Invalid service type");
-    }
+    const borrowersCol = collection(firestore, "Borrowers");
+    const borrowerRef = await addDocumentNonBlocking(borrowersCol, borrowerData);
     
-    const collectionRef = collection(firestore, collectionName);
-    addDocumentNonBlocking(collectionRef, dataToSave);
+    // 3. Create Loan record
+    const loanData = {
+      borrowerId: borrowerRef.id,
+      amountRequested: parseFloat(applicationData.loanAmount),
+      duration: parseInt(applicationData.loanDuration, 10),
+      status: "pending",
+      amountPaid: 0,
+      balance: parseFloat(applicationData.loanAmount), // initial balance
+      createdAt: new Date().toISOString(),
+      excelImported: false,
+    };
 
+    const loansCol = collection(firestore, "Loans");
+    addDocumentNonBlocking(loansCol, loanData);
 
-    // --- Email Notifications (can be moved to a Firebase Function later) ---
-    const emailSubject = `New ${typeOfService} Application from ${fullName}`;
-    const emailBody = `
-      You have received a new application.
-      
-      Details:
-      ${Object.entries(validatedFields.data)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join("\n")}
-    `;
-
-    // Send notification to the company
-    await sendEmail("corporatemagnate@outlook.com", emailSubject, emailBody);
-
-    // Send confirmation to the user
+    // --- Email Notifications ---
     await sendEmail(
-      email,
-      `Your ${typeOfService} Application with Corporate Magnate`,
-      `Dear ${fullName},\n\nThank you for applying. Your application for ${typeOfService} has been received. Our team will contact you shortly.\n\nBest regards,\nCorporate Magnate Cooperative Society Ltd.`
+      applicationData.email,
+      `Your Loan Application with Corporate Magnate`,
+      `Dear ${applicationData.fullName},\n\nThank you for applying. Your application for a loan of ₦${applicationData.loanAmount} has been received. Our team will contact you shortly.\n\nBest regards,\nCorporate Magnate Cooperative Society Ltd.`
     );
     
     return { message: "Application submitted successfully! Our team will contact you shortly.", success: true };
