@@ -67,12 +67,12 @@ export default function LoginPage() {
   });
   
   // A single function to handle user creation in Firestore after any sign-up/in method
-  const handleUserCreation = async (firebaseUser: User) => {
+  const handleUserCreation = async (firebaseUser: User, name?: string | null) => {
     if (!firestore) return;
     // Only create a borrower profile if it's their first time.
     const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
     const borrowerData = {
-        name: firebaseUser.displayName,
+        name: name || firebaseUser.displayName,
         email: firebaseUser.email,
         createdAt: new Date().toISOString(),
     };
@@ -129,8 +129,8 @@ export default function LoginPage() {
             // Update user's profile with full name
             await updateProfile(firebaseUser, { displayName: values.fullName });
             
-            // Create the user profile in Firestore
-            await handleUserCreation(firebaseUser);
+            // Create the user profile in Firestore, passing the name explicitly
+            await handleUserCreation(firebaseUser, values.fullName);
             
             toast({
                 title: "Account Created!",
@@ -251,6 +251,5 @@ export default function LoginPage() {
       </Card>
     </div>
   );
-}
 
     
