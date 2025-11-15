@@ -26,12 +26,12 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser, initiateEmailSignIn, initiateEmailSignUp } from '@/firebase';
+import { useAuth, useUser, initiateEmailSignUp } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import Logo from '@/components/Logo';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -83,15 +83,24 @@ export default function LoginPage() {
   }, [user, isUserLoading, router, firestore]);
 
   async function onLogin(values: LoginValues) {
-    if (values.email === 'corporatemagnate@outlook.com') {
-        initiateEmailSignIn(auth, values.email, values.password);
-    } else {
-        initiateEmailSignIn(auth, values.email, values.password);
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+        title: "Signing In...",
+        description: "You will be redirected shortly.",
+      });
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      let description = "An unexpected error occurred during sign-in.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        description = "Invalid email or password. Please check your credentials and try again.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: description,
+      });
     }
-    toast({
-      title: "Signing In...",
-      description: "You will be redirected shortly.",
-    });
   }
 
   async function onSignup(values: SignupValues) {
