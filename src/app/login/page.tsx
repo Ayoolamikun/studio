@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -25,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser, initiateEmailSignUp, initiateGoogleSignIn, initiateMicrosoftSignIn } from '@/firebase';
+import { useAuth, useUser, initiateGoogleSignIn, initiateMicrosoftSignIn, initiateEmailSignUp } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -67,6 +68,7 @@ export default function LoginPage() {
   
   // A single function to handle user creation in Firestore after any sign-up/in method
   const handleUserCreation = async (firebaseUser: User) => {
+    if (!firestore) return;
     // Only create a borrower profile if it's their first time.
     const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
     const borrowerData = {
@@ -107,7 +109,6 @@ export default function LoginPage() {
         description: "You will be redirected shortly.",
       });
     } catch (error: any) {
-      console.error("Login Error:", error);
       let description = "An unexpected error occurred during sign-in.";
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         description = "Invalid email or password. Please check your credentials and try again.";
@@ -137,7 +138,6 @@ export default function LoginPage() {
             });
         }
     } catch (error: any) {
-        console.error("Signup Error:", error);
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
@@ -155,7 +155,6 @@ export default function LoginPage() {
         description: "You will be redirected shortly.",
       });
     } catch (error: any) {
-      console.error("OAuth Sign-in Error:", error);
       toast({
         variant: "destructive",
         title: "Sign-in Failed",
@@ -253,3 +252,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
