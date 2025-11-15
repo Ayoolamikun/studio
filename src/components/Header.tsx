@@ -6,15 +6,14 @@ import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Logo from './Logo';
-import { cn } from '@/lib/utils';
+import { useUser } from '@/firebase';
 
 const navLinks = [
-  { name: 'Home', href: '#' },
-  { name: 'About Us', href: '#about' },
-  { name: 'Loan Services', href: '#loans' },
-  { name: 'Investment Plans', href: '#investments' },
-  { name: 'Membership', href: '#membership' },
-  { name: 'Contact Us', href: '#contact' },
+  { name: 'Home', href: '/' },
+  { name: 'About Us', href: '/#about' },
+  { name: 'Loan Services', href: '/#loans' },
+  { name: 'Calculators', href: '/calculators' },
+  { name: 'Contact Us', href: '/#contact' },
 ];
 
 const NavLink = ({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) => (
@@ -25,6 +24,7 @@ const NavLink = ({ href, children, onClick }: { href: string; children: React.Re
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, isUserLoading } = useUser();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -37,12 +37,22 @@ export default function Header() {
               {link.name}
             </NavLink>
           ))}
+          {!isUserLoading && user && (
+             <NavLink href="/dashboard">Dashboard</NavLink>
+          )}
         </nav>
 
         <div className="flex items-center gap-4">
-          <Button asChild className="hidden rounded-full font-bold shadow-lg transition-transform hover:scale-105 sm:inline-flex bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link href="#application">Apply Now</Link>
-          </Button>
+          {!isUserLoading && !user && (
+            <Button asChild className="hidden rounded-full font-bold shadow-lg transition-transform hover:scale-105 sm:inline-flex bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link href="/login">Apply Now</Link>
+            </Button>
+          )}
+           {!isUserLoading && user && (
+            <Button asChild variant="secondary" className="hidden sm:inline-flex">
+              <Link href="/dashboard">My Dashboard</Link>
+            </Button>
+          )}
           
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild className="md:hidden">
@@ -65,9 +75,14 @@ export default function Header() {
                       {link.name}
                     </NavLink>
                   ))}
-                  <Button asChild size="lg" className="w-full mt-4 rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-                    <Link href="#application" onClick={() => setIsMobileMenuOpen(false)}>Apply Now</Link>
-                  </Button>
+                  {!isUserLoading && user && (
+                    <NavLink href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>Dashboard</NavLink>
+                  )}
+                  {!isUserLoading && !user && (
+                    <Button asChild size="lg" className="w-full mt-4 rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
+                      <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Apply Now</Link>
+                    </Button>
+                  )}
                 </nav>
               </div>
             </SheetContent>

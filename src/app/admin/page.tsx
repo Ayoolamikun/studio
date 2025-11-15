@@ -20,12 +20,19 @@ export default function AdminPage() {
   const { data: adminRole, isLoading: isAdminRoleLoading } = useDoc(adminRoleRef);
 
   useEffect(() => {
-    // If not loading and not an admin, redirect to login
-    if (!isUserLoading && !isAdminRoleLoading) {
-      if (!user || !adminRole) {
-        router.push('/login');
-      }
+    // If not loading and user is defined, check role
+    if (!isUserLoading && user && !isAdminRoleLoading) {
+        // if user is not an admin, redirect to borrower dashboard
+        if(!adminRole) {
+            router.push('/dashboard');
+        }
     }
+    
+    // if not loading and no user, redirect to login
+    if (!isUserLoading && !user) {
+        router.push('/login');
+    }
+
   }, [user, adminRole, isUserLoading, isAdminRoleLoading, router]);
 
   // Show a loading spinner while checking auth and admin status

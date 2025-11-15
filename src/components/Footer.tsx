@@ -2,12 +2,12 @@ import Link from 'next/link';
 import Logo from './Logo';
 
 const footerLinks = [
-  { name: 'Home', href: '#' },
-  { name: 'About', href: '#about' },
-  { name: 'Loans', href: '#loans' },
-  { name: 'Investments', href: '#investments' },
-  { name: 'Membership', href: '#membership' },
-  { name: 'Contact', href: '#contact' },
+  { name: 'Home', href: '/' },
+  { name: 'About', href: '/#about' },
+  { name: 'Loans', href: '/#loans' },
+  { name: 'Calculators', href: '/calculators' },
+  { name: 'Contact', href: '/#contact' },
+  { name: 'Login', href: '/login' },
 ];
 
 const Footer = () => {
