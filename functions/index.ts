@@ -8,38 +8,12 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as xlsx from "xlsx";
 import axios from "axios";
+import { getInterestRate, calculateTotalRepayment } from "../src/lib/utils";
+
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
-
-/**
- * Calculates the simple interest rate based on the loan amount.
- * Mirrors the client-side logic.
- * @param {number} amount The principal loan amount.
- * @return {number} The interest rate (e.g., 0.15 for 15%).
- */
-function getInterestRate(amount: number): number {
-  if (amount >= 10000 && amount <= 50000) {
-    return 0.15; // 15%
-  } else if (amount > 50000 && amount <= 150000) {
-    return 0.10; // 10%
-  } else if (amount > 150000) {
-    return 0.07; // 7%
-  }
-  return 0.2; // Default fallback if amount is outside ranges
-}
-
-/**
- * Calculates the total repayment amount for a given principal.
- * @param {number} principal The principal loan amount.
- * @return {number} The total amount to be repaid.
- */
-function calculateTotalRepayment(principal: number): number {
-  const interestRate = getInterestRate(principal);
-  return principal + (principal * interestRate);
-}
-
 
 /**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.
@@ -123,7 +97,7 @@ export const processExcelUpload = functions.storage
 
         // --- Find existing borrower ---
         let borrowerDoc: admin.firestore.DocumentSnapshot | undefined;
-        let borrowerRef: admin.firestore.DocumentReference;
+        let borrowerRef: admin.firestore.DocumentReference | undefined;
 
         if (rowData.bvn) {
             borrowerRef = db.collection("Borrowers").doc(rowData.bvn);
@@ -147,9 +121,8 @@ export const processExcelUpload = functions.storage
 
         const borrowerId = (borrowerDoc && borrowerDoc.exists) ? borrowerDoc.id : rowData.bvn || rowData.phone || `new_${Date.now()}`;
 
-        if (!borrowerDoc || !borrowerDoc.exists) {
+        if ((!borrowerDoc || !borrowerDoc.exists) && borrowerRef) {
             // Create a new borrower if they don't exist
-            borrowerRef = db.collection("Borrowers").doc(borrowerId);
             const newBorrowerData = {
                 name: rowData.name || "N/A",
                 phone: rowData.phone || "N/A",
