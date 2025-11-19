@@ -44,14 +44,13 @@ service cloud.firestore {
 
     /**
      * @description Loan records.
-     * Allow authenticated users to create their own loan applications.
-     * Admins can read/write all loans.
-     * Borrowers can only read loans linked to their own borrowerId.
+     * Admins have full read/write access to all loans.
+     * Borrowers can create their own loans and read loans linked to them.
      */
     match /Loans/{loanId} {
+      allow read, write: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
-      allow read: if (isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid));
-      allow write: if isAdmin();
+      allow read: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
     }
 
     /**
