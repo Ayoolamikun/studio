@@ -1,3 +1,4 @@
+
 'use client';
 
 import { LogOut } from 'lucide-react';
@@ -8,6 +9,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarTrigger,
+  SidebarInset,
 } from '@/components/ui/sidebar';
 
 import { Button } from '@/components/ui/button';
