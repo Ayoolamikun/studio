@@ -50,7 +50,13 @@ service cloud.firestore {
      */
     match /Loans/{loanId} {
       allow create: if (isSignedIn() && request.resource.data.borrowerId == request.auth.uid);
-      allow get, list: if isSignedIn() && (resource.data.borrowerId == request.auth.uid || isAdmin());
+      
+      // Rule for reading a single document
+      allow get: if isSignedIn() && (resource.data.borrowerId == request.auth.uid || isAdmin());
+      
+      // Rule for querying the collection
+      allow list: if isAdmin();
+      
       allow update, delete: if isAdmin();
     }
 
@@ -65,7 +71,7 @@ service cloud.firestore {
      * @description Excel file metadata for batch imports. Admin-only access.
      */
     match /ExcelFiles/{excelId} {
-      allow all: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     /**
