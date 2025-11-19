@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useActionState } from "react";
@@ -93,6 +94,7 @@ const ContactSection = ({ className }: { className?: string }) => {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               title="Map of Bayelsa, Nigeria"
+              suppressHydrationWarning
             ></iframe>
           </div>
         </div>
@@ -100,7 +102,7 @@ const ContactSection = ({ className }: { className?: string }) => {
         <Card className="shadow-2xl">
           <CardContent className="p-6 md:p-8">
             <Form {...form}>
-              <form action={formAction} className="space-y-6">
+              <form action={formAction} className="space-y-6" suppressHydrationWarning>
                 <FormField
                   control={form.control}
                   name="name"

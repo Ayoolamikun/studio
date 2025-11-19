@@ -143,7 +143,7 @@ export default function AIAgent() {
             <form action={(formData) => {
               formAction(formData);
               (inputRef.current as HTMLInputElement).value = "";
-            }} className="flex w-full gap-2">
+            }} className="flex w-full gap-2" suppressHydrationWarning>
               <Input name="message" placeholder="Ask a question..." autoComplete="off" ref={inputRef} />
               <SubmitButton />
             </form>
