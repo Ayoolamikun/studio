@@ -33,6 +33,7 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import Logo from '@/components/Logo';
 import { updateProfile, signInWithEmailAndPassword, UserCredential, User } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
+import { Spinner } from '@/components/Spinner';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -66,14 +67,10 @@ export default function LoginPage() {
       defaultValues: { fullName: '', email: '', password: '' },
   });
   
-  // A single function to handle user creation in Firestore after any sign-up/in method
   const handleUserCreation = async (firebaseUser: User, name?: string | null) => {
-    if (!firestore || firebaseUser.isAnonymous) return; // Don't create profiles for anonymous users
+    if (!firestore || firebaseUser.isAnonymous) return;
     
-    // Only create a borrower profile if it's their first time.
     const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
-    
-    // Prioritize passed name, then display name, then a fallback.
     const displayName = name || firebaseUser.displayName || 'New User';
 
     const borrowerData = {
@@ -81,26 +78,15 @@ export default function LoginPage() {
         email: firebaseUser.email,
         createdAt: new Date().toISOString(),
     };
-    // Use set with merge to create or update the borrower profile non-blockingly.
-    // This is safe to call on every login.
     setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
   };
 
 
   useEffect(() => {
-    // If user is logged in, check for admin role
-    if (!isUserLoading && user && firestore) {
-       // Also create/update user profile on login
+    if (!isUserLoading && user && !user.isAnonymous && firestore) {
       handleUserCreation(user, user.displayName);
 
-      // Anonymous users should be redirected to the calculator or home
-      if (user.isAnonymous) {
-        router.push('/calculators');
-        return;
-      }
-
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-      // This is a simplified check. In a real app, you might use useDoc
       import('firebase/firestore').then(({ getDoc }) => {
         getDoc(adminRoleRef).then(docSnap => {
           if (docSnap.exists()) {
@@ -138,10 +124,7 @@ export default function LoginPage() {
         const userCredential = await initiateEmailSignUp(auth, values.email, values.password);
         if (userCredential && userCredential.user) {
             const firebaseUser = userCredential.user;
-            // Update user's profile with full name
             await updateProfile(firebaseUser, { displayName: values.fullName });
-            
-            // Create the user profile in Firestore, passing the name explicitly
             await handleUserCreation(firebaseUser, values.fullName);
             
             toast({
@@ -161,7 +144,6 @@ export default function LoginPage() {
   const handleOAuthSignIn = async (providerAction: (auth: any) => Promise<UserCredential>) => {
     try {
       const userCredential = await providerAction(auth);
-      // Explicitly handle user creation here as well to capture profile info from OAuth
       if (userCredential.user) {
         await handleUserCreation(userCredential.user);
       }
@@ -181,6 +163,7 @@ export default function LoginPage() {
   const handleAnonymousSignIn = async () => {
     try {
       await initiateAnonymousSignIn(auth);
+      router.push('/calculators');
       toast({
         title: "Entering as Guest...",
         description: "You can now use the calculators. Sign up to apply for a loan.",
@@ -195,7 +178,7 @@ export default function LoginPage() {
   };
   
   if (isUserLoading || (user && !user.isAnonymous)) {
-    return <div className="h-screen w-screen bg-background flex items-center justify-center"></div>;
+    return <div className="h-screen w-screen bg-background flex items-center justify-center"><Spinner size="large" /></div>;
   }
 
   return (
