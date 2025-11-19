@@ -49,15 +49,9 @@ service cloud.firestore {
      * Borrowers can only read loans linked to their own borrowerId.
      */
     match /Loans/{loanId} {
-      allow create: if (isSignedIn() && request.resource.data.borrowerId == request.auth.uid);
-      
-      // Rule for reading a single document
-      allow get: if isSignedIn() && (resource.data.borrowerId == request.auth.uid || isAdmin());
-      
-      // Rule for querying the collection
-      allow list: if isAdmin();
-      
-      allow update, delete: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
+      allow read: if (isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid));
+      allow write: if isAdmin();
     }
 
     /**
