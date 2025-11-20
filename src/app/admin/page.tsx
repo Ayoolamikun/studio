@@ -20,17 +20,20 @@ export default function AdminPage() {
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>('unknown');
 
   useEffect(() => {
+    // 1. Wait until user loading is complete
     if (isUserLoading) {
-      return; // Wait until the user object is available.
+      setClaimStatus('checking');
+      return;
     }
     
+    // 2. If no user, redirect to login.
     if (!user) {
-      router.push('/login'); // If no user, redirect to login.
+      router.push('/login');
       return;
     }
 
+    // 3. User is loaded, now check the claims.
     const checkAdminClaim = async () => {
-      setClaimStatus('checking');
       // Force refresh the token to get the latest claims from the server.
       const idTokenResult = await user.getIdTokenResult(true); 
       
@@ -105,5 +108,3 @@ export default function AdminPage() {
       </div>
   );
 }
-
-    
