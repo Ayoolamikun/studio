@@ -38,7 +38,7 @@ service cloud.firestore {
      * Only the owner or an admin can read/update.
      */
     match /Borrowers/{borrowerId} {
-      allow create: if (isSignedIn());
+      allow create: if isSignedIn();
       allow read, update: if isOwner(borrowerId) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -72,10 +72,8 @@ service cloud.firestore {
      * @description Contact form submissions. Publicly writable, admin-readable.
      */
     match /contactFormSubmissions/{contactFormSubmissionId} {
-      allow get: if isAdmin();
-      allow list: if false; 
       allow create: if true;
-      allow update, delete: if false;
+      allow read, update, delete, list: if isAdmin();
     }
   }
 }
