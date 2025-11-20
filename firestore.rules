@@ -53,6 +53,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
       allow read: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
     }
+    
 
     /**
      * @description Admin roles. Only other admins can manage roles.
@@ -73,7 +74,7 @@ service cloud.firestore {
      */
     match /contactFormSubmissions/{contactFormSubmissionId} {
       allow create: if true;
-      allow read, update, delete: if isAdmin();
+      allow read, write, delete: if isAdmin();
     }
   }
 }
