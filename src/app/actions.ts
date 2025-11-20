@@ -32,7 +32,7 @@ export async function submitApplication(prevState: any, formData: FormData) {
 
     const collectionRef = collection(firestore, "loanApplications");
     
-    await addDoc(collectionRef, docToSave)
+    addDoc(collectionRef, docToSave)
         .catch(error => {
             errorEmitter.emit(
                 'permission-error',
