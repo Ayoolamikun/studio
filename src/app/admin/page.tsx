@@ -49,7 +49,11 @@ export default function AdminPage() {
         });
 
         try {
-            const functions = getFunctions(getAuth().app);
+            const auth = getAuth();
+            if (!auth.app) {
+                throw new Error("Firebase Auth not initialized");
+            }
+            const functions = getFunctions(auth.app);
             const grantAdminRole = httpsCallable(functions, 'grantAdminRole');
             await grantAdminRole({ uid: user.uid });
             
@@ -75,7 +79,7 @@ export default function AdminPage() {
             });
             setClaimStatus('not-admin');
             // Redirect away if the user is not authorized and the grant fails.
-            router.push('/dashboard');
+            setTimeout(() => router.push('/dashboard'), 3000);
         }
       }
     };
@@ -85,26 +89,19 @@ export default function AdminPage() {
   }, [user, isUserLoading, router, toast]);
 
   // Show a loading spinner for all intermediate states.
-  if (isUserLoading || claimStatus === 'unknown' || claimStatus === 'checking' || claimStatus === 'granting') {
+  if (claimStatus !== 'is-admin') {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
         <Spinner size="large" />
-        <p className="ml-4">
-            {claimStatus === 'granting' ? 'Setting up admin role...' : 'Verifying permissions...'}
+        <p className="text-lg">
+            {claimStatus === 'granting' ? 'Setting up admin role...' : 
+             claimStatus === 'not-admin' ? 'Permission Denied. Redirecting...' :
+             'Verifying permissions...'}
         </p>
       </div>
     );
   }
 
   // If the user is an admin, show the dashboard.
-  if (user && claimStatus === 'is-admin') {
-    return <AdminDashboard user={user} claimStatus={claimStatus} />;
-  }
-
-  // This is a fallback state, typically shown briefly during redirects.
-  return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Redirecting...</p>
-      </div>
-  );
+  return <AdminDashboard user={user} claimStatus={claimStatus} />;
 }

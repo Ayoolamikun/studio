@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useActionState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,10 +26,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser, initiateGoogleSignIn, initiateMicrosoftSignIn, initiateEmailSignUp, initiateAnonymousSignIn } from '@/firebase';
+import { useAuth, useUser, initiateGoogleSignIn, initiateMicrosoftSignIn, initiateEmailSignUp, initiateAnonymousSignIn, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import Logo from '@/components/Logo';
 import { updateProfile, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
@@ -65,13 +64,11 @@ export default function LoginPage() {
     },
   });
   
+  // This effect will re-apply the resolver when the mode changes between login/signup
   useEffect(() => {
     form.reset();
-    // Update the resolver when the mode changes
-    const newResolver = zodResolver(isSigningUp ? signupSchema : loginSchema);
-    form.trigger(); // Re-validate the form with the new schema if needed
+    form.trigger();
   }, [isSigningUp, form]);
-
 
   useEffect(() => {
     // If the user is logged in (and not a guest), check their role and redirect.
@@ -89,6 +86,7 @@ export default function LoginPage() {
 
 
   async function onLogin(values: FormValues) {
+    if (!auth) return;
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
@@ -109,28 +107,25 @@ export default function LoginPage() {
   }
 
   async function onSignup(values: FormValues) {
+    if (!auth || !firestore || !values.fullName) return;
     try {
         const userCredential = await initiateEmailSignUp(auth, values.email, values.password);
-        if (userCredential && userCredential.user && values.fullName) {
-            const firebaseUser = userCredential.user;
-            await updateProfile(firebaseUser, { displayName: values.fullName });
+        const firebaseUser = userCredential.user;
+        await updateProfile(firebaseUser, { displayName: values.fullName });
 
-            // Create the borrower profile.
-            if (firestore) {
-              const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
-              const borrowerData = {
-                  name: values.fullName,
-                  email: firebaseUser.email,
-                  createdAt: new Date().toISOString(),
-              };
-              setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
-            }
-            
-            toast({
-                title: "Account Created!",
-                description: "You are now being logged in.",
-            });
-        }
+        // Create the borrower profile.
+        const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
+        const borrowerData = {
+            name: values.fullName,
+            email: firebaseUser.email,
+            createdAt: new Date().toISOString(),
+        };
+        setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
+        
+        toast({
+            title: "Account Created!",
+            description: "You are now being logged in.",
+        });
     } catch (error: any) {
         toast({
             variant: "destructive",
@@ -140,29 +135,30 @@ export default function LoginPage() {
     }
   }
 
-  const handleFormSubmit = (values: FormValues) => {
+  const handleFormSubmit = form.handleSubmit((values) => {
     if (isSigningUp) {
       onSignup(values);
     } else {
       onLogin(values);
     }
-  };
+  });
 
 
-  const handleOAuthSignIn = async (providerAction: (auth: any) => Promise<UserCredential>) => {
+  const handleOAuthSignIn = async (providerAction: (auth: Auth) => Promise<UserCredential>) => {
+    if (!auth || !firestore) return;
     try {
       const userCredential = await providerAction(auth);
-      if (userCredential && userCredential.user && firestore) {
-          const { user } = userCredential;
-           // Create or merge the borrower profile.
-          const borrowerRef = doc(firestore, "Borrowers", user.uid);
-          const borrowerData = {
-              name: user.displayName,
-              email: user.email,
-              createdAt: new Date().toISOString(),
-          };
-          setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
-      }
+      const { user } = userCredential;
+      
+      // Create or merge the borrower profile.
+      const borrowerRef = doc(firestore, "Borrowers", user.uid);
+      const borrowerData = {
+          name: user.displayName,
+          email: user.email,
+          createdAt: new Date().toISOString(),
+      };
+      setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
+      
       toast({
         title: "Signing In...",
         description: "You will be redirected shortly.",
@@ -177,6 +173,7 @@ export default function LoginPage() {
   };
 
   const handleAnonymousSignIn = async () => {
+    if (!auth) return;
     try {
       await initiateAnonymousSignIn(auth);
       router.push('/calculators');
@@ -184,7 +181,7 @@ export default function LoginPage() {
         title: "Entering as Guest...",
         description: "You can now use the calculators. Sign up to apply for a loan.",
       });
-    } catch (error: any) {
+    } catch (error: any)       {
        toast({
         variant: "destructive",
         title: "Sign-in Failed",
@@ -209,7 +206,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+              <form onSubmit={handleFormSubmit} className="space-y-4">
                 {isSigningUp && (
                   <FormField
                     control={form.control}
@@ -280,5 +277,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
