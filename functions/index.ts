@@ -47,14 +47,11 @@ export const grantAdminRole = functions.https.onCall(async (data, context) => {
         );
     }
     
-    // Check if the caller is already an admin.
     const isCallerAdmin = context.auth?.token.admin === true;
 
-    // Check if any admin users exist in the system at all.
-    const listUsersResult = await admin.auth().listUsers(1, "admin");
+    const listUsersResult = await admin.auth().listUsers(1000); // Check more users
     const hasExistingAdmin = listUsersResult.users.some(user => user.customClaims?.['admin'] === true);
 
-    // Security check: only an existing admin can grant roles, UNLESS no admin exists yet.
     if (!isCallerAdmin && hasExistingAdmin) {
         throw new functions.https.HttpsError(
             "permission-denied",

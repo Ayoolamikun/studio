@@ -46,8 +46,8 @@ service cloud.firestore {
 
     /**
      * @description Loan records.
-     * Admins have full read/write access to all loans.
-     * Borrowers can create their own loans and read loans linked to them.
+     * Admins have full read/write access.
+     * Borrowers can create loans for themselves and read their own loans.
      */
     match /Loans/{loanId} {
       allow read, write: if isAdmin();

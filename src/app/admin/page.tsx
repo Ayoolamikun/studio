@@ -8,9 +8,10 @@ import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { Spinner } from '@/components/Spinner';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
+import { getAuth } from 'firebase/auth';
 
 // A simple type for the claim status
-type ClaimStatus = 'unknown' | 'checking' | 'is-admin' | 'not-admin';
+type ClaimStatus = 'unknown' | 'checking' | 'is-admin' | 'not-admin' | 'granting';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -19,36 +20,56 @@ export default function AdminPage() {
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>('unknown');
 
   useEffect(() => {
-    // If auth is still loading, wait.
     if (isUserLoading) {
-      return;
+      return; // Wait until the user object is available.
     }
     
-    // If auth is done and there's no user, redirect to login.
     if (!user) {
-      router.push('/login');
+      router.push('/login'); // If no user, redirect to login.
       return;
     }
 
-    // We have a user, now let's verify their admin claim.
-    setClaimStatus('checking');
-
     const checkAdminClaim = async () => {
-      // Force refresh the token to get the latest custom claims.
-      const idTokenResult = await user.getIdTokenResult(true);
-      const claims = idTokenResult.claims;
-
-      if (claims.admin === true) {
+      setClaimStatus('checking');
+      const idTokenResult = await user.getIdTokenResult(true); // Force refresh claims
+      
+      if (idTokenResult.claims.admin === true) {
         setClaimStatus('is-admin');
       } else {
-        // If the user has no admin claim, they are not an admin.
+        // This is the bootstrap logic for the very first admin.
+        // It calls the Cloud Function to grant the claim.
+        setClaimStatus('granting');
         toast({
-            variant: "destructive",
-            title: "Permission Denied",
-            description: "You do not have the necessary permissions to access this page.",
+            title: "First-time Admin Setup",
+            description: "Attempting to grant admin privileges. This may take a moment...",
         });
-        setClaimStatus('not-admin');
-        router.push('/dashboard');
+
+        try {
+            const functions = getFunctions(getAuth().app);
+            const grantAdminRole = httpsCallable(functions, 'grantAdminRole');
+            const result = await grantAdminRole({ uid: user.uid });
+            
+            toast({
+                title: "Success!",
+                description: "Admin privileges granted. Refreshing page.",
+            });
+            
+            // The claims have been set, now we need to refresh the token again to see them.
+            await user.getIdTokenResult(true);
+            
+            // A page reload is the most reliable way to ensure all components re-evaluate with new claims.
+            window.location.reload();
+
+        } catch (error: any) {
+            console.error("Admin claim error:", error);
+            toast({
+                variant: "destructive",
+                title: "Permission Denied",
+                description: error.message || "You do not have the necessary permissions to access this page.",
+            });
+            setClaimStatus('not-admin');
+            router.push('/dashboard');
+        }
       }
     };
 
@@ -56,17 +77,19 @@ export default function AdminPage() {
 
   }, [user, isUserLoading, router, toast]);
 
-  // Show a loading spinner while checking auth and admin status
-  if (isUserLoading || claimStatus === 'unknown' || claimStatus === 'checking') {
+  // Show a loading spinner for all intermediate states.
+  if (isUserLoading || claimStatus === 'unknown' || claimStatus === 'checking' || claimStatus === 'granting') {
     return (
       <div className="flex h-screen items-center justify-center">
         <Spinner size="large" />
-        <p className="ml-4">Verifying permissions...</p>
+        <p className="ml-4">
+            {claimStatus === 'granting' ? 'Setting up admin role...' : 'Verifying permissions...'}
+        </p>
       </div>
     );
   }
 
-  // If user is authenticated and is an admin, show the dashboard
+  // If the user is an admin, show the dashboard.
   if (user && claimStatus === 'is-admin') {
     return <AdminDashboard user={user} />;
   }
