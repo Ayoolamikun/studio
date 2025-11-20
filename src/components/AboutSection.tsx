@@ -14,8 +14,8 @@ const AboutSection = ({ className }: { className?: string }) => {
           <p className="text-muted-foreground md:text-lg">
             Corporate Magnate is a cooperative society empowering Nigerians through ethical financial solutions. We believe in transparency, accountability, and sustainable wealth creation for our members and community.
           </p>
-          <Button variant="link" className="px-0 text-lg text-accent-foreground font-bold">
-            Learn More &rarr;
+          <Button variant="link" asChild className="px-0 text-lg text-accent-foreground font-bold">
+            <a href="#">Learn More &rarr;</a>
           </Button>
         </div>
         <div className="flex justify-center">

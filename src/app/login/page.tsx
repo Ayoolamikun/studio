@@ -26,11 +26,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser, initiateGoogleSignIn, initiateMicrosoftSignIn, initiateEmailSignUp, initiateAnonymousSignIn, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useUser, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import Logo from '@/components/Logo';
-import { updateProfile, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
+import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, UserCredential, Auth } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/Spinner';
 
@@ -64,16 +64,13 @@ export default function LoginPage() {
     },
   });
   
-  // This effect will re-apply the resolver when the mode changes between login/signup
   useEffect(() => {
     form.reset();
     form.trigger();
   }, [isSigningUp, form]);
 
   useEffect(() => {
-    // If the user is logged in (and not a guest), check their role and redirect.
     if (!isUserLoading && user && !user.isAnonymous) {
-      // Force a token refresh to get the latest custom claims.
       user.getIdTokenResult(true).then((idTokenResult) => {
         if (idTokenResult.claims.admin === true) {
           router.push('/admin');
@@ -109,11 +106,10 @@ export default function LoginPage() {
   async function onSignup(values: FormValues) {
     if (!auth || !firestore || !values.fullName) return;
     try {
-        const userCredential = await initiateEmailSignUp(auth, values.email, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const firebaseUser = userCredential.user;
         await updateProfile(firebaseUser, { displayName: values.fullName });
 
-        // Create the borrower profile.
         const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
         const borrowerData = {
             name: values.fullName,
@@ -143,39 +139,10 @@ export default function LoginPage() {
     }
   });
 
-
-  const handleOAuthSignIn = async (providerAction: (auth: Auth) => Promise<UserCredential>) => {
-    if (!auth || !firestore) return;
-    try {
-      const userCredential = await providerAction(auth);
-      const { user } = userCredential;
-      
-      // Create or merge the borrower profile.
-      const borrowerRef = doc(firestore, "Borrowers", user.uid);
-      const borrowerData = {
-          name: user.displayName,
-          email: user.email,
-          createdAt: new Date().toISOString(),
-      };
-      setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
-      
-      toast({
-        title: "Signing In...",
-        description: "You will be redirected shortly.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Sign-in Failed",
-        description: error.message || "An error occurred during sign-in.",
-      });
-    }
-  };
-
   const handleAnonymousSignIn = async () => {
     if (!auth) return;
     try {
-      await initiateAnonymousSignIn(auth);
+      await signInAnonymously(auth);
       router.push('/calculators');
       toast({
         title: "Entering as Guest...",
@@ -255,17 +222,9 @@ export default function LoginPage() {
             </Form>
             <Separator className="my-4" />
             <div className="space-y-3">
-                 <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn(initiateGoogleSignIn)}>
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"></path><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.021 35.596 44 30.032 44 24c0-1.341-.138-2.65-.389-3.917z"></path></svg>
-                    Sign in with Google
-                 </Button>
-                 <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn(initiateMicrosoftSignIn)}>
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg>
-                    Sign in with Outlook
-                 </Button>
-                  <Button variant="link" className="w-full text-muted-foreground" onClick={handleAnonymousSignIn}>
+                <Button variant="link" className="w-full text-muted-foreground" onClick={handleAnonymousSignIn}>
                     Continue as Guest
-                 </Button>
+                </Button>
             </div>
         </CardContent>
         <CardFooter className="flex justify-center">

@@ -1,49 +1,8 @@
-
-"use client";
-
-import { useEffect, useActionState } from "react";
-import { useFormStatus } from "react-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { contactSchema, ContactValues } from "@/lib/schemas";
-import { submitContactInquiry } from "@/app/actions";
-import { useToast } from "@/hooks/use-toast";
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Mail, Phone, MapPin, Facebook, Instagram, Linkedin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full font-bold bg-primary hover:bg-primary/90 text-primary-foreground">
-      {pending ? "Sending..." : "Send Message"}
-    </Button>
-  );
-}
+import { Mail, Phone, MapPin, Facebook, Instagram, Linkedin } from 'lucide-react';
+import { Button } from './ui/button';
 
 const ContactSection = ({ className }: { className?: string }) => {
-  const { toast } = useToast();
-  const [state, formAction] = useActionState(submitContactInquiry, null);
-
-  const form = useForm<ContactValues>({
-    resolver: zodResolver(contactSchema),
-    defaultValues: { name: "", email: "", message: "" },
-  });
-
-  useEffect(() => {
-    if (state?.success) {
-      toast({ title: "Success!", description: state.message });
-      form.reset();
-    } else if (state?.message && !state.success) {
-      toast({ title: "Error", description: state.message, variant: "destructive" });
-    }
-  }, [state, toast, form]);
-
   return (
     <section id="contact" className={cn("container", className)}>
       <div className="mx-auto max-w-2xl text-center">
@@ -84,7 +43,9 @@ const ContactSection = ({ className }: { className?: string }) => {
                 <Button variant="outline" size="icon" asChild><a href="#" aria-label="LinkedIn"><Linkedin /></a></Button>
             </div>
           </div>
-          <div className="pt-4 h-[400px] w-full">
+        </div>
+        
+        <div className="pt-4 h-[400px] w-full">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d508894.4958444399!2d5.992641042784852!3d4.924250269926442!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x104264421589e47b%3A0x42468cb50058a594!2sBayelsa!5e0!3m2!1sen!2sng!4v1700000000000"
               width="100%"
@@ -94,59 +55,8 @@ const ContactSection = ({ className }: { className?: string }) => {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               title="Map of Bayelsa, Nigeria"
-              suppressHydrationWarning
             ></iframe>
           </div>
-        </div>
-        
-        <Card className="shadow-2xl">
-          <CardContent className="p-6 md:p-8">
-            <Form {...form}>
-              <form action={formAction} className="space-y-6" suppressHydrationWarning>
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Your Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Full Name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Your Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="you@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="message"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Your Message</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="How can we help you?" {...field} rows={5} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <SubmitButton />
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
       </div>
     </section>
   );

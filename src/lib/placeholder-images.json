@@ -3,50 +3,44 @@
     {
       "id": "hero-background",
       "description": "Background image for hero section showing Nigerian professionals in a modern office.",
-      "imageUrl": "https://images.unsplash.com/photo-1542744095-291d1f67b221?q=80&w=1920&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1734254807102-fbf62b0cc513?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxOaWdlcmlhbiUyMGJ1c2luZXNzfGVufDB8fHx8MTc2MzYyMzk3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "Nigerian business"
     },
     {
       "id": "about-teamwork",
       "description": "Image for about section showing diverse team collaborating.",
-      "imageUrl": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1920&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1716703432455-3045789de738?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxidXNpbmVzcyUyMHRlYW13b3JrfGVufDB8fHx8MTc2MzYyMzk3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "business teamwork"
     },
     {
       "id": "loan-personal",
       "description": "Image for personal loan card.",
-      "imageUrl": "https://images.unsplash.com/photo-1560518883-ce09059ee41f?q=80&w=1920&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwZXJzb25hbCUyMGZpbmFuY2V8ZW58MHx8fHwxNzYzNTUxMjU5fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "personal finance"
     },
     {
       "id": "loan-civil",
       "description": "Image for civil servant loan card.",
-      "imageUrl": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&w=1920&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1660487084268-6d9bac8d3a93?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxnb3Zlcm5tZW50JTIwYnVpbGRpbmd8ZW58MHx8fHwxNzYzNjE1NjIxfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "government building"
     },
     {
       "id": "loan-sme",
       "description": "Image for SME loan card.",
-      "imageUrl": "https://images.unsplash.com/photo-1600880292203-94269d4e9292?q=80&w=1920&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1594402919317-9e67dca0a305?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxzbWFsbCUyMGJ1c2luZXNzfGVufDB8fHx8MTc2MzU3MzU2Nnww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "small business"
     },
     {
       "id": "testimonial-1",
       "description": "Avatar for the first testimonial.",
-      "imageUrl": "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?q=80&w=150&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1525186402429-b4ff38bedec6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxoYXBweSUyMHBlcnNvbnxlbnwwfHx8fDE3NjM1MjUzNzV8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "happy person"
     },
     {
       "id": "testimonial-2",
       "description": "Avatar for the second testimonial.",
-      "imageUrl": "https://images.unsplash.com/photo-1557053910-d9eadeed1c58?q=80&w=150&auto=format&fit=crop",
+      "imageUrl": "https://images.unsplash.com/photo-1612994451093-c6791c8989cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxzbWlsaW5nJTIwd29tYW58ZW58MHx8fHwxNzYzNTgxMzc1fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "smiling woman"
-    },
-    {
-      "id": "bayelsa-map",
-      "description": "Image of a map showing Bayelsa, Nigeria.",
-      "imageUrl": "https://images.unsplash.com/photo-1742415105631-ead8ec62ccb0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxCYXllbHNhJTIwbWFwfGVufDB8fHx8MTc2MjYwOTc3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "Bayelsa map"
     }
   ]
 }

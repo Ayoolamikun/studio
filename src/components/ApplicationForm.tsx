@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useActionState } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loanApplicationSchema, LoanApplicationValues } from "@/lib/schemas";
 import { submitApplication } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -29,9 +37,9 @@ function SubmitButton() {
   );
 }
 
+
 export default function ApplicationForm() {
   const { toast } = useToast();
-  // This hook is correctly renamed to useActionState
   const [state, formAction] = useActionState(submitApplication, null);
 
   const form = useForm<LoanApplicationValues>({
@@ -40,11 +48,10 @@ export default function ApplicationForm() {
       fullName: "",
       email: "",
       phoneNumber: "",
-      loanAmount: "",
-      loanDuration: "",
-      employmentPlace: "",
-      bvn: "",
-      homeAddress: "",
+      amountRequested: "",
+      employmentType: "Civil Servant",
+      typeOfService: "Loan",
+      preferredContactMethod: "Email",
     },
   });
 
@@ -68,7 +75,7 @@ export default function ApplicationForm() {
     <Card className="shadow-2xl">
       <CardContent className="p-6 md:p-8">
         <Form {...form}>
-          <form action={formAction} className="space-y-6" suppressHydrationWarning>
+          <form action={formAction} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -97,44 +104,15 @@ export default function ApplicationForm() {
                 )}
               />
             </div>
-
-             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+234..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="bvn"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>BVN (Bank Verification Number)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="11-digit BVN" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            </div>
-
+            
             <FormField
               control={form.control}
-              name="homeAddress"
+              name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Home Address</FormLabel>
+                  <FormLabel>Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="123 Main St, Yenagoa" {...field} />
+                    <Input placeholder="+234..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -143,75 +121,108 @@ export default function ApplicationForm() {
 
             <FormField
               control={form.control}
-              name="employmentPlace"
+              name="typeOfService"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Place of Employment</FormLabel>
+                  <FormLabel>Type of Service</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a service type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Loan">Loan</SelectItem>
+                      <SelectItem value="Investment">Investment</SelectItem>
+                      <SelectItem value="Membership">Membership</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="amountRequested"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount Requested (₦)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ministry of Finance" {...field} />
+                    <Input type="number" placeholder="e.g., 50000" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField
-                    control={form.control}
-                    name="loanAmount"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Loan Amount Requested (₦)</FormLabel>
-                        <FormControl>
-                        <Input type="number" placeholder="e.g., 50000" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="loanDuration"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Loan Duration (months)</FormLabel>
-                        <FormControl>
-                        <Input type="number" placeholder="e.g., 12" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-            </div>
+            <FormField
+              control={form.control}
+              name="employmentType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Employment Type</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your employment type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Civil Servant">Civil Servant</SelectItem>
+                      <SelectItem value="SME">SME</SelectItem>
+                       <SelectItem value="Individual">Individual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                 <FormField
-                    control={form.control}
-                    name="passportPhoto"
-                    render={({ field: { onChange, value, ...rest } }) => (
-                    <FormItem>
-                        <FormLabel>Passport Photograph</FormLabel>
+            <FormField
+                control={form.control}
+                name="uploadedDocumentUrl"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Upload Document (Payslip, ID, etc.)</FormLabel>
+                    <FormControl>
+                    <Input type="file" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="preferredContactMethod"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Preferred Contact Method</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex space-x-4"
+                    >
+                      <FormItem className="flex items-center space-x-2">
                         <FormControl>
-                        <Input type="file" onChange={(e) => onChange(e.target.files?.[0])} {...rest} />
+                          <RadioGroupItem value="Phone" />
                         </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="idDocument"
-                    render={({ field: { onChange, value, ...rest } }) => (
-                    <FormItem>
-                        <FormLabel>NIN or other ID Document</FormLabel>
+                        <FormLabel className="font-normal">Phone</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-2">
                         <FormControl>
-                        <Input type="file" onChange={(e) => onChange(e.target.files?.[0])} {...rest} />
+                          <RadioGroupItem value="Email" />
                         </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-            </div>
+                        <FormLabel className="font-normal">Email</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <SubmitButton />
           </form>

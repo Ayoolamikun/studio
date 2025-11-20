@@ -1,15 +1,10 @@
 {
   "entities": {
     "LoanApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "LoanApplication",
+      "title": "Loan Application",
       "type": "object",
       "description": "Represents a loan application submitted by a user.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the loan application."
-        },
         "fullName": {
           "type": "string",
           "description": "The full name of the applicant."
@@ -37,7 +32,7 @@
         },
         "uploadedDocumentUrl": {
           "type": "string",
-          "description": "URL of the uploaded document (Payslip, ID, Collateral)."
+          "description": "Name of the uploaded document (Payslip, ID, Collateral)."
         },
         "preferredContactMethod": {
           "type": "string",
@@ -50,253 +45,28 @@
         }
       },
       "required": [
-        "id",
         "fullName",
         "email",
         "phoneNumber",
         "typeOfService",
         "amountRequested",
         "employmentType",
-        "uploadedDocumentUrl",
         "preferredContactMethod",
-        "submissionDate"
-      ]
-    },
-    "InvestmentApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "InvestmentApplication",
-      "type": "object",
-      "description": "Represents an investment application submitted by a user.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the investment application."
-        },
-        "fullName": {
-          "type": "string",
-          "description": "The full name of the investor."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the investor.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The phone number of the investor."
-        },
-        "typeOfService": {
-          "type": "string",
-          "description": "The type of service requested (Loan, Investment, Membership)."
-        },
-        "amountInvested": {
-          "type": "number",
-          "description": "The amount invested by the user."
-        },
-        "employmentType": {
-          "type": "string",
-          "description": "The employment type of the investor (Civil Servant, SME, Individual)."
-        },
-        "uploadedDocumentUrl": {
-          "type": "string",
-          "description": "URL of the uploaded document (Payslip, ID, Collateral)."
-        },
-        "preferredContactMethod": {
-          "type": "string",
-          "description": "The preferred contact method of the investor (Phone/Email)."
-        },
-        "investmentPlan": {
-          "type": "string",
-          "description": "The selected investment plan (Bronze, Silver, Platinum)."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the investment application was submitted.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "fullName",
-        "email",
-        "phoneNumber",
-        "typeOfService",
-        "amountInvested",
-        "employmentType",
-        "uploadedDocumentUrl",
-        "preferredContactMethod",
-        "investmentPlan",
-        "submissionDate"
-      ]
-    },
-    "MembershipApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "MembershipApplication",
-      "type": "object",
-      "description": "Represents a membership application submitted by a user.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the membership application."
-        },
-        "fullName": {
-          "type": "string",
-          "description": "The full name of the applicant."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the applicant.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The phone number of the applicant."
-        },
-        "typeOfService": {
-          "type": "string",
-          "description": "The type of service requested (Loan, Investment, Membership)."
-        },
-        "employmentType": {
-          "type": "string",
-          "description": "The employment type of the applicant (Civil Servant, SME, Individual)."
-        },
-        "uploadedDocumentUrl": {
-          "type": "string",
-          "description": "URL of the uploaded document (Payslip, ID, Collateral)."
-        },
-        "preferredContactMethod": {
-          "type": "string",
-          "description": "The preferred contact method of the applicant (Phone/Email)."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the membership application was submitted.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "fullName",
-        "email",
-        "phoneNumber",
-        "typeOfService",
-        "employmentType",
-        "uploadedDocumentUrl",
-        "preferredContactMethod",
-        "submissionDate"
-      ]
-    },
-    "ContactMessage": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ContactMessage",
-      "type": "object",
-      "description": "Represents a contact message submitted by a user.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the contact message."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the person sending the message."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the sender.",
-          "format": "email"
-        },
-        "message": {
-          "type": "string",
-          "description": "The content of the message."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the contact message was submitted.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "message",
         "submissionDate"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/loanApplications/{loanApplicationId}",
-        "definition": {
-          "entityName": "LoanApplication",
-          "schema": {
-            "$ref": "#/backend/entities/LoanApplication"
-          },
-          "description": "Stores loan application documents. Each document represents a loan application submitted by a user.",
-          "params": [
-            {
-              "name": "loanApplicationId",
-              "description": "The unique identifier for the loan application document."
-            }
-          ]
-        }
+    "/loanApplications/{loanApplicationId}": {
+      "schema": {
+        "$ref": "#/entities/LoanApplication"
       },
-      {
-        "path": "/investmentApplications/{investmentApplicationId}",
-        "definition": {
-          "entityName": "InvestmentApplication",
-          "schema": {
-            "$ref": "#/backend/entities/InvestmentApplication"
-          },
-          "description": "Stores investment application documents. Each document represents an investment application submitted by a user.",
-          "params": [
-            {
-              "name": "investmentApplicationId",
-              "description": "The unique identifier for the investment application document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/membershipApplications/{membershipApplicationId}",
-        "definition": {
-          "entityName": "MembershipApplication",
-          "schema": {
-            "$ref": "#/backend/entities/MembershipApplication"
-          },
-          "description": "Stores membership application documents. Each document represents a membership application submitted by a user.",
-          "params": [
-            {
-              "name": "membershipApplicationId",
-              "description": "The unique identifier for the membership application document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/contactMessages/{contactMessageId}",
-        "definition": {
-          "entityName": "ContactMessage",
-          "schema": {
-            "$ref": "#/backend/entities/ContactMessage"
-          },
-          "description": "Stores contact messages submitted by users.",
-          "params": [
-            {
-              "name": "contactMessageId",
-              "description": "The unique identifier for the contact message document."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore data structure is designed to store loan, investment, and membership applications, as well as contact messages. Each application type is stored in its own top-level collection to maintain structural segregation, ensuring that security rules can be applied consistently across all documents within each collection. This approach simplifies security rule creation and maintenance. The contact messages are stored in another top-level collection.\n\nThis structure focuses on simplicity, clarity, and the segregation of data based on its purpose. This enhances security, as each top-level collection can have its own set of security rules tailored to the type of data it stores, and improves query performance by avoiding the need to filter across multiple data types in a single collection.\n\nThis design achieves Authorization Independence because no document relies on data in other documents for authorization. List operations are secured through the segregation of collections, ensuring that only appropriate data is exposed based on the security rules defined for each collection. The absence of hierarchical authorization dependencies, coupled with structural segregation, means that rules are not filters, thereby ensuring QAPs."
+      "description": "Stores all loan applications submitted through the public form."
+    }
   }
 }

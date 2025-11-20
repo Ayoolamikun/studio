@@ -11,7 +11,6 @@ const investmentTiers = [
     range: '₦0 – ₦3M',
     returns: '1–2% Annual Returns',
     color: 'text-yellow-600',
-    borderColor: 'border-yellow-600',
   },
   {
     name: 'Silver',
@@ -19,7 +18,6 @@ const investmentTiers = [
     range: '₦3M – ₦10M',
     returns: '2–2.9% Annual Returns',
     color: 'text-gray-400',
-    borderColor: 'border-gray-400',
     featured: true,
   },
   {
@@ -28,7 +26,6 @@ const investmentTiers = [
     range: '₦10M+',
     returns: '2.89–3.5% Annual Returns',
     color: 'text-blue-400',
-    borderColor: 'border-blue-400',
   },
 ];
 

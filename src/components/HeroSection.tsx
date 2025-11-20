@@ -19,7 +19,7 @@ const HeroSection = () => {
         />
       )}
       <div className="absolute inset-0 bg-primary/70 backdrop-brightness-75" />
-      <div className="relative z-10 container mx-auto px-4 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+      <div className="relative z-10 container mx-auto px-4">
         <h1 className="font-headline text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl text-shadow-lg">
           Empowering Nigerians Through Financial Freedom
         </h1>
