@@ -46,8 +46,7 @@ const signupSchema = z.object({
     password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
-type LoginValues = z.infer<typeof loginSchema>;
-type SignupValues = z.infer<typeof signupSchema>;
+type FormValues = z.infer<typeof loginSchema> & Partial<z.infer<typeof signupSchema>>;
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -57,16 +56,23 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [isSigningUp, setIsSigningUp] = useState(false);
 
-  const loginForm = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
-  });
-
-  const signupForm = useForm<SignupValues>({
-      resolver: zodResolver(signupSchema),
-      defaultValues: { fullName: '', email: '', password: '' },
+  const form = useForm<FormValues>({
+    resolver: zodResolver(isSigningUp ? signupSchema : loginSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      password: "",
+    },
   });
   
+  useEffect(() => {
+    form.reset();
+    // Update the resolver when the mode changes
+    const newResolver = zodResolver(isSigningUp ? signupSchema : loginSchema);
+    form.trigger(); // Re-validate the form with the new schema if needed
+  }, [isSigningUp, form]);
+
+
   useEffect(() => {
     // If the user is logged in (and not a guest), check their role and redirect.
     if (!isUserLoading && user && !user.isAnonymous) {
@@ -82,7 +88,7 @@ export default function LoginPage() {
   }, [user, isUserLoading, router]);
 
 
-  async function onLogin(values: LoginValues) {
+  async function onLogin(values: FormValues) {
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
@@ -102,10 +108,10 @@ export default function LoginPage() {
     }
   }
 
-  async function onSignup(values: SignupValues) {
+  async function onSignup(values: FormValues) {
     try {
         const userCredential = await initiateEmailSignUp(auth, values.email, values.password);
-        if (userCredential && userCredential.user) {
+        if (userCredential && userCredential.user && values.fullName) {
             const firebaseUser = userCredential.user;
             await updateProfile(firebaseUser, { displayName: values.fullName });
 
@@ -133,6 +139,15 @@ export default function LoginPage() {
         });
     }
   }
+
+  const handleFormSubmit = (values: FormValues) => {
+    if (isSigningUp) {
+      onSignup(values);
+    } else {
+      onLogin(values);
+    }
+  };
+
 
   const handleOAuthSignIn = async (providerAction: (auth: any) => Promise<UserCredential>) => {
     try {
@@ -193,78 +208,54 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            {isSigningUp ? (
-                 <Form {...signupForm}>
-                    <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
-                      <FormField
-                        control={signupForm.control}
-                        name="fullName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="John Doe" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={signupForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="you@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={signupForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="submit" className="w-full" disabled={signupForm.formState.isSubmitting}>
-                        {signupForm.formState.isSubmitting ? <Spinner size="small"/> : 'Create Account'}
-                      </Button>
-                    </form>
-                 </Form>
-            ) : (
-                <Form {...loginForm}>
-                    <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
-                    <FormField control={loginForm.control} name="email" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField control={loginForm.control} name="password" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <Button type="submit" className="w-full" disabled={loginForm.formState.isSubmitting}>
-                      {loginForm.formState.isSubmitting ? <Spinner size="small"/> : 'Login'}
-                    </Button>
-                    </form>
-                </Form>
-            )}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+                {isSigningUp && (
+                  <FormField
+                    control={form.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="you@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? <Spinner size="small"/> : (isSigningUp ? 'Create Account' : 'Login')}
+                </Button>
+              </form>
+            </Form>
             <Separator className="my-4" />
             <div className="space-y-3">
                  <Button variant="outline" className="w-full" onClick={() => handleOAuthSignIn(initiateGoogleSignIn)}>
