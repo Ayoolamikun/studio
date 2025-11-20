@@ -73,7 +73,7 @@ service cloud.firestore {
      */
     match /contactFormSubmissions/{contactFormSubmissionId} {
       allow create: if true;
-      allow read, update, delete, list: if isAdmin();
+      allow read, update, delete: if isAdmin();
     }
   }
 }
