@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,7 @@ const MembershipSection = ({ className }: { className?: string }) => {
         </p>
         <div className="mt-8">
           <Button asChild size="lg" className="rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link href="#application">Become a Member</Link>
+            <Link href="/apply">Become a Member</Link>
           </Button>
         </div>
       </div>

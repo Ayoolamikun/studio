@@ -1,3 +1,4 @@
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ const HeroSection = () => {
         </p>
         <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
           <Button asChild size="lg" className="rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link href="#application">Apply for Loan</Link>
+            <Link href="/apply">Apply for Loan</Link>
           </Button>
           <Button asChild variant="secondary" size="lg" className="rounded-full font-bold shadow-lg transition-transform hover:scale-105">
             <Link href="#investments">Start Investing</Link>

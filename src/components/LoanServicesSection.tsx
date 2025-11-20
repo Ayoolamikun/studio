@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -60,7 +61,7 @@ const LoanServicesSection = ({ className }: { className?: string }) => {
                 </CardContent>
                 <CardFooter>
                   <Button asChild className="w-full font-bold bg-accent text-accent-foreground hover:bg-accent/90">
-                    <Link href="#application">
+                    <Link href="/apply">
                       Apply Now <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>

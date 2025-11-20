@@ -1,3 +1,4 @@
+
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import AboutSection from '@/components/AboutSection';
@@ -9,6 +10,7 @@ import TestimonialsSection from '@/components/TestimonialsSection';
 import ContactSection from '@/components/ContactSection';
 import Footer from '@/components/Footer';
 import FloatingCta from '@/components/FloatingCta';
+import AIAgent from '@/components/AIAgent';
 
 export default function Home() {
   return (
@@ -28,6 +30,7 @@ export default function Home() {
         </div>
         
       </main>
+      <AIAgent />
       <FloatingCta />
       <Footer />
     </div>

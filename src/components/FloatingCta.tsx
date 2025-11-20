@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -33,8 +34,8 @@ const FloatingCta = () => {
       "fixed bottom-6 right-6 z-50 transition-opacity duration-300",
       isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
     )}>
-      <Button asChild size="lg" className="rounded-full font-bold shadow-2xl transition-transform hover:scale-110 bg-accent text-accent-foreground hover:bg-accent/90">
-        <Link href="/login">
+      <Button asChild size="lg" className="rounded-full font-bold shadow-2xl transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
+        <Link href="/apply">
           Apply Now
           <MoveUpRight className="ml-2 h-5 w-5" />
         </Link>
