@@ -27,7 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateGoogleSignIn, initiateMicrosoftSignIn, initiateEmailSignUp, initiateAnonymousSignIn } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import Logo from '@/components/Logo';
@@ -69,17 +69,17 @@ export default function LoginPage() {
   
   useEffect(() => {
     // If the user is logged in (and not a guest), check their role and redirect.
-    if (!isUserLoading && user && !user.isAnonymous && firestore) {
-      const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-      getDoc(adminRoleRef).then(docSnap => {
-        if (docSnap.exists()) {
+    if (!isUserLoading && user && !user.isAnonymous) {
+      // Force a token refresh to get the latest custom claims.
+      user.getIdTokenResult(true).then((idTokenResult) => {
+        if (idTokenResult.claims.admin === true) {
           router.push('/admin');
         } else {
           router.push('/dashboard');
         }
       });
     }
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router]);
 
 
   async function onLogin(values: LoginValues) {
@@ -117,9 +117,6 @@ export default function LoginPage() {
                 createdAt: new Date().toISOString(),
             };
             setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
-
-            // **Important**: The admin role is now created on the admin page itself if missing.
-            // This makes the signup flow simpler and more robust.
             
             toast({
                 title: "Account Created!",

@@ -3,6 +3,7 @@
  * @fileoverview Firestore Security Rules for Corporate Magnate Cooperative Society Ltd.
  *
  * This ruleset implements role-based and ownership-based access control.
+ * Admin roles are determined by a Firebase Auth custom claim (`request.auth.token.admin == true`).
  * Admins have broad read/write access to core collections.
  * Borrowers (users) can create their own profile and loan applications,
  * but can only read/update their own data.
@@ -11,7 +12,6 @@
  * - /Borrowers/{borrowerId}: Stores public profiles for borrowers.
  * - /Loans/{loanId}: Stores loan details, linked to a borrower.
  * - /ExcelFiles/{excelId}: Stores metadata about admin-uploaded Excel files.
- * - /roles_admin/{userId}: Defines which UIDs are admins.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -28,8 +28,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Admin status is now checked via a custom auth token claim.
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && request.auth.token.admin == true;
     }
     
     /**
@@ -52,14 +53,6 @@ service cloud.firestore {
       allow read, write: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
       allow read: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
-    }
-    
-
-    /**
-     * @description Admin roles. Only other admins can manage roles.
-     */
-    match /roles_admin/{userId} {
-      allow read, write: if isAdmin();
     }
     
     /**

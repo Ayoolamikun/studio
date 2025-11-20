@@ -46,15 +46,6 @@
         "processed": { "type": "boolean", "description": "Whether the file has been processed by the Cloud Function." }
       },
       "required": ["fileUrl", "uploadedAt", "processed"]
-    },
-    "AdminUser": {
-        "title": "AdminUser",
-        "type": "object",
-        "description": "Represents an admin user role.",
-        "properties": {
-            "isAdmin": { "type": "boolean", "description": "Flag indicating admin privileges." }
-        },
-        "required": ["isAdmin"]
     }
   },
   "auth": {
@@ -93,24 +84,8 @@
           "description": "Stores metadata for uploaded Excel files for batch processing. Admin-only access.",
           "params": [{ "name": "excelId", "description": "Unique ID for the Excel file record." }]
         }
-      },
-       {
-        "path": "/roles_admin/{userId}",
-        "definition": {
-          "entityName": "AdminUser",
-          "schema": {
-            "$ref": "#/entities/AdminUser"
-          },
-          "description": "Stores admin roles. Existence of a document indicates admin privileges.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user with admin privileges."
-            }
-          ]
-        }
       }
     ],
-    "reasoning": "The structure is designed to segregate borrower profiles from their loans for better data management and security. The Borrowers collection acts as the single source of truth for user information, linked via a Firebase Auth UID. The Loans collection contains all financial transaction details, referencing the borrower's ID. This allows a borrower to have multiple loans over time. The ExcelFiles collection is for admin use, tracking batch imports. The roles_admin collection explicitly manages admin access. Security rules will enforce that borrowers can only see their own data, while admins have broader access."
+    "reasoning": "The structure is designed to segregate borrower profiles from their loans for better data management and security. The Borrowers collection acts as the single source of truth for user information, linked via a Firebase Auth UID. The Loans collection contains all financial transaction details, referencing the borrower's ID. This allows a borrower to have multiple loans over time. The ExcelFiles collection is for admin use, tracking batch imports. Admin roles are managed via Firebase Auth Custom Claims, not a Firestore collection, for better security and performance."
   }
 }

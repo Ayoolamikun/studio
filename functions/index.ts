@@ -32,6 +32,39 @@ function calculateTotalRepayment(principal: number): number {
   return total;
 }
 
+/**
+ * Callable function to grant admin role to a user.
+ * Expects the user's UID in the data payload.
+ */
+export const grantAdminRole = functions.https.onCall(async (data, context) => {
+    // Check if the caller is already an admin.
+    if (context.auth?.token.admin !== true) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Only an admin can grant admin roles."
+        );
+    }
+
+    const uid = data.uid;
+    if (!uid) {
+         throw new functions.https.HttpsError(
+            "invalid-argument",
+            "The function must be called with a 'uid' argument."
+        );
+    }
+    
+    try {
+        await admin.auth().setCustomUserClaims(uid, { admin: true });
+        return { message: `Success! User ${uid} has been made an admin.` };
+    } catch (error) {
+        console.error("Error setting custom claims:", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "An error occurred while setting custom claims."
+        );
+    }
+});
+
 
 /**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.
