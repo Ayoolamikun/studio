@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useActionState, useEffect } from "react";
@@ -52,8 +53,13 @@ export default function ApplicationForm() {
       employmentType: "Civil Servant",
       typeOfService: "Loan",
       preferredContactMethod: "Email",
+      uploadedDocumentUrl: undefined, // Initialize file input
     },
   });
+
+  // Since file inputs can't be controlled by setting `value` directly in the same way,
+  // we need to adapt how react-hook-form handles it. We'll remove the `value` from the field props.
+  const fileRef = form.register("uploadedDocumentUrl");
 
   useEffect(() => {
     if (state?.success) {
@@ -180,19 +186,23 @@ export default function ApplicationForm() {
             />
 
             <FormField
-                control={form.control}
-                name="uploadedDocumentUrl"
-                render={({ field }) => (
-                <FormItem>
+              control={form.control}
+              name="uploadedDocumentUrl"
+              render={({ field }) => {
+                // We remove the 'value' prop for file inputs.
+                const { value, ...rest } = field;
+                return (
+                  <FormItem>
                     <FormLabel>Upload Document (Payslip, ID, etc.)</FormLabel>
                     <FormControl>
-                    <Input type="file" {...field} />
+                      <Input type="file" {...fileRef} {...rest} />
                     </FormControl>
                     <FormMessage />
-                </FormItem>
-                )}
+                  </FormItem>
+                );
+              }}
             />
-            
+
             <FormField
               control={form.control}
               name="preferredContactMethod"

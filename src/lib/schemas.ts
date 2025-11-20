@@ -1,3 +1,4 @@
+
 "use client";
 
 import { z } from "zod";
@@ -11,9 +12,10 @@ export const loanApplicationSchema = z.object({
     message: "Please enter a valid amount.",
   }),
   employmentType: z.enum(["Civil Servant", "SME", "Individual"]),
-  // We'll handle file upload separately, so for now this can be a simple string.
-  // In the action, we'll process the file from FormData.
-  uploadedDocumentUrl: z.any().optional(),
+  // Schema for file uploads using react-hook-form
+  uploadedDocumentUrl: z
+    .any()
+    .optional(),
   preferredContactMethod: z.enum(["Phone", "Email"]),
 });
 
