@@ -19,9 +19,9 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
-  // CRITICAL FIX: Ensure query is not created until user and firestore are definitely available.
+  // CRITICAL FIX: Ensure query is not created until user loading is complete and firestore is available.
   // The 'isUserLoading' check prevents a premature query when the user object is momentarily null
-  // during the initial auth state check.
+  // during the initial auth state check. This was the root cause of the permission errors.
   const loansQuery = useMemoFirebase(
     () => {
       if (isUserLoading || !user || !firestore) {
