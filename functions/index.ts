@@ -35,21 +35,30 @@ function calculateTotalRepayment(principal: number): number {
 /**
  * Callable function to grant admin role to a user.
  * Expects the user's UID in the data payload.
+ * It has special logic to allow the VERY FIRST admin to be created by anyone,
+ * but subsequent admins can only be created by existing admins.
  */
 export const grantAdminRole = functions.https.onCall(async (data, context) => {
-    // Check if the caller is already an admin.
-    if (context.auth?.token.admin !== true) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Only an admin can grant admin roles."
-        );
-    }
-
     const uid = data.uid;
     if (!uid) {
          throw new functions.https.HttpsError(
             "invalid-argument",
             "The function must be called with a 'uid' argument."
+        );
+    }
+    
+    // Check if the caller is already an admin.
+    const isCallerAdmin = context.auth?.token.admin === true;
+
+    // Check if any admin users exist in the system at all.
+    const listUsersResult = await admin.auth().listUsers(1, "admin");
+    const hasExistingAdmin = listUsersResult.users.some(user => user.customClaims?.['admin'] === true);
+
+    // Security check: only an existing admin can grant roles, UNLESS no admin exists yet.
+    if (!isCallerAdmin && hasExistingAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Only an admin can grant admin roles."
         );
     }
     

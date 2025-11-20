@@ -40,49 +40,13 @@ export default function AdminPage() {
 
       if (claims.admin === true) {
         setClaimStatus('is-admin');
-        return; // User is verified as an admin.
-      }
-      
-      // If the claim is not present, check if this is the designated admin email.
-      // If so, attempt to grant the admin role via the Cloud Function.
-      if (user.email === 'corporatemagnate@outlook.com') {
-        console.log('Designated admin user detected without admin claim. Attempting to grant role...');
-        toast({
-          title: 'First-time Admin Setup',
-          description: 'Attempting to grant your account admin privileges. This may take a moment.',
-        });
-        
-        try {
-          const functions = getFunctions();
-          // This self-assignment is a special case for the first admin.
-          // In a real-world app, you might have another user grant this.
-          const grantAdminRole = httpsCallable(functions, 'grantAdminRole');
-          // Since the function requires the caller to be an admin, this will fail.
-          // This is a placeholder for a real-world scenario where an admin would grant this.
-          // For now, we will log a message and direct the user to the Firebase Console.
-          console.error("Critical Setup Error: The `grantAdminRole` function cannot be called by a non-admin. You must manually set the first admin's custom claim in the Firebase console or use the Admin SDK in a secure environment.");
-          toast({
-            variant: "destructive",
-            title: "Manual Action Required",
-            description: "To finalize admin setup, please contact your system administrator to set your custom claims.",
-            duration: 10000,
-          });
-          setClaimStatus('not-admin'); // Set to not-admin as the call will fail.
-          router.push('/dashboard');
-        
-        } catch (error) {
-          console.error("Error calling grantAdminRole function:", error);
-          toast({
-            variant: "destructive",
-            title: "Admin Setup Failed",
-            description: "Could not grant admin privileges. Please check the function logs.",
-          });
-          setClaimStatus('not-admin');
-          router.push('/dashboard');
-        }
       } else {
-        // If the user is not the designated admin and has no claim, they are not an admin.
-        console.log('User is not an admin. Redirecting to dashboard.');
+        // If the user has no admin claim, they are not an admin.
+        toast({
+            variant: "destructive",
+            title: "Permission Denied",
+            description: "You do not have the necessary permissions to access this page.",
+        });
         setClaimStatus('not-admin');
         router.push('/dashboard');
       }
