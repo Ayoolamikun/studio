@@ -27,11 +27,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, initiateGoogleSignIn, initiateMicrosoftSignIn, initiateEmailSignUp, initiateAnonymousSignIn } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import Logo from '@/components/Logo';
-import { updateProfile, signInWithEmailAndPassword, UserCredential, User } from 'firebase/auth';
+import { updateProfile, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/Spinner';
 
@@ -67,46 +67,16 @@ export default function LoginPage() {
       defaultValues: { fullName: '', email: '', password: '' },
   });
   
-  const handleUserCreation = async (firebaseUser: User, name?: string | null) => {
-    if (!firestore || firebaseUser.isAnonymous) return;
-    
-    // Create the main borrower profile
-    const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
-    const displayName = name || firebaseUser.displayName || 'New User';
-
-    const borrowerData = {
-        name: displayName,
-        email: firebaseUser.email,
-        createdAt: new Date().toISOString(),
-    };
-    setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
-
-    // ** ADMIN ROLE ASSIGNMENT LOGIC **
-    // If the new user's email is the designated admin email, create an admin role document.
-    if (firebaseUser.email === 'corporatemagnate@outlook.com') {
-      const adminRoleRef = doc(firestore, "roles_admin", firebaseUser.uid);
-      setDocumentNonBlocking(adminRoleRef, { isAdmin: true });
-      console.log(`Admin role assigned to ${firebaseUser.email}`);
-    }
-  };
-
-
   useEffect(() => {
-    // If the user is fully logged in, handle redirection based on role.
-    if (!isUserLoading && user && firestore) {
+    // If the user is logged in (and not a guest), redirect them.
+    if (!isUserLoading && user && !user.isAnonymous && firestore) {
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-      // Using .then() for promise handling as useEffect shouldn't be async
-      import('firebase/firestore').then(({ getDoc }) => {
-        getDoc(adminRoleRef).then(docSnap => {
-          if (docSnap.exists()) {
-            router.push('/admin');
-          } else {
-            // Only redirect non-admins. Let guests stay on the login page.
-            if (!user.isAnonymous) {
-              router.push('/dashboard');
-            }
-          }
-        });
+      getDoc(adminRoleRef).then(docSnap => {
+        if (docSnap.exists()) {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard');
+        }
       });
     }
   }, [user, isUserLoading, router, firestore]);
@@ -138,8 +108,18 @@ export default function LoginPage() {
         if (userCredential && userCredential.user) {
             const firebaseUser = userCredential.user;
             await updateProfile(firebaseUser, { displayName: values.fullName });
-            // This now handles admin role creation as well.
-            await handleUserCreation(firebaseUser, values.fullName);
+
+            // Create the borrower profile.
+            const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
+            const borrowerData = {
+                name: values.fullName,
+                email: firebaseUser.email,
+                createdAt: new Date().toISOString(),
+            };
+            setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
+
+            // **Important**: The admin role is now created on the admin page itself if missing.
+            // This makes the signup flow simpler and more robust.
             
             toast({
                 title: "Account Created!",
@@ -158,10 +138,16 @@ export default function LoginPage() {
   const handleOAuthSignIn = async (providerAction: (auth: any) => Promise<UserCredential>) => {
     try {
       const userCredential = await providerAction(auth);
-      // User creation (including admin check) is handled by onAuthStateChanged in the provider now.
-      // But we can trigger it here for good measure, especially for first-time sign-ins.
-      if (userCredential && userCredential.user) {
-        await handleUserCreation(userCredential.user);
+      if (userCredential && userCredential.user && firestore) {
+          const { user } = userCredential;
+           // Create or merge the borrower profile.
+          const borrowerRef = doc(firestore, "Borrowers", user.uid);
+          const borrowerData = {
+              name: user.displayName,
+              email: user.email,
+              createdAt: new Date().toISOString(),
+          };
+          setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
       }
       toast({
         title: "Signing In...",
@@ -179,8 +165,6 @@ export default function LoginPage() {
   const handleAnonymousSignIn = async () => {
     try {
       await initiateAnonymousSignIn(auth);
-      // Let the useEffect handle redirection if necessary.
-      // Simply allow the user to continue on the site.
       router.push('/calculators');
       toast({
         title: "Entering as Guest...",
@@ -195,12 +179,12 @@ export default function LoginPage() {
     }
   };
   
-  if (isUserLoading) {
+  if (isUserLoading || (user && !user.isAnonymous)) {
     return <div className="h-screen w-screen bg-background flex items-center justify-center"><Spinner size="large" /></div>;
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+    <div className="flex min-h-screen items-center justify-center bg-secondary p-4" suppressHydrationWarning>
       <Card className="mx-auto w-full max-w-sm">
         <CardHeader className="text-center">
             <Logo className="justify-center mb-2" />
