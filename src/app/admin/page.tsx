@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getAuth } from 'firebase/auth';
 
 // A simple type for the claim status
-type ClaimStatus = 'unknown' | 'checking' | 'is-admin' | 'not-admin' | 'granting';
+export type ClaimStatus = 'unknown' | 'checking' | 'is-admin' | 'not-admin' | 'granting';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -98,7 +98,7 @@ export default function AdminPage() {
 
   // If the user is an admin, show the dashboard.
   if (user && claimStatus === 'is-admin') {
-    return <AdminDashboard user={user} />;
+    return <AdminDashboard user={user} claimStatus={claimStatus} />;
   }
 
   // This is a fallback state, typically shown briefly during redirects.

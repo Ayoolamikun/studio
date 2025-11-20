@@ -29,6 +29,7 @@ import Logo from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoanManagementTab } from './LoanManagementTab';
 import { ExcelImportTab } from './ExcelImportTab';
+import { type ClaimStatus } from '@/app/admin/page';
 
 
 function getInitials(name: string | null | undefined) {
@@ -38,7 +39,7 @@ function getInitials(name: string | null | undefined) {
   return initials.toUpperCase().slice(0, 2);
 }
 
-export function AdminDashboard({ user }: { user: User }) {
+export function AdminDashboard({ user, claimStatus }: { user: User, claimStatus: ClaimStatus }) {
   const auth = useAuth();
   
   const handleLogout = async () => {
@@ -94,7 +95,7 @@ export function AdminDashboard({ user }: { user: User }) {
               <TabsTrigger value="excel">Excel Import</TabsTrigger>
             </TabsList>
             <TabsContent value="loans">
-              <LoanManagementTab />
+              <LoanManagementTab claimStatus={claimStatus} />
             </TabsContent>
             <TabsContent value="excel">
               <ExcelImportTab />
