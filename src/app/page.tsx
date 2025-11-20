@@ -8,6 +8,7 @@ import ApplicationSection from '@/components/ApplicationSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import ContactSection from '@/components/ContactSection';
 import Footer from '@/components/Footer';
+import FloatingCta from '@/components/FloatingCta';
 
 export default function Home() {
   return (
@@ -27,6 +28,7 @@ export default function Home() {
         </div>
         
       </main>
+      <FloatingCta />
       <Footer />
     </div>
   );
