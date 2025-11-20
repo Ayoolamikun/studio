@@ -23,12 +23,14 @@ export default function DashboardPage() {
   // 1. Auth is not loading (`!isUserLoading`)
   // 2. We have a user object (`!!user`)
   // 3. We have a firestore instance (`!!firestore`)
-  // This prevents the query from being created prematurely.
+  // This prevents the query from being created prematurely with a null user.uid,
+  // which would result in a permissions error.
   const loansQuery = useMemoFirebase(
     () => {
       if (isUserLoading || !user || !firestore) {
-        return null;
+        return null; // Return null if dependencies are not ready
       }
+      // This query is now guaranteed to have a valid user.uid
       return query(collection(firestore, 'Loans'), where('borrowerId', '==', user.uid), orderBy('createdAt', 'desc'));
     },
     [firestore, user, isUserLoading] // `isUserLoading` is a key dependency
@@ -37,6 +39,7 @@ export default function DashboardPage() {
   const { data: loans, isLoading: loansLoading } = useCollection(loansQuery);
 
   useEffect(() => {
+    // If auth is done loading and there's no user, redirect to login.
     if (!isUserLoading && !user) {
       router.push('/login');
     }
@@ -46,6 +49,7 @@ export default function DashboardPage() {
   const isLoading = isUserLoading || loansLoading;
 
   // This check prevents a flash of incorrect content while loading or redirecting.
+  // It ensures we don't try to render anything until we have a user and their data.
   if (isLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -68,7 +72,12 @@ export default function DashboardPage() {
             <Button variant="outline" onClick={() => auth && signOut(auth)}>Logout</Button>
         </div>
 
-        {activeLoan ? (
+        {loansLoading ? (
+            <div className="text-center py-16 bg-background rounded-lg shadow-md">
+                <Spinner />
+                <p className="text-muted-foreground mt-4">Loading your loan details...</p>
+            </div>
+        ) : activeLoan ? (
           <LoanDetails loan={activeLoan} />
         ) : (
             <div className="text-center py-16 bg-background rounded-lg shadow-md">

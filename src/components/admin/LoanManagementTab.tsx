@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { Check, X, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
@@ -62,6 +62,7 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  // Only execute queries if the user is a confirmed admin.
   const loansQuery = useMemoFirebase(
     () => (firestore && claimStatus === 'is-admin') ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
     [firestore, claimStatus]
