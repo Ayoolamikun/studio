@@ -34,7 +34,6 @@ import Logo from '@/components/Logo';
 import { updateProfile, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/Spinner';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -111,13 +110,15 @@ export default function LoginPage() {
             await updateProfile(firebaseUser, { displayName: values.fullName });
 
             // Create the borrower profile.
-            const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
-            const borrowerData = {
-                name: values.fullName,
-                email: firebaseUser.email,
-                createdAt: new Date().toISOString(),
-            };
-            setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
+            if (firestore) {
+              const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
+              const borrowerData = {
+                  name: values.fullName,
+                  email: firebaseUser.email,
+                  createdAt: new Date().toISOString(),
+              };
+              setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
+            }
             
             toast({
                 title: "Account Created!",
@@ -215,7 +216,7 @@ export default function LoginPage() {
                           <FormItem>
                             <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <Input placeholder="you@example.com" {...field} />
+                              <Input type="email" placeholder="you@example.com" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -234,7 +235,9 @@ export default function LoginPage() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full">Create Account</Button>
+                      <Button type="submit" className="w-full" disabled={signupForm.formState.isSubmitting}>
+                        {signupForm.formState.isSubmitting ? <Spinner size="small"/> : 'Create Account'}
+                      </Button>
                     </form>
                  </Form>
             ) : (
@@ -256,7 +259,9 @@ export default function LoginPage() {
                         </FormItem>
                         )}
                     />
-                    <Button type="submit" className="w-full">Login</Button>
+                    <Button type="submit" className="w-full" disabled={loginForm.formState.isSubmitting}>
+                      {loginForm.formState.isSubmitting ? <Spinner size="small"/> : 'Login'}
+                    </Button>
                     </form>
                 </Form>
             )}
