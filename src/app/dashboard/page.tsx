@@ -19,17 +19,15 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
-  // CRITICAL FIX: The query is now dependent on `isUserLoading`.
-  // It will not be created until the user's auth status is fully resolved.
-  // This prevents the race condition that caused an invalid query to be sent.
   const loansQuery = useMemoFirebase(
     () => {
+      // Only construct the query if loading is complete and we have a user and firestore instance.
       if (isUserLoading || !user || !firestore) {
         return null;
       }
       return query(collection(firestore, 'Loans'), where('borrowerId', '==', user.uid), orderBy('createdAt', 'desc'));
     },
-    [firestore, user, isUserLoading] // Added isUserLoading to dependencies
+    [firestore, user, isUserLoading]
   );
   
   const { data: loans, isLoading: loansLoading } = useCollection(loansQuery);
@@ -40,11 +38,11 @@ export default function DashboardPage() {
     }
   }, [user, isUserLoading, router]);
 
-  // Combined loading state
+  // Combined loading state for auth and data fetching.
   const isLoading = isUserLoading || loansLoading;
 
-  // This check prevents a flash of the "No Active Loans" message while redirecting.
-  if (!user || isLoading) {
+  // This check prevents a flash of incorrect content while loading or redirecting.
+  if (isLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Spinner size="large" />

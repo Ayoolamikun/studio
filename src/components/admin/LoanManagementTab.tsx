@@ -62,8 +62,6 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // CRITICAL FIX: Only run the query if the user is confirmed to be an admin.
-  // This prevents race conditions where the query runs before claims are verified.
   const loansQuery = useMemoFirebase(
     () => (firestore && claimStatus === 'is-admin') ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
     [firestore, claimStatus]
@@ -125,7 +123,6 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
     }
   }
   
-  // Display loading spinner if claim status is not yet 'is-admin' or data is loading.
   const isLoading = loansLoading || borrowersLoading || claimStatus !== 'is-admin';
 
   return (
