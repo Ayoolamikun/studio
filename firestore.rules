@@ -47,12 +47,21 @@ service cloud.firestore {
     /**
      * @description Loan records.
      * Admins have full read/write access.
-     * Borrowers can create loans for themselves and read their own loans.
+     * Borrowers can create loans for themselves, read their own loans, 
+     * and list ONLY their own loans.
      */
     match /Loans/{loanId} {
+      // Admins can do anything.
       allow read, write: if isAdmin();
+      
+      // Any signed-in user can create a loan for themselves.
       allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
-      allow read: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
+      
+      // A user can read a single loan document if they are the owner.
+      allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
+      
+      // A user can LIST loans only if they are querying for their own borrowerId.
+      allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
     }
     
     /**
