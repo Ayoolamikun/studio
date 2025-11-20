@@ -10,7 +10,8 @@ export const loanApplicationSchema = z.object({
     message: "Please enter a valid amount.",
   }),
   employmentType: z.enum(["Civil Servant", "SME", "Individual"]),
-  // Schema for file uploads using react-hook-form
+  // The 'any()' type combined with 'optional()' is a robust way
+  // to handle optional file inputs with react-hook-form and Zod.
   uploadedDocumentUrl: z
     .any()
     .optional(),
