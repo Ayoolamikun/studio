@@ -19,15 +19,19 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
+  // This is the critical fix. The query is ONLY constructed when:
+  // 1. Auth is not loading (`!isUserLoading`)
+  // 2. We have a user object (`!!user`)
+  // 3. We have a firestore instance (`!!firestore`)
+  // This prevents the query from being created prematurely.
   const loansQuery = useMemoFirebase(
     () => {
-      // Only construct the query if loading is complete and we have a user and firestore instance.
       if (isUserLoading || !user || !firestore) {
         return null;
       }
       return query(collection(firestore, 'Loans'), where('borrowerId', '==', user.uid), orderBy('createdAt', 'desc'));
     },
-    [firestore, user, isUserLoading]
+    [firestore, user, isUserLoading] // `isUserLoading` is a key dependency
   );
   
   const { data: loans, isLoading: loansLoading } = useCollection(loansQuery);

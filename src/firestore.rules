@@ -60,7 +60,9 @@ service cloud.firestore {
       // A user can read a single loan document if they are the owner.
       allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
       
+      // THIS IS THE CRITICAL FIX:
       // A user can LIST loans only if they are querying for their own borrowerId.
+      // This prevents the "Missing or insufficient permissions" error on the dashboard.
       allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
     }
     

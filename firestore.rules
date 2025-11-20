@@ -1,15 +1,18 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // For this scratch build, we'll allow public writes to the loan applications
-    // collection so the form can be submitted without being logged in.
-    // In a real app, you would tighten this rule to require authentication.
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
     match /loanApplications/{applicationId} {
+      // Allow anyone to create a loan application.
       allow create: if true;
       
-      // By default, deny all reads, updates, and deletes from the client.
-      // Data should be managed by a secure backend or admin panel.
-      allow read, update, delete: if false;
+      // Only the owner can read their own application. No one else.
+      allow read, update, delete: if false; 
     }
   }
 }
