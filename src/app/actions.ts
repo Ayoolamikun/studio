@@ -1,3 +1,4 @@
+
 "use server";
 
 import { initializeFirebase } from "@/firebase/index";
@@ -9,8 +10,10 @@ import { FirestorePermissionError } from "@/firebase/errors";
 export async function submitApplication(prevState: any, formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
   
+  // Destructure uploadedDocumentUrl to separate it from the text data
   const { uploadedDocumentUrl, ...textData } = rawData;
 
+  // Validate only the text-based fields
   const validatedFields = loanApplicationSchema.safeParse(textData);
 
   if (!validatedFields.success) {
@@ -27,6 +30,7 @@ export async function submitApplication(prevState: any, formData: FormData) {
       ...validatedFields.data,
       amountRequested: parseFloat(validatedFields.data.amountRequested),
       submissionDate: new Date().toISOString(),
+      // Handle the file name correctly
       uploadedDocumentUrl: formData.get("uploadedDocumentUrl") ? (formData.get("uploadedDocumentUrl") as File).name : "No file uploaded",
     };
 
