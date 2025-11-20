@@ -63,6 +63,7 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // CRITICAL FIX: Only run the query if the user is confirmed to be an admin.
+  // This prevents race conditions where the query runs before claims are verified.
   const loansQuery = useMemoFirebase(
     () => (firestore && claimStatus === 'is-admin') ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
     [firestore, claimStatus]
@@ -124,7 +125,7 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
     }
   }
   
-  // Display loading spinner if claim status is not yet 'is-admin'
+  // Display loading spinner if claim status is not yet 'is-admin' or data is loading.
   const isLoading = loansLoading || borrowersLoading || claimStatus !== 'is-admin';
 
   return (
@@ -138,12 +139,14 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
+              disabled={isLoading}
             />
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">Filter Status</Button>
+                <Button variant="outline" disabled={isLoading}>Filter Status</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
+                <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => setStatusFilter('all')}>All</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter('pending')}>Pending</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter('approved')}>Approved</DropdownMenuItem>
@@ -158,7 +161,7 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
       <CardContent>
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <Spinner />
+            <Spinner size="large" />
           </div>
         ) : (
           <Table>
