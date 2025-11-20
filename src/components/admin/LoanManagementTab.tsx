@@ -60,7 +60,6 @@ export function LoanManagementTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Fetch all loans and all borrowers
   const loansQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
     [firestore]
