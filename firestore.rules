@@ -3,8 +3,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     match /loanApplications/{applicationId} {
@@ -13,6 +17,26 @@ service cloud.firestore {
       
       // Only the owner can read their own application. No one else.
       allow read, update, delete: if false; 
+    }
+
+    match /Borrowers/{borrowerId} {
+      // Any signed-in user can create their own borrower profile
+      allow create: if isOwner(borrowerId);
+      // Only owner can read or update their profile
+      allow read, update: if isOwner(borrowerId);
+      // No one can delete a borrower profile for now
+      allow delete: if false;
+    }
+
+    match /Loans/{loanId} {
+      // Allow user to create a loan for themselves
+      allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
+      // Allow user to get their own loan document
+      allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
+      // CRITICAL FIX: Allow user to LIST loans ONLY if they are querying for their own borrowerId
+      allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
+      // Disallow updates and deletes from clients for now
+      allow update, delete: if false;
     }
   }
 }
