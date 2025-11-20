@@ -33,46 +33,6 @@ function calculateTotalRepayment(principal: number): number {
 }
 
 /**
- * Callable function to grant admin role to a user.
- * Expects the user's UID in the data payload.
- * It has special logic to allow the VERY FIRST admin to be created by anyone,
- * but subsequent admins can only be created by existing admins.
- */
-export const grantAdminRole = functions.https.onCall(async (data, context) => {
-    const uid = data.uid;
-    if (!uid) {
-         throw new functions.https.HttpsError(
-            "invalid-argument",
-            "The function must be called with a 'uid' argument."
-        );
-    }
-    
-    const isCallerAdmin = context.auth?.token.admin === true;
-
-    const listUsersResult = await admin.auth().listUsers(1000); // Check more users
-    const hasExistingAdmin = listUsersResult.users.some(user => user.customClaims?.['admin'] === true);
-
-    if (!isCallerAdmin && hasExistingAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Only an admin can grant admin roles."
-        );
-    }
-    
-    try {
-        await admin.auth().setCustomUserClaims(uid, { admin: true });
-        return { message: `Success! User ${uid} has been made an admin.` };
-    } catch (error) {
-        console.error("Error setting custom claims:", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "An error occurred while setting custom claims."
-        );
-    }
-});
-
-
-/**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.
  * This function downloads the Excel file, parses it, and updates Firestore.
  */

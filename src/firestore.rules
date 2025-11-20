@@ -3,20 +3,20 @@
  * @fileoverview Firestore Security Rules for Corporate Magnate Cooperative Society Ltd.
  *
  * This ruleset implements role-based and ownership-based access control.
- * Admin roles are determined by a Firebase Auth custom claim (`request.auth.token.admin == true`).
- * Admins have broad read/write access to core collections.
- * Borrowers (users) can create their own profile and loan applications,
- * but can only read/update their own data.
- *
- * Data Structure:
- * - /Borrowers/{borrowerId}: Stores public profiles for borrowers.
- * - /Loans/{loanId}: Stores loan details, linked to a borrower.
- * - /ExcelFiles/{excelId}: Stores metadata about admin-uploaded Excel files.
+ * Admin roles are determined by a hardcoded Admin UID.
+ * This simplifies the auth logic and removes the need for custom claims.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Start of Admin UID Configuration ---
+    // IMPORTANT: Replace this with the actual UID of your designated admin user.
+    // You can find a user's UID in the Firebase Authentication console.
+    // Or, the app will display the UID of a non-admin user who tries to access the /admin page.
+    let ADMIN_UID = "REPLACE_WITH_YOUR_ADMIN_UID"; 
+    // --- End of Admin UID Configuration ---
+    
     /**
      * Helper functions
      */
@@ -28,9 +28,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Admin status is now checked via a custom auth token claim.
+    // Admin status is now checked by comparing the requestor's UID to the hardcoded ADMIN_UID.
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && request.auth.uid == ADMIN_UID;
     }
     
     /**
@@ -60,9 +60,7 @@ service cloud.firestore {
       // A user can read a single loan document if they are the owner.
       allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
       
-      // THIS IS THE CRITICAL FIX:
       // A user can LIST loans only if they are querying for their own borrowerId.
-      // This prevents the "Missing or insufficient permissions" error on the dashboard.
       allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
     }
     
@@ -71,6 +69,14 @@ service cloud.firestore {
      */
     match /ExcelFiles/{excelId} {
       allow read, write: if isAdmin();
+    }
+
+    /**
+     * @description Publicly submitted loan applications. Admin-readable.
+     */
+    match /loanApplications/{applicationId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
     /**

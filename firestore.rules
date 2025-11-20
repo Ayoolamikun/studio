@@ -3,6 +3,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // --- Start of Admin UID Configuration ---
+    // IMPORTANT: Replace this with the actual UID of your designated admin user.
+    // You can find a user's UID in the Firebase Authentication console.
+    // Or, the app will display the UID of a non-admin user who tries to access the /admin page.
+    let ADMIN_UID = "REPLACE_WITH_YOUR_ADMIN_UID"; 
+    // --- End of Admin UID Configuration ---
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,32 +18,43 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Admin status is now checked by comparing the requestor's UID to the hardcoded ADMIN_UID.
+    function isAdmin() {
+      return isSignedIn() && request.auth.uid == ADMIN_UID;
+    }
+
     match /loanApplications/{applicationId} {
       // Allow anyone to create a loan application.
       allow create: if true;
       
-      // Only the owner can read their own application. No one else.
-      allow read, update, delete: if false; 
+      // Only an admin can read/update/delete applications.
+      allow read, update, delete: if isAdmin();
     }
 
     match /Borrowers/{borrowerId} {
       // Any signed-in user can create their own borrower profile
       allow create: if isOwner(borrowerId);
-      // Only owner can read or update their profile
-      allow read, update: if isOwner(borrowerId);
-      // No one can delete a borrower profile for now
-      allow delete: if false;
+      // Only owner or an admin can read or update their profile
+      allow read, update: if isOwner(borrowerId) || isAdmin();
+      // Only an admin can delete a borrower profile
+      allow delete: if isAdmin();
     }
 
     match /Loans/{loanId} {
+      // Admins can do anything to loans.
+      allow read, write: if isAdmin();
+      
       // Allow user to create a loan for themselves
       allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
       // Allow user to get their own loan document
       allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
-      // CRITICAL FIX: Allow user to LIST loans ONLY if they are querying for their own borrowerId
+      // Allow user to LIST loans ONLY if they are querying for their own borrowerId
       allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
-      // Disallow updates and deletes from clients for now
-      allow update, delete: if false;
+    }
+
+    match /ExcelFiles/{excelId} {
+        // Only admins can manage excel import records
+        allow read, write, delete: if isAdmin();
     }
   }
 }
