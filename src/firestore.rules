@@ -61,7 +61,6 @@ service cloud.firestore {
       allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
       
       // A user can LIST loans only if they are querying for their own borrowerId.
-      // This is the critical rule that was missing/incorrect.
       allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
     }
     
