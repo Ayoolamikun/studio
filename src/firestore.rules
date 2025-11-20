@@ -1,0 +1,83 @@
+
+/**
+ * @fileoverview Firestore Security Rules for Corporate Magnate Cooperative Society Ltd.
+ *
+ * This ruleset implements role-based and ownership-based access control.
+ * Admin roles are determined by a Firebase Auth custom claim (`request.auth.token.admin == true`).
+ * Admins have broad read/write access to core collections.
+ * Borrowers (users) can create their own profile and loan applications,
+ * but can only read/update their own data.
+ *
+ * Data Structure:
+ * - /Borrowers/{borrowerId}: Stores public profiles for borrowers.
+ * - /Loans/{loanId}: Stores loan details, linked to a borrower.
+ * - /ExcelFiles/{excelId}: Stores metadata about admin-uploaded Excel files.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Helper functions
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Admin status is now checked via a custom auth token claim.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+    
+    /**
+     * @description Borrower profiles.
+     * Allow anyone to create a profile (signup).
+     * Only the owner or an admin can read/update.
+     */
+    match /Borrowers/{borrowerId} {
+      allow create: if isSignedIn();
+      allow read, update: if isOwner(borrowerId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Loan records.
+     * Admins have full read/write access.
+     * Borrowers can create loans for themselves, read their own loans, 
+     * and list ONLY their own loans.
+     */
+    match /Loans/{loanId} {
+      // Admins can do anything.
+      allow read, write: if isAdmin();
+      
+      // Any signed-in user can create a loan for themselves.
+      allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
+      
+      // A user can read a single loan document if they are the owner.
+      allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
+      
+      // A user can LIST loans only if they are querying for their own borrowerId.
+      // This is the critical rule that was missing/incorrect.
+      allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
+    }
+    
+    /**
+     * @description Excel file metadata for batch imports. Admin-only access.
+     */
+    match /ExcelFiles/{excelId} {
+      allow read, write: if isAdmin();
+    }
+
+    /**
+     * @description Contact form submissions. Publicly writable, admin-readable.
+     */
+    match /contactFormSubmissions/{contactFormSubmissionId} {
+      allow create: if true;
+      allow read, write, delete: if isAdmin();
+    }
+  }
+}
