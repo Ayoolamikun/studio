@@ -68,7 +68,7 @@ export default function ApplicationForm() {
     <Card className="shadow-2xl">
       <CardContent className="p-6 md:p-8">
         <Form {...form}>
-          <form action={formAction} className="space-y-6">
+          <form action={formAction} className="space-y-6" suppressHydrationWarning>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -77,7 +77,7 @@ export default function ApplicationForm() {
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="John Doe" {...field} name="fullName" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
