@@ -1,82 +1,143 @@
-
 /**
- * @fileoverview Firestore Security Rules for Corporate Magnate Cooperative Society Ltd.
+ * @file firestore.rules
+ * @description Firestore Security Rules for a public application submission system.
  *
- * This ruleset implements role-based and ownership-based access control.
- * Admin roles are determined by a Firebase Auth custom claim (`request.auth.token.admin == true`).
- * Admins have broad read/write access to core collections.
- * Borrowers (users) can create their own profile and loan applications,
- * but can only read/update their own data.
+ * @version 1.0.0
  *
- * Data Structure:
- * - /Borrowers/{borrowerId}: Stores public profiles for borrowers.
- * - /Loans/{loanId}: Stores loan details, linked to a borrower.
- * - /ExcelFiles/{excelId}: Stores metadata about admin-uploaded Excel files.
+ * ## Core Philosophy
+ * This ruleset enforces a "write-once, read-never" security model for all client-side
+ * operations. The primary goal is to allow anyone, including anonymous users, to submit
+ * data through forms (e.g., loan applications, contact messages) while strictly
+ * prohibiting any client from reading, updating, or deleting that data. All submitted
+ * data is considered private and is intended to be processed exclusively by a secure
+ * backend or administrative panel with privileged access.
+ *
+ * ## Data Structure
+ * The data is organized into four distinct top-level collections:
+ * - /loanApplications
+ * - /investmentApplications
+ * - /membershipApplications
+ * - /contactMessages
+ *
+ * This flat, segregated structure ensures that different types of submissions are kept
+ * separate, allowing for clear and simple security rules without complex dependencies.
+ *
+ * ## Key Security Decisions
+ * - **Public Write Access:** The `create` operation is intentionally left open (`if true`)
+ *   for all collections. This allows public-facing web forms to submit data without
+ *   requiring a user to be fully signed in, supporting anonymous submissions.
+ * - **Strict Read/Modify Denial:** All read (`get`, `list`), update, and delete
+ *   permissions are explicitly denied (`if false`). This is the core of the security
+ *   model, protecting sensitive submitted information from being exposed to other users.
+ * - **No Data Validation:** In this prototyping stage, the rules do not validate the
+ *   shape or content of the data being written. The focus is solely on authorization
+ *   (i.e., who can perform an action), not on data integrity.
+ * - **Authorization Independence:** The rules for any given document do not depend on
+ *   the contents of any other document, which leads to simple, fast, and scalable
+ *   security enforcement.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
     /**
-     * Helper functions
+     * Checks if a user is authenticated (either signed-in or anonymous).
+     * While not used in the current ruleset, it's a standard utility.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
 
-    // Admin status is now checked via a custom auth token claim.
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
-    }
-    
-    /**
-     * @description Borrower profiles.
-     * Allow anyone to create a profile (signup).
-     * Only the owner or an admin can read/update.
-     */
-    match /Borrowers/{borrowerId} {
-      allow create: if isSignedIn();
-      allow read, update: if isOwner(borrowerId) || isAdmin();
-      allow delete: if isAdmin();
-    }
+    // ------------------------------------------------------------------------
+    // Collection: loanApplications
+    // ------------------------------------------------------------------------
 
     /**
-     * @description Loan records.
-     * Admins have full read/write access.
-     * Borrowers can create loans for themselves, read their own loans, 
-     * and list ONLY their own loans.
+     * @description Allows any user (including anonymous) to submit a loan application
+     *              but prevents anyone from reading, updating, or deleting existing ones.
+     * @path        /loanApplications/{loanApplicationId}
+     * @allow       Any user (anonymous or signed-in) can (create) a new document.
+     * @deny        Any user attempting to (get), (list), (update), or (delete) a document.
+     * @principle   Enforces a "write-once, read-never" policy for public submissions.
+     *              This protects sensitive applicant data from client-side access.
      */
-    match /Loans/{loanId} {
-      // Admins can do anything.
-      allow read, write: if isAdmin();
-      
-      // Any signed-in user can create a loan for themselves.
-      allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
-      
-      // A user can read a single loan document if they are the owner.
-      allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
-      
-      // A user can LIST loans only if they are querying for their own borrowerId.
-      allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
-    }
-    
-    /**
-     * @description Excel file metadata for batch imports. Admin-only access.
-     */
-    match /ExcelFiles/{excelId} {
-      allow read, write: if isAdmin();
-    }
-
-    /**
-     * @description Contact form submissions. Publicly writable, admin-readable.
-     */
-    match /contactFormSubmissions/{contactFormSubmissionId} {
+    match /loanApplications/{loanApplicationId} {
+      allow get: if false;
+      allow list: if false;
       allow create: if true;
-      allow read, write, delete: if isAdmin();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+
+    // ------------------------------------------------------------------------
+    // Collection: investmentApplications
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Allows any user (including anonymous) to submit an investment application
+     *              but prevents anyone from reading, updating, or deleting existing ones.
+     * @path        /investmentApplications/{investmentApplicationId}
+     * @allow       Any user (anonymous or signed-in) can (create) a new document.
+     * @deny        Any user attempting to (get), (list), (update), or (delete) a document.
+     * @principle   Enforces a "write-once, read-never" policy for public submissions.
+     *              This protects sensitive applicant data from client-side access.
+     */
+    match /investmentApplications/{investmentApplicationId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+
+    // ------------------------------------------------------------------------
+    // Collection: membershipApplications
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Allows any user (including anonymous) to submit a membership application
+     *              but prevents anyone from reading, updating, or deleting existing ones.
+     * @path        /membershipApplications/{membershipApplicationId}
+     * @allow       Any user (anonymous or signed-in) can (create) a new document.
+     * @deny        Any user attempting to (get), (list), (update), or (delete) a document.
+     * @principle   Enforces a "write-once, read-never" policy for public submissions.
+     *              This protects sensitive applicant data from client-side access.
+     */
+    match /membershipApplications/{membershipApplicationId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+
+    // ------------------------------------------------------------------------
+    // Collection: contactMessages
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Allows any user (including anonymous) to submit a contact message
+     *              but prevents anyone from reading, updating, or deleting them.
+     * @path        /contactMessages/{contactMessageId}
+     * @allow       Any user (anonymous or signed-in) can (create) a new document.
+     * @deny        Any user attempting to (get), (list), (update), or (delete) a document.
+     * @principle   Enforces a "write-once, read-never" policy for public submissions,
+     *              securing messages for backend-only review.
+     */
+    match /contactMessages/{contactMessageId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }
