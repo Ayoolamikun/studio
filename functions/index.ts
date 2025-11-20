@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Cloud Functions for the Corporate Magnate loan app.
  * This file contains the logic for processing uploaded Excel files to update
@@ -8,12 +9,29 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as xlsx from "xlsx";
 import axios from "axios";
-import { getInterestRate, calculateTotalRepayment } from "../src/lib/utils";
-
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
+
+// These functions need to be redeclared here because they are in the `src` of the main app, not accessible in `functions` directory.
+function getInterestRate(amount: number): number {
+  if (amount >= 10000 && amount <= 50000) {
+    return 0.15; // 15%
+  } else if (amount > 50000 && amount <= 150000) {
+    return 0.10; // 10%
+  } else if (amount > 150000) {
+    return 0.07; // 7%
+  }
+  return 0.20; 
+}
+
+function calculateTotalRepayment(principal: number): number {
+  const interestRate = getInterestRate(principal);
+  const total = principal + (principal * interestRate);
+  return total;
+}
+
 
 /**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.

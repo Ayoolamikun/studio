@@ -83,10 +83,10 @@ export default function LoginPage() {
 
 
   useEffect(() => {
+    // If the user is fully logged in (not a guest), handle redirection.
     if (!isUserLoading && user && !user.isAnonymous && firestore) {
-      handleUserCreation(user, user.displayName);
-
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
+      // Using .then() for promise handling as useEffect shouldn't be async
       import('firebase/firestore').then(({ getDoc }) => {
         getDoc(adminRoleRef).then(docSnap => {
           if (docSnap.exists()) {
@@ -97,6 +97,7 @@ export default function LoginPage() {
         });
       });
     }
+    // No redirection logic for anonymous users here. They should see the form.
   }, [user, isUserLoading, router, firestore]);
 
   async function onLogin(values: LoginValues) {
@@ -144,9 +145,7 @@ export default function LoginPage() {
   const handleOAuthSignIn = async (providerAction: (auth: any) => Promise<UserCredential>) => {
     try {
       const userCredential = await providerAction(auth);
-      if (userCredential.user) {
-        await handleUserCreation(userCredential.user);
-      }
+      // User creation is handled by the useEffect after state update
       toast({
         title: "Signing In...",
         description: "You will be redirected shortly.",

@@ -7,6 +7,7 @@ import { loanApplicationSchema } from "@/lib/schemas";
 import { contactSchema } from "@/lib/schemas";
 import { collection, doc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getInterestRate, calculateTotalRepayment } from "@/lib/utils";
 
 // This is a mock function to simulate sending an email.
 async function sendEmail(to: string, subject: string, body: string) {
@@ -69,13 +70,19 @@ export async function submitApplication(prevState: any, formData: FormData) {
     setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
     
     // 3. Create Loan record
+    const amountRequested = parseFloat(applicationData.loanAmount);
+    const interestRate = getInterestRate(amountRequested);
+    const totalRepayment = calculateTotalRepayment(amountRequested);
+
     const loanData = {
       borrowerId: borrowerId, // Link to the borrower using BVN
-      amountRequested: parseFloat(applicationData.loanAmount),
+      amountRequested: amountRequested,
       duration: parseInt(applicationData.loanDuration, 10),
       status: "pending",
       amountPaid: 0,
-      balance: parseFloat(applicationData.loanAmount), // Initial balance
+      balance: totalRepayment, // Balance should be the full amount to be repaid
+      interestRate: interestRate,
+      totalRepayment: totalRepayment,
       createdAt: new Date().toISOString(),
       excelImported: false,
     };
@@ -160,12 +167,16 @@ export async function uploadExcelFile(formData: FormData): Promise<{ success: bo
 
   try {
     const storageRef = ref(storage, `excel-imports/${Date.now()}-${file.name}`);
-    await uploadBytes(storageRef, file);
-    const fileUrl = await getDownloadURL(storageRef);
+    const uploadResult = await uploadBytes(storageRef, file);
+    const fileUrl = await getDownloadURL(uploadResult.ref);
 
     const excelFilesCol = collection(firestore, 'ExcelFiles');
+    // Note: getDownloadURL gives a long-lived HTTPS URL, not the gs:// path.
+    // The cloud function expects the gs:// path. Let's save the gs:// path.
+    const gsPath = `gs://${uploadResult.ref.bucket}/${uploadResult.ref.fullPath}`;
+    
     await addDocumentNonBlocking(excelFilesCol, {
-      fileUrl,
+      fileUrl: gsPath, // Store the gs:// path for the cloud function
       uploadedAt: new Date().toISOString(),
       processed: false,
     });
