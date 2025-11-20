@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -20,27 +21,27 @@ export default function AdminPage() {
   const { data: adminRole, isLoading: isAdminRoleLoading } = useDoc(adminRoleRef);
 
   useEffect(() => {
-    // If not loading and no user, redirect to login
+    // If auth is done and there's no user, redirect to login.
     if (!isUserLoading && !user) {
       router.push('/login');
       return;
     }
     
-    // After user is loaded, perform role checks
-    if (!isUserLoading && user && firestore) {
+    // Once we have a user and Firestore is available...
+    if (!isUserLoading && user && firestore && adminRoleRef) {
       const checkAndVerifyAdmin = async () => {
           const adminDoc = await getDoc(adminRoleRef!);
           
-          // If the document doesn't exist AND the user is the designated admin, create the role.
-          // This is a failsafe for the first time the admin logs in.
+          // If the role document doesn't exist AND the user is the designated admin,
+          // create the role document for them. This is a critical failsafe.
           if (!adminDoc.exists() && user.email === 'corporatemagnate@outlook.com') {
               console.log('Admin role not found for designated admin. Creating it now...');
-              await setDocumentNonBlocking(adminRoleRef!, { isAdmin: true });
-              // The useDoc hook will re-render the component with the new role data.
-              return;
+              // The `useDoc` hook will automatically update and re-render once this write completes.
+              await setDocumentNonBlocking(adminRoleRef!, { isAdmin: true }, {merge: false});
+              return; // End this check; the component will re-render with the new role.
           }
 
-          // If the role is loaded and they are not an admin, redirect.
+          // If roles have loaded and the user does not have the admin role, redirect them.
           if (!isAdminRoleLoading && !adminRole) {
               console.log('User is not an admin. Redirecting to dashboard.');
               router.push('/dashboard');
@@ -53,10 +54,11 @@ export default function AdminPage() {
   }, [user, adminRole, isUserLoading, isAdminRoleLoading, router, firestore, adminRoleRef]);
 
   // Show a loading spinner while checking auth and admin status
-  if (isUserLoading || isAdminRoleLoading) {
+  if (isUserLoading || isAdminRoleLoading || !adminRole) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Spinner size="large" />
+        <p className="ml-4">Verifying permissions...</p>
       </div>
     );
   }
@@ -66,11 +68,10 @@ export default function AdminPage() {
     return <AdminDashboard user={user} />;
   }
 
-  // Fallback, should be covered by the redirect or loading state
+  // This is a fallback state, typically shown briefly during redirects.
   return (
       <div className="flex h-screen items-center justify-center">
         <Spinner size="large" />
-        <p className="ml-4">Verifying permissions...</p>
       </div>
   );
 }

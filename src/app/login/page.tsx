@@ -68,7 +68,7 @@ export default function LoginPage() {
   });
   
   useEffect(() => {
-    // If the user is logged in (and not a guest), redirect them.
+    // If the user is logged in (and not a guest), check their role and redirect.
     if (!isUserLoading && user && !user.isAnonymous && firestore) {
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
       getDoc(adminRoleRef).then(docSnap => {
