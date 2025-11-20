@@ -34,6 +34,7 @@ import Logo from '@/components/Logo';
 import { updateProfile, signInWithEmailAndPassword, UserCredential } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/Spinner';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -194,26 +195,41 @@ export default function LoginPage() {
             {isSigningUp ? (
                  <Form {...signupForm}>
                     <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
-                      <FormField control={signupForm.control} name="fullName" render={({ field }) => (
+                      <FormField
+                        control={signupForm.control}
+                        name="fullName"
+                        render={({ field }) => (
                           <FormItem>
                             <FormLabel>Full Name</FormLabel>
-                            <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                            <FormControl>
+                              <Input placeholder="John Doe" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField control={signupForm.control} name="email" render={({ field }) => (
+                      <FormField
+                        control={signupForm.control}
+                        name="email"
+                        render={({ field }) => (
                           <FormItem>
                             <FormLabel>Email</FormLabel>
-                            <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
+                            <FormControl>
+                              <Input placeholder="you@example.com" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField control={signupForm.control} name="password" render={({ field }) => (
+                      <FormField
+                        control={signupForm.control}
+                        name="password"
+                        render={({ field }) => (
                           <FormItem>
                             <FormLabel>Password</FormLabel>
-                            <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
+                            <FormControl>
+                              <Input type="password" placeholder="••••••••" {...field} />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -268,3 +284,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
