@@ -31,7 +31,8 @@ export default function AdminPage() {
 
     const checkAdminClaim = async () => {
       setClaimStatus('checking');
-      const idTokenResult = await user.getIdTokenResult(true); // Force refresh claims
+      // Force refresh the token to get the latest claims from the server.
+      const idTokenResult = await user.getIdTokenResult(true); 
       
       if (idTokenResult.claims.admin === true) {
         setClaimStatus('is-admin');
@@ -47,17 +48,19 @@ export default function AdminPage() {
         try {
             const functions = getFunctions(getAuth().app);
             const grantAdminRole = httpsCallable(functions, 'grantAdminRole');
-            const result = await grantAdminRole({ uid: user.uid });
+            await grantAdminRole({ uid: user.uid });
             
             toast({
                 title: "Success!",
-                description: "Admin privileges granted. Refreshing page.",
+                description: "Admin privileges granted. Refreshing page to apply changes.",
             });
             
-            // The claims have been set, now we need to refresh the token again to see them.
+            // CRITICAL: The claims have been set on the backend.
+            // We MUST force a refresh of the token on the client to get them.
             await user.getIdTokenResult(true);
             
-            // A page reload is the most reliable way to ensure all components re-evaluate with new claims.
+            // A full page reload is the most reliable way to ensure all components 
+            // re-evaluate their state with the new authentication token and claims.
             window.location.reload();
 
         } catch (error: any) {
@@ -65,9 +68,10 @@ export default function AdminPage() {
             toast({
                 variant: "destructive",
                 title: "Permission Denied",
-                description: error.message || "You do not have the necessary permissions to access this page.",
+                description: error.message || "You do not have the necessary permissions to access this page. You will be redirected.",
             });
             setClaimStatus('not-admin');
+            // Redirect away if the user is not authorized and the grant fails.
             router.push('/dashboard');
         }
       }
@@ -97,7 +101,7 @@ export default function AdminPage() {
   // This is a fallback state, typically shown briefly during redirects.
   return (
       <div className="flex h-screen items-center justify-center">
-        <Spinner size="large" />
+        <p>Redirecting...</p>
       </div>
   );
 }
