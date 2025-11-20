@@ -2,16 +2,15 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import { Spinner } from '@/components/Spinner';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { LoanDetails } from '@/components/dashboard/LoanDetails';
 import { LoanHistory } from '@/components/dashboard/LoanHistory';
 import { Button } from '@/components/ui/button';
-import { signOut } from 'firebase/auth';
-import { useAuth } from '@/firebase';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -19,45 +18,46 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
-  // This is the critical fix. The query is ONLY constructed when:
-  // 1. Auth is not loading (`!isUserLoading`)
-  // 2. We have a user object (`!!user`)
-  // 3. We have a firestore instance (`!!firestore`)
-  // This prevents the query from being created prematurely with a null user.uid,
-  // which would result in a permissions error.
-  const loansQuery = useMemoFirebase(
-    () => {
-      if (isUserLoading || !user || !firestore) {
-        return null; // Return null if dependencies are not ready
-      }
-      // This query is now guaranteed to have a valid user.uid
-      return query(collection(firestore, 'Loans'), where('borrowerId', '==', user.uid), orderBy('createdAt', 'desc'));
-    },
-    [firestore, user, isUserLoading] // `isUserLoading` is a key dependency
-  );
-  
-  const { data: loans, isLoading: loansLoading } = useCollection(loansQuery);
-
+  // Redirect to login if auth is done and there's no user.
   useEffect(() => {
-    // If auth is done loading and there's no user, redirect to login.
     if (!isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
 
-  // Combined loading state for auth and data fetching.
-  const isLoading = isUserLoading || loansLoading;
+  // This is the critical fix: The query is memoized and will only be constructed
+  // when all dependencies, including the user object, are available.
+  // The 'isUserLoading' dependency prevents the query from running prematurely.
+  const loansQuery = useMemoFirebase(
+    () => {
+      // Return null if dependencies are not ready, preventing an invalid query.
+      if (isUserLoading || !user || !firestore) {
+        return null;
+      }
+      // This query is now guaranteed to have a valid user.uid.
+      return query(
+        collection(firestore, 'Loans'),
+        where('borrowerId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
+    },
+    [firestore, user, isUserLoading] // Key dependencies to recreate the query.
+  );
+  
+  // The useCollection hook will wait until the loansQuery is not null.
+  const { data: loans, isLoading: loansLoading } = useCollection(loansQuery);
 
-  // This check prevents a flash of incorrect content while loading or redirecting.
-  // It ensures we don't try to render anything until we have a user and their data.
-  if (isLoading || !user) {
+  // Show a loading spinner until both authentication and data fetching are complete.
+  // Also ensures we don't render anything until we are sure we have a user.
+  if (isUserLoading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-background">
         <Spinner size="large" />
       </div>
     );
   }
 
+  // Once authenticated, we can render the main dashboard structure.
   const activeLoan = loans?.find(loan => loan.status === 'active' || loan.status === 'pending' || loan.status === 'overdue');
   const pastLoans = loans?.filter(loan => loan.status === 'paid' || loan.status === 'rejected') || [];
 
@@ -84,7 +84,7 @@ export default function DashboardPage() {
                 <h2 className="text-2xl font-semibold text-primary">No Active Loans</h2>
                 <p className="text-muted-foreground mt-2">You do not have any pending or active loans.</p>
                 <Button asChild className="mt-6">
-                    <a href="/login">Apply for a new loan</a>
+                    <a href="/apply">Apply for a new loan</a>
                 </Button>
             </div>
         )}
