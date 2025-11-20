@@ -70,6 +70,7 @@ export default function LoginPage() {
   const handleUserCreation = async (firebaseUser: User, name?: string | null) => {
     if (!firestore || firebaseUser.isAnonymous) return;
     
+    // Create the main borrower profile
     const borrowerRef = doc(firestore, "Borrowers", firebaseUser.uid);
     const displayName = name || firebaseUser.displayName || 'New User';
 
@@ -79,12 +80,20 @@ export default function LoginPage() {
         createdAt: new Date().toISOString(),
     };
     setDocumentNonBlocking(borrowerRef, borrowerData, { merge: true });
+
+    // ** ADMIN ROLE ASSIGNMENT LOGIC **
+    // If the new user's email is the designated admin email, create an admin role document.
+    if (firebaseUser.email === 'corporatemagnate@outlook.com') {
+      const adminRoleRef = doc(firestore, "roles_admin", firebaseUser.uid);
+      setDocumentNonBlocking(adminRoleRef, { isAdmin: true });
+      console.log(`Admin role assigned to ${firebaseUser.email}`);
+    }
   };
 
 
   useEffect(() => {
-    // If the user is fully logged in (not a guest), handle redirection.
-    if (!isUserLoading && user && !user.isAnonymous && firestore) {
+    // If the user is fully logged in, handle redirection based on role.
+    if (!isUserLoading && user && firestore) {
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
       // Using .then() for promise handling as useEffect shouldn't be async
       import('firebase/firestore').then(({ getDoc }) => {
@@ -92,13 +101,16 @@ export default function LoginPage() {
           if (docSnap.exists()) {
             router.push('/admin');
           } else {
-            router.push('/dashboard');
+            // Only redirect non-admins. Let guests stay on the login page.
+            if (!user.isAnonymous) {
+              router.push('/dashboard');
+            }
           }
         });
       });
     }
-    // No redirection logic for anonymous users here. They should see the form.
   }, [user, isUserLoading, router, firestore]);
+
 
   async function onLogin(values: LoginValues) {
     try {
@@ -126,6 +138,7 @@ export default function LoginPage() {
         if (userCredential && userCredential.user) {
             const firebaseUser = userCredential.user;
             await updateProfile(firebaseUser, { displayName: values.fullName });
+            // This now handles admin role creation as well.
             await handleUserCreation(firebaseUser, values.fullName);
             
             toast({
@@ -145,7 +158,11 @@ export default function LoginPage() {
   const handleOAuthSignIn = async (providerAction: (auth: any) => Promise<UserCredential>) => {
     try {
       const userCredential = await providerAction(auth);
-      // User creation is handled by the useEffect after state update
+      // User creation (including admin check) is handled by onAuthStateChanged in the provider now.
+      // But we can trigger it here for good measure, especially for first-time sign-ins.
+      if (userCredential && userCredential.user) {
+        await handleUserCreation(userCredential.user);
+      }
       toast({
         title: "Signing In...",
         description: "You will be redirected shortly.",
@@ -162,6 +179,8 @@ export default function LoginPage() {
   const handleAnonymousSignIn = async () => {
     try {
       await initiateAnonymousSignIn(auth);
+      // Let the useEffect handle redirection if necessary.
+      // Simply allow the user to continue on the site.
       router.push('/calculators');
       toast({
         title: "Entering as Guest...",
@@ -176,7 +195,7 @@ export default function LoginPage() {
     }
   };
   
-  if (isUserLoading || (user && !user.isAnonymous)) {
+  if (isUserLoading) {
     return <div className="h-screen w-screen bg-background flex items-center justify-center"><Spinner size="large" /></div>;
   }
 
