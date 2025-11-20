@@ -43,6 +43,7 @@ export function AdminDashboard({ user, claimStatus }: { user: User, claimStatus:
   const auth = useAuth();
   
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
     // Redirect handled by auth listener in main app layout
   };
