@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import Logo from './Logo';
 
@@ -5,6 +6,7 @@ const footerLinks = [
   { name: 'Home', href: '/' },
   { name: 'About', href: '/#about' },
   { name: 'Loans', href: '/#loans' },
+  { name: 'Invest', href: '/invest' },
   { name: 'Contact', href: '/#contact' },
   { name: 'Login', href: '/login' },
 ];
@@ -37,10 +39,10 @@ const Footer = () => {
               <div>
                 <h3 className="font-headline font-semibold text-primary">Services</h3>
                 <ul className="mt-4 space-y-2">
-                  <li><Link href="#loans" className="text-sm text-muted-foreground hover:text-primary">Personal Loans</Link></li>
-                  <li><Link href="#loans" className="text-sm text-muted-foreground hover:text-primary">Civil Servant Loans</Link></li>
-                  <li><Link href="#loans" className="text-sm text-muted-foreground hover:text-primary">SME Loans</Link></li>
-                  <li><Link href="#investments" className="text-sm text-muted-foreground hover:text-primary">Investment Plans</Link></li>
+                  <li><Link href="/#loans" className="text-sm text-muted-foreground hover:text-primary">Personal Loans</Link></li>
+                  <li><Link href="/#loans" className="text-sm text-muted-foreground hover:text-primary">Civil Servant Loans</Link></li>
+                  <li><Link href="/#loans" className="text-sm text-muted-foreground hover:text-primary">SME Loans</Link></li>
+                  <li><Link href="/invest" className="text-sm text-muted-foreground hover:text-primary">Investment Plans</Link></li>
                 </ul>
               </div>
               <div>

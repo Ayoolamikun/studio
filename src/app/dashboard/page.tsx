@@ -30,9 +30,6 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  // This is the critical fix. The queries are memoized and will only be created
-  // when firestore and the user's ID are available. This prevents the
-  // permission error caused by running a query without an authenticated user.
   const activeLoanQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
@@ -77,7 +74,7 @@ export default function DashboardPage() {
       <Header />
       <main className="flex-1 container py-8 md:py-12">
         <div className="space-y-8">
-            <div className="text-center">
+            <div>
                 <h1 className="font-headline text-3xl font-bold tracking-tighter sm:text-4xl text-primary">
                   Welcome, {user.displayName || 'Borrower'}
                 </h1>

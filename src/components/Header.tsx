@@ -13,6 +13,7 @@ const navLinks = [
   { name: 'Home', href: '/' },
   { name: 'About Us', href: '/#about' },
   { name: 'Loan Services', href: '/#loans' },
+  { name: 'Invest', href: '/invest' },
   { name: 'Contact Us', href: '/#contact' },
 ];
 

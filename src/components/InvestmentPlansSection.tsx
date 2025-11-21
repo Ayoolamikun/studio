@@ -32,8 +32,7 @@ const investmentTiers = [
 
 const InvestmentPlansSection = ({ className }: { className?: string }) => {
   return (
-    <section id="investments" className={cn("bg-secondary/50 py-20", className)}>
-      <div className="container">
+    <section id="investments" className={cn("container", className)}>
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-headline text-3xl font-bold tracking-tighter sm:text-4xl text-primary">
             Grow Your Wealth with Confidence
@@ -68,7 +67,6 @@ const InvestmentPlansSection = ({ className }: { className?: string }) => {
             </Card>
           ))}
         </div>
-      </div>
     </section>
   );
 };

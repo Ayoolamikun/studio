@@ -32,7 +32,7 @@ const HeroSection = () => {
             <Link href="/apply">Apply for Loan</Link>
           </Button>
           <Button asChild variant="secondary" size="lg" className="rounded-full font-bold shadow-lg transition-transform hover:scale-105">
-            <Link href="#investments">Start Investing</Link>
+            <Link href="/invest">Start Investing</Link>
           </Button>
         </div>
       </div>
