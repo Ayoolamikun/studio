@@ -51,16 +51,14 @@ service cloud.firestore {
      */
     match /Loans/{loanId} {
       // Admins can do anything.
-      allow read, write: if isAdmin();
+      allow write: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
       
       // Any signed-in user can create a loan for themselves.
       allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
       
-      // A user can read a single loan document if they are the owner.
-      allow get: if isSignedIn() && resource.data.borrowerId == request.auth.uid;
-      
-      // A user can LIST loans only if they are querying for their own borrowerId.
-      allow list: if isSignedIn() && request.query.where.borrowerId == request.auth.uid;
+      // A user can LIST loans only if they are querying for their own borrowerId OR if the user is an admin.
+      allow list: if (isSignedIn() && request.query.where.borrowerId == request.auth.uid) || isAdmin();
     }
     
     /**
