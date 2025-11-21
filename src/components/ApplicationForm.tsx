@@ -161,15 +161,15 @@ export default function ApplicationForm() {
             <FormField
               control={form.control}
               name="amountRequested"
-              render={({ field: { onChange, ...rest } }) => (
+              render={({ field }) => (
                 <FormItem>
                   <FormLabel>Amount Requested (₦)</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
                       placeholder="e.g., 50000" 
-                      {...rest}
-                      onChange={(e) => onChange(parseFloat(e.target.value) || 0)} 
+                      {...field}
+                      onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />
