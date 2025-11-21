@@ -75,9 +75,9 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
       <Header />
-      <main className="flex-1 container py-8 md:py-12 space-y-12">
-        <div>
-            <div className="flex justify-between items-center mb-8">
+      <main className="flex-1 container py-8 md:py-12">
+        <div className="space-y-8">
+            <div className="text-center">
                 <h1 className="font-headline text-3xl font-bold tracking-tighter sm:text-4xl text-primary">
                   Welcome, {user.displayName || 'Borrower'}
                 </h1>
