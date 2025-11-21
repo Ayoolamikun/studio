@@ -57,7 +57,6 @@ export default function ApplicationForm() {
       preferredContactMethod: "Email",
       uploadedDocumentUrl: undefined,
     },
-    // Use client-side validation to provide immediate feedback
     mode: "onChange",
   });
 
@@ -187,7 +186,7 @@ export default function ApplicationForm() {
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your employment type" />
-                      </Trigger>
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="Civil Servant">Civil Servant</SelectItem>
