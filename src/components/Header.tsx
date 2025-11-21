@@ -37,9 +37,6 @@ export default function Header() {
               {link.name}
             </NavLink>
           ))}
-          {!isUserLoading && user && (
-             <NavLink href="/dashboard">Dashboard</NavLink>
-          )}
         </nav>
 
         <div className="flex items-center gap-4">
@@ -76,7 +73,7 @@ export default function Header() {
                     </NavLink>
                   ))}
                   {!isUserLoading && user && (
-                    <NavLink href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>Dashboard</NavLink>
+                    <NavLink href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>My Dashboard</NavLink>
                   )}
                   {!isUserLoading && !user && (
                     <Button asChild size="lg" className="w-full mt-4 rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
