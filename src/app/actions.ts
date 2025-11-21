@@ -1,11 +1,9 @@
 
 "use server";
 
-import { initializeFirebase } from "@/firebase/index";
-import { addDoc, collection } from "firebase/firestore";
+import { initializeServerApp } from "@/firebase/server-init";
+import { addDoc, collection, getFirestore } from "firebase/firestore";
 import { loanApplicationSchema } from "@/lib/schemas";
-import { errorEmitter } from "@/firebase/error-emitter";
-import { FirestorePermissionError } from "@/firebase/errors";
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 type FormState = {
@@ -14,7 +12,8 @@ type FormState = {
 }
 
 export async function submitApplication(prevState: FormState, formData: FormData): Promise<FormState> {
-  const { firestore, firebaseApp } = initializeFirebase();
+  const { app } = await initializeServerApp();
+  const firestore = getFirestore(app);
   const rawData = Object.fromEntries(formData.entries());
   
   const validatedFields = loanApplicationSchema.safeParse(rawData);
@@ -33,7 +32,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
   try {
     // 1. Handle file upload if a file exists
     if (file && file.size > 0) {
-        const storage = getStorage(firebaseApp);
+        const storage = getStorage(app);
         // Use a more secure and unique file name
         const storageRef = ref(storage, `loan-documents/${Date.now()}-${file.name}`);
         await uploadBytes(storageRef, file);
@@ -47,25 +46,9 @@ export async function submitApplication(prevState: FormState, formData: FormData
       uploadedDocumentUrl: fileUrl, // Save the download URL or the "No file" string
     };
     
-    // We don't need to delete any properties as the schema validation already produced a clean object
-
     // 3. Save the document to Firestore
     const collectionRef = collection(firestore, "loanApplications");
-    
-    // Non-blocking write to Firestore
-    addDoc(collectionRef, docToSave)
-        .catch(error => {
-            console.error("Firestore Error:", error);
-            // This is non-blocking, so we emit the error for the listener to catch
-            errorEmitter.emit(
-                'permission-error',
-                new FirestorePermissionError({
-                    path: collectionRef.path,
-                    operation: 'create',
-                    requestResourceData: docToSave,
-                })
-            )
-        });
+    await addDoc(collectionRef, docToSave);
 
     return { success: true, message: "Application submitted successfully! Our team will contact you shortly." };
 
@@ -78,8 +61,9 @@ export async function submitApplication(prevState: FormState, formData: FormData
 
 
 export async function uploadExcelFile(formData: FormData) {
-    const { firebaseApp } = initializeFirebase();
-    const storage = getStorage(firebaseApp);
+    const { app } = await initializeServerApp();
+    const storage = getStorage(app);
+    const firestore = getFirestore(app);
     const file = formData.get('excelFile') as File;
 
     if (!file || file.size === 0) {
@@ -92,7 +76,6 @@ export async function uploadExcelFile(formData: FormData) {
         
         // The cloud function will be triggered by this upload.
         // We'll also create a record in Firestore to track this upload.
-        const { firestore } = initializeFirebase();
         const fileRecord = {
             fileName: file.name,
             fileUrl: `gs://${uploadResult.metadata.bucket}/${uploadResult.metadata.fullPath}`, // GCS URI for the function
