@@ -57,6 +57,8 @@ export default function ApplicationForm() {
       preferredContactMethod: "Email",
       uploadedDocumentUrl: undefined,
     },
+    // Use client-side validation to provide immediate feedback
+    mode: "onChange",
   });
 
   useEffect(() => {
@@ -163,7 +165,7 @@ export default function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Amount Requested (₦)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 50000" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                    <Input type="number" placeholder="e.g., 50000" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

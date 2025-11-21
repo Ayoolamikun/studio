@@ -7,15 +7,7 @@ export const loanApplicationSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   phoneNumber: z.string().min(10, { message: "Please enter a valid phone number." }),
   typeOfService: z.enum(["Loan", "Investment", "Membership"]),
-  // Ensure amount is treated as a number for validation but comes from a string input
-  amountRequested: z.preprocess(
-    (val) => (typeof val === "string" ? parseFloat(val) : val),
-    z
-      .number({
-        invalid_type_error: "Please enter a valid amount.",
-      })
-      .positive({ message: "Amount must be positive." })
-  ),
+  amountRequested: z.number({ invalid_type_error: "Please enter a valid amount." }).positive({ message: "Amount requested must be positive." }),
   employmentType: z.enum(["Civil Servant", "SME", "Individual"]),
   // For the client-side, this will be a FileList object
   uploadedDocumentUrl: z.any().optional(),

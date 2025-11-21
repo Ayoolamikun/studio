@@ -14,7 +14,19 @@ type FormState = {
 export async function submitApplication(prevState: FormState, formData: FormData): Promise<FormState> {
   const { app } = await initializeServerApp();
   const firestore = getFirestore(app);
-  const rawData = Object.fromEntries(formData.entries());
+  
+  // Manually construct the object and parse the number
+  const rawData = {
+    fullName: formData.get('fullName'),
+    email: formData.get('email'),
+    phoneNumber: formData.get('phoneNumber'),
+    typeOfService: formData.get('typeOfService'),
+    employmentType: formData.get('employmentType'),
+    preferredContactMethod: formData.get('preferredContactMethod'),
+    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'),
+    // Explicitly parse amountRequested
+    amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
+  };
   
   const validatedFields = loanApplicationSchema.safeParse(rawData);
 
