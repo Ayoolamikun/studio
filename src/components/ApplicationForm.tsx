@@ -202,14 +202,12 @@ export default function ApplicationForm() {
             <FormField
               control={form.control}
               name="uploadedDocumentUrl"
-              render={({ field }) => {
-                // We use form.register to connect the file input to react-hook-form
-                const { ref, ...rest } = form.register("uploadedDocumentUrl");
+              render={() => {
                 return (
                   <FormItem>
                     <FormLabel>Upload Document (Payslip, ID, etc.)</FormLabel>
                     <FormControl>
-                      <Input type="file" {...rest} />
+                      <Input type="file" {...form.register("uploadedDocumentUrl")} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
