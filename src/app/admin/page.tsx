@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 // The admin UID will be hardcoded in your firestore.rules file.
-// Replace this with the actual UID of your admin user.
-const ADMIN_UID = "REPLACE_WITH_YOUR_ADMIN_UID";
+// This UID now grants admin access.
+const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function AdminPage() {
   }, [user, isUserLoading, router]);
 
   // Show a loading spinner while checking auth state.
-  if (isUserLoading || (!isAuthorized && user?.uid !== ADMIN_UID)) {
+  if (isUserLoading || (user && !isAuthorized)) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <Spinner size="large" />
@@ -51,7 +51,7 @@ export default function AdminPage() {
                     <CardDescription>You are not authorized to view this page.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm">To gain admin access, please provide the following User ID to be added to the security rules:</p>
+                    <p className="text-sm">To gain admin access, the admin UID in the security rules needs to be updated. Your User ID is:</p>
                     <div className="mt-4 bg-secondary p-3 rounded-md">
                         <code className="font-mono text-base text-primary font-bold">{user.uid}</code>
                     </div>
@@ -64,5 +64,10 @@ export default function AdminPage() {
   }
 
   // If the user is the authorized admin, show the dashboard.
-  return <AdminDashboard user={user} claimStatus={'is-admin'} />;
+  if (isAuthorized && user) {
+    return <AdminDashboard user={user} />;
+  }
+
+  // Fallback, though the above logic should cover all cases.
+  return null;
 }

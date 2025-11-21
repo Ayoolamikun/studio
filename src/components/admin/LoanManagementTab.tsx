@@ -33,7 +33,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { type ClaimStatus } from '@/app/admin/page';
 
 // From backend.json
 type Loan = {
@@ -57,19 +56,19 @@ type Borrower = {
 
 type CombinedLoanData = WithId<Loan> & { borrower?: WithId<Borrower> };
 
-export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus }) {
+export function LoanManagementTab() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Only execute queries if the user is a confirmed admin.
+  // Queries will only run if firestore is available.
   const loansQuery = useMemoFirebase(
-    () => (firestore && claimStatus === 'is-admin') ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
-    [firestore, claimStatus]
+    () => firestore ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
+    [firestore]
   );
   const borrowersQuery = useMemoFirebase(
-    () => (firestore && claimStatus === 'is-admin') ? collection(firestore, 'Borrowers') : null,
-    [firestore, claimStatus]
+    () => firestore ? collection(firestore, 'Borrowers') : null,
+    [firestore]
   );
   
   const { data: loans, isLoading: loansLoading } = useCollection<Loan>(loansQuery);
@@ -124,7 +123,7 @@ export function LoanManagementTab({ claimStatus }: { claimStatus: ClaimStatus })
     }
   }
   
-  const isLoading = loansLoading || borrowersLoading || claimStatus !== 'is-admin';
+  const isLoading = loansLoading || borrowersLoading;
 
   return (
     <Card>
