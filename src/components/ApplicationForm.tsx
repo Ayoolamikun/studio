@@ -161,11 +161,16 @@ export default function ApplicationForm() {
             <FormField
               control={form.control}
               name="amountRequested"
-              render={({ field }) => (
+              render={({ field: { onChange, ...rest } }) => (
                 <FormItem>
                   <FormLabel>Amount Requested (₦)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 50000" {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} />
+                    <Input 
+                      type="number" 
+                      placeholder="e.g., 50000" 
+                      {...rest}
+                      onChange={(e) => onChange(parseFloat(e.target.value) || 0)} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -182,7 +187,7 @@ export default function ApplicationForm() {
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your employment type" />
-                      </SelectTrigger>
+                      </Trigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="Civil Servant">Civil Servant</SelectItem>

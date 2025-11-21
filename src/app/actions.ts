@@ -15,7 +15,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
   const { app } = await initializeServerApp();
   const firestore = getFirestore(app);
   
-  // Manually construct the object and parse the number
+  // Manually construct the object and parse the number correctly.
   const rawData = {
     fullName: formData.get('fullName'),
     email: formData.get('email'),
@@ -24,7 +24,8 @@ export async function submitApplication(prevState: FormState, formData: FormData
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
     uploadedDocumentUrl: formData.get('uploadedDocumentUrl'),
-    // Explicitly parse amountRequested
+    // Explicitly parse amountRequested. It comes as a string.
+    // parseFloat will return NaN for an empty string, which the `|| 0` handles.
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
   };
   
