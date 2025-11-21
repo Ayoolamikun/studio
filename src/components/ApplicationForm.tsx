@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loanApplicationSchema, LoanApplicationValues } from "@/lib/schemas";
@@ -41,7 +41,10 @@ function SubmitButton() {
 
 export default function ApplicationForm() {
   const { toast } = useToast();
-  const [state, formAction] = useActionState(submitApplication, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  
+  // The useActionState hook now manages form state based on the action's return value.
+  const [state, formAction] = useActionState(submitApplication, { success: false, message: "" });
 
   const form = useForm<LoanApplicationValues>({
     resolver: zodResolver(loanApplicationSchema),
@@ -49,26 +52,23 @@ export default function ApplicationForm() {
       fullName: "",
       email: "",
       phoneNumber: "",
-      amountRequested: "",
+      amountRequested: 0,
       employmentType: "Civil Servant",
       typeOfService: "Loan",
       preferredContactMethod: "Email",
-      uploadedDocumentUrl: undefined, // Initialize file input
+      uploadedDocumentUrl: undefined,
     },
   });
 
-  // Since file inputs can't be controlled by setting `value` directly in the same way,
-  // we need to adapt how react-hook-form handles it. We'll remove the `value` from the field props.
-  const fileRef = form.register("uploadedDocumentUrl");
-
   useEffect(() => {
-    if (state?.success) {
+    if (state.success) {
       toast({
         title: "Success!",
         description: state.message,
       });
       form.reset();
-    } else if (state?.message && !state.success) {
+      formRef.current?.reset();
+    } else if (state.message) {
       toast({
         title: "Error",
         description: state.message,
@@ -76,12 +76,33 @@ export default function ApplicationForm() {
       });
     }
   }, [state, toast, form]);
+  
+  // This function will now be called by react-hook-form's handleSubmit
+  const onFormSubmit = (data: LoanApplicationValues) => {
+    const formData = new FormData(formRef.current!);
+    
+    // Annoying but necessary: react-hook-form gives us a FileList, but FormData needs a single File.
+    const fileList = data.uploadedDocumentUrl as FileList | undefined;
+    if(fileList && fileList.length > 0) {
+      formData.set('uploadedDocumentUrl', fileList[0]);
+    } else {
+       formData.delete('uploadedDocumentUrl');
+    }
+
+    formAction(formData);
+  };
+
 
   return (
     <Card className="shadow-2xl">
       <CardContent className="p-6 md:p-8">
         <Form {...form}>
-          <form action={formAction} className="space-y-6">
+          <form
+            ref={formRef}
+            onSubmit={form.handleSubmit(onFormSubmit)}
+            className="space-y-6"
+            noValidate
+          >
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -155,7 +176,7 @@ export default function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Amount Requested (₦)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 50000" {...field} />
+                    <Input type="number" placeholder="e.g., 50000" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -189,13 +210,11 @@ export default function ApplicationForm() {
               control={form.control}
               name="uploadedDocumentUrl"
               render={({ field }) => {
-                // We remove the 'value' prop for file inputs.
-                const { value, ...rest } = field;
                 return (
                   <FormItem>
                     <FormLabel>Upload Document (Payslip, ID, etc.)</FormLabel>
                     <FormControl>
-                      <Input type="file" {...fileRef} {...rest} />
+                      <Input type="file" {...form.register("uploadedDocumentUrl")} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

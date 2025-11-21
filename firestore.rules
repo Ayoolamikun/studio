@@ -56,5 +56,12 @@ service cloud.firestore {
         // Only admins can manage excel import records
         allow read, write, delete: if isAdmin();
     }
+
+    match /contactFormSubmissions/{contactFormSubmissionId} {
+      // Allow anyone to create a contact form submission.
+      allow create: if true;
+      // Only an admin can read/update/delete submissions.
+      allow read, update, delete: if isAdmin();
+    }
   }
 }
