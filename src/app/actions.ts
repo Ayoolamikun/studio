@@ -17,11 +17,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
   const { firestore, firebaseApp } = initializeFirebase();
   const rawData = Object.fromEntries(formData.entries());
   
-  // The 'uploadedDocumentUrl' from FormData is a File object, which Zod can't handle directly in the schema.
-  // We extract it and will process it separately.
-  const file = rawData.uploadedDocumentUrl instanceof File ? rawData.uploadedDocumentUrl : undefined;
-
-  // Let's validate the rest of the fields.
   const validatedFields = loanApplicationSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
@@ -33,13 +28,16 @@ export async function submitApplication(prevState: FormState, formData: FormData
   }
 
   let fileUrl = "No file uploaded";
+  const file = rawData.uploadedDocumentUrl as File;
+
   try {
     // 1. Handle file upload if a file exists
     if (file && file.size > 0) {
         const storage = getStorage(firebaseApp);
+        // Use a more secure and unique file name
         const storageRef = ref(storage, `loan-documents/${Date.now()}-${file.name}`);
-        const uploadResult = await uploadBytes(storageRef, file);
-        fileUrl = await getDownloadURL(uploadResult.ref); // Get the public URL
+        await uploadBytes(storageRef, file);
+        fileUrl = await getDownloadURL(storageRef); // Get the public URL of the uploaded file
     }
 
     // 2. Prepare the document to be saved in Firestore
@@ -49,12 +47,12 @@ export async function submitApplication(prevState: FormState, formData: FormData
       uploadedDocumentUrl: fileUrl, // Save the download URL or the "No file" string
     };
     
-    // We remove the file object itself before saving to Firestore.
-    delete (docToSave as any).uploadedDocumentUrlFile;
+    // We don't need to delete any properties as the schema validation already produced a clean object
 
     // 3. Save the document to Firestore
     const collectionRef = collection(firestore, "loanApplications");
     
+    // Non-blocking write to Firestore
     addDoc(collectionRef, docToSave)
         .catch(error => {
             console.error("Firestore Error:", error);

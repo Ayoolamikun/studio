@@ -30,6 +30,7 @@ export default function AIAgent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function handleAction(prevState: any, formData: FormData) {
     const userInput = formData.get("message") as string;
@@ -140,10 +141,14 @@ export default function AIAgent() {
             </ScrollArea>
           </CardContent>
           <CardFooter>
-            <form action={(formData) => {
-              formAction(formData);
-              (inputRef.current as HTMLInputElement).value = "";
-            }} className="flex w-full gap-2" suppressHydrationWarning>
+            <form
+              ref={formRef}
+              action={(formData) => {
+                formAction(formData);
+                formRef.current?.reset();
+              }}
+              className="flex w-full gap-2"
+            >
               <Input name="message" placeholder="Ask a question..." autoComplete="off" ref={inputRef} />
               <SubmitButton />
             </form>

@@ -43,7 +43,6 @@ export default function ApplicationForm() {
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   
-  // The useActionState hook now manages form state based on the action's return value.
   const [state, formAction] = useActionState(submitApplication, { success: false, message: "" });
 
   const form = useForm<LoanApplicationValues>({
@@ -61,37 +60,25 @@ export default function ApplicationForm() {
   });
 
   useEffect(() => {
-    if (state.success) {
-      toast({
-        title: "Success!",
-        description: state.message,
-      });
-      form.reset();
-      formRef.current?.reset();
-    } else if (state.message) {
-      toast({
-        title: "Error",
-        description: state.message,
-        variant: "destructive",
-      });
+    if (state.message) {
+        if (state.success) {
+            toast({
+                title: "Success!",
+                description: state.message,
+            });
+            form.reset();
+            if(formRef.current) {
+                formRef.current.reset();
+            }
+        } else {
+            toast({
+                title: "Error",
+                description: state.message,
+                variant: "destructive",
+            });
+        }
     }
   }, [state, toast, form]);
-  
-  // This function will now be called by react-hook-form's handleSubmit
-  const onFormSubmit = (data: LoanApplicationValues) => {
-    const formData = new FormData(formRef.current!);
-    
-    // Annoying but necessary: react-hook-form gives us a FileList, but FormData needs a single File.
-    const fileList = data.uploadedDocumentUrl as FileList | undefined;
-    if(fileList && fileList.length > 0) {
-      formData.set('uploadedDocumentUrl', fileList[0]);
-    } else {
-       formData.delete('uploadedDocumentUrl');
-    }
-
-    formAction(formData);
-  };
-
 
   return (
     <Card className="shadow-2xl">
@@ -99,7 +86,7 @@ export default function ApplicationForm() {
         <Form {...form}>
           <form
             ref={formRef}
-            onSubmit={form.handleSubmit(onFormSubmit)}
+            action={formAction}
             className="space-y-6"
             noValidate
           >
@@ -210,11 +197,13 @@ export default function ApplicationForm() {
               control={form.control}
               name="uploadedDocumentUrl"
               render={({ field }) => {
+                // We use form.register to connect the file input to react-hook-form
+                const { ref, ...rest } = form.register("uploadedDocumentUrl");
                 return (
                   <FormItem>
                     <FormLabel>Upload Document (Payslip, ID, etc.)</FormLabel>
                     <FormControl>
-                      <Input type="file" {...form.register("uploadedDocumentUrl")} />
+                      <Input type="file" {...rest} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
