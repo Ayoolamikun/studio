@@ -168,7 +168,7 @@ export default function ApplicationForm() {
                       type="number" 
                       placeholder="e.g., 50000" 
                       {...field}
-                      onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                      onChange={e => field.onChange(e.target.value === '' ? '' : e.target.value)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -205,7 +205,7 @@ export default function ApplicationForm() {
               render={() => {
                 return (
                   <FormItem>
-                    <FormLabel>Upload Document (Payslip, ID, etc.)</FormLabel>
+                    <FormLabel>Upload Document (Optional: Payslip, ID, etc.)</FormLabel>
                     <FormControl>
                       <Input type="file" {...form.register("uploadedDocumentUrl")} />
                     </FormControl>

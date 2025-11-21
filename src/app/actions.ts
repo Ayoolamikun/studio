@@ -23,7 +23,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
     typeOfService: formData.get('typeOfService'),
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
-    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'),
     // Explicitly parse amountRequested. It comes as a string.
     // parseFloat will return NaN for an empty string, which the `|| 0` handles.
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
@@ -40,7 +39,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
   }
 
   let fileUrl = "No file uploaded";
-  const file = rawData.uploadedDocumentUrl as File;
+  const file = formData.get('uploadedDocumentUrl') as File;
 
   try {
     // 1. Handle file upload if a file exists
