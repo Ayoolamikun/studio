@@ -23,31 +23,46 @@ export default function LoginPage() {
   useEffect(() => {
     // If user is already logged in, redirect them.
     if (!isUserLoading && user) {
-      router.push('/dashboard');
+      // Check if user is admin and redirect accordingly
+      if (user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
+         router.push('/admin');
+      } else {
+         router.push('/dashboard');
+      }
       return;
     }
 
     // When auth is ready and no one is logged in, attempt auto-login.
     if (!isUserLoading && !user && auth) {
-      const autoLogin = async () => {
+      const autoLogin = async (email: string) => {
         try {
           // Attempt to sign in with the hardcoded credentials.
-          await signInWithEmailAndPassword(auth, HARDCODED_EMAIL, HARDCODED_PASSWORD);
+          const userCredential = await signInWithEmailAndPassword(auth, email, HARDCODED_PASSWORD);
           toast({
             title: "Auto Sign-In Successful",
-            description: "Redirecting to dashboard...",
+            description: "Redirecting...",
           });
-          router.push('/dashboard');
+
+          if (userCredential.user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
+            router.push('/admin');
+          } else {
+            router.push('/dashboard');
+          }
+
         } catch (error: any) {
           // If the user doesn't exist, create it.
           if (error.code === 'auth/user-not-found') {
             try {
-              await createUserWithEmailAndPassword(auth, HARDCODED_EMAIL, HARDCODED_PASSWORD);
+              const userCredential = await createUserWithEmailAndPassword(auth, email, HARDCODED_PASSWORD);
               toast({
                 title: "Default Account Created",
                 description: "Signing you in automatically.",
               });
-              router.push('/dashboard');
+              if (userCredential.user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
+                router.push('/admin');
+              } else {
+                router.push('/dashboard');
+              }
             } catch (creationError: any) {
               toast({
                 variant: "destructive",
@@ -55,6 +70,9 @@ export default function LoginPage() {
                 description: `Could not create default user: ${creationError.message}`,
               });
             }
+          } else if (error.code === 'auth/invalid-credential' && email === HARDCODED_EMAIL) {
+             // If default user fails, try the admin user.
+             autoLogin("corporatemagnate@outlook.com");
           } else {
              // Handle other errors like wrong password, network issues, etc.
              toast({
@@ -66,7 +84,8 @@ export default function LoginPage() {
         }
       };
 
-      autoLogin();
+      // Start the login process with the default user email.
+      autoLogin(HARDCODED_EMAIL);
     }
   }, [auth, user, isUserLoading, router, toast]);
 
