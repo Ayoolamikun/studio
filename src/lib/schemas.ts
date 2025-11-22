@@ -11,6 +11,7 @@ export const loanApplicationSchema = z.object({
   amountRequested: z.number({ invalid_type_error: "Please enter a valid amount." }).positive({ message: "Amount requested must be greater than zero." }),
   employmentType: z.enum(["Civil Servant", "SME", "Individual"]),
   // The 'uploadedDocumentUrl' is handled in the server action and is not part of this initial data validation.
+  // It is made optional on the client-side schema to allow the form to submit without a file.
   uploadedDocumentUrl: z.any().optional(),
   preferredContactMethod: z.enum(["Phone", "Email"]),
 });

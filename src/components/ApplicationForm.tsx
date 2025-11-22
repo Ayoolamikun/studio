@@ -168,7 +168,8 @@ export default function ApplicationForm() {
                       type="number" 
                       placeholder="e.g., 50000" 
                       {...field}
-                      onChange={e => field.onChange(e.target.value === '' ? '' : e.target.value)}
+                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                      value={field.value === 0 ? '' : field.value}
                     />
                   </FormControl>
                   <FormMessage />

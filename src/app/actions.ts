@@ -47,7 +47,11 @@ export async function submitApplication(prevState: FormState, formData: FormData
         const storage = getStorage(app);
         // Use a more secure and unique file name
         const storageRef = ref(storage, `loan-documents/${Date.now()}-${file.name}`);
-        await uploadBytes(storageRef, file);
+        
+        // Convert file to buffer for upload
+        const fileBuffer = await file.arrayBuffer();
+        await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
+
         fileUrl = await getDownloadURL(storageRef); // Get the public URL of the uploaded file
     }
 
@@ -84,7 +88,8 @@ export async function uploadExcelFile(formData: FormData) {
 
     try {
         const storageRef = ref(storage, `excel-imports/${Date.now()}-${file.name}`);
-        const uploadResult = await uploadBytes(storageRef, file);
+        const fileBuffer = await file.arrayBuffer();
+        const uploadResult = await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
         
         // The cloud function will be triggered by this upload.
         // We'll also create a record in Firestore to track this upload.
