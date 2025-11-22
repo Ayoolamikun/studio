@@ -14,7 +14,7 @@ import axios from "axios";
 admin.initializeApp();
 const db = admin.firestore();
 
-// These functions need to be redeclared here because they are in the `src` of the main app, not accessible in `functions` directory.
+// These functions are self-contained within the cloud function environment.
 function getInterestRate(amount: number): number {
   if (amount >= 10000 && amount <= 50000) {
     return 0.15; // 15%
@@ -39,14 +39,12 @@ function calculateTotalRepayment(principal: number): number {
 export const processExcelUpload = functions.storage
   .object()
   .onFinalize(async (object) => {
-    // Exit if this is not an Excel import file.
     const filePath = object.name;
     if (!filePath || !filePath.startsWith("excel-imports/")) {
       console.log(`File ${filePath} is not in the excel-imports/ directory. Exiting.`);
       return null;
     }
 
-    // Exit if the file is not an Excel or CSV file.
     const contentType = object.contentType;
     if (!contentType ||
        (!contentType.includes("spreadsheet") && !contentType.includes("csv"))
@@ -57,14 +55,12 @@ export const processExcelUpload = functions.storage
 
     console.log(`Processing file: ${filePath}`);
 
-    // Find the corresponding document in the 'ExcelFiles' collection
     const fileUrl = `gs://${object.bucket}/${filePath}`;
     const excelFileQuery = await db.collection("ExcelFiles")
         .where("fileUrl", "==", fileUrl).limit(1).get();
 
     if (excelFileQuery.empty) {
         console.error(`No Firestore entry found for uploaded file: ${fileUrl}`);
-        // Still attempt to process, but this is unexpected.
     }
 
     const excelFileDoc = excelFileQuery.docs[0];
@@ -74,17 +70,14 @@ export const processExcelUpload = functions.storage
     }
 
     try {
-      // Download the file from GCS into a buffer
       const response = await axios.get(object.mediaLink, {responseType: "arraybuffer"});
       const fileBuffer = Buffer.from(response.data);
 
-      // Parse the Excel buffer
       const workbook = xlsx.read(fileBuffer, {type: "buffer"});
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json(worksheet, {header: 1});
 
-      // Assuming header row is the first row
       const headers = (data[0] as string[]).map((h) => h.trim().toLowerCase());
       const rows = data.slice(1);
 
@@ -92,12 +85,10 @@ export const processExcelUpload = functions.storage
 
       const batch = db.batch();
 
-      // Process each row
       for (const row of rows) {
         const rowData = (row as any[]).reduce((obj, val, index) => {
           const key = headers[index];
           if (key) {
-            // Map common header variations to standardized field names
             if (key.includes("name")) obj.name = val;
             else if (key.includes("phone")) obj.phone = String(val);
             else if (key.includes("bvn")) obj.bvn = String(val);
@@ -106,13 +97,12 @@ export const processExcelUpload = functions.storage
             else if (key.includes("balance")) obj.balance = val;
             else if (key.includes("due date")) obj.dueDate = val;
             else if (key.includes("status")) obj.status = String(val).toLowerCase();
-            else obj[key] = val; // Store any other fields
+            else obj[key] = val;
           }
           return obj;
         }, {} as any);
 
 
-        // --- Find existing borrower ---
         let borrowerDoc: admin.firestore.DocumentSnapshot | undefined;
         let borrowerRef: admin.firestore.DocumentReference | undefined;
 
@@ -139,7 +129,6 @@ export const processExcelUpload = functions.storage
         const borrowerId = (borrowerDoc && borrowerDoc.exists) ? borrowerDoc.id : rowData.bvn || rowData.phone || `new_${Date.now()}`;
 
         if ((!borrowerDoc || !borrowerDoc.exists) && borrowerRef) {
-            // Create a new borrower if they don't exist
             const newBorrowerData = {
                 name: rowData.name || "N/A",
                 phone: rowData.phone || "N/A",
@@ -151,7 +140,6 @@ export const processExcelUpload = functions.storage
             console.log(`Creating new borrower: ${borrowerId}`);
         }
 
-        // --- Find or create loan ---
         const loansQuery = await db.collection("Loans")
             .where("borrowerId", "==", borrowerId)
             .orderBy("createdAt", "desc")
@@ -161,7 +149,7 @@ export const processExcelUpload = functions.storage
         const existingLoanDoc = loansQuery.docs[0];
         const loanRef = existingLoanDoc ?
             existingLoanDoc.ref :
-            db.collection("Loans").doc(); // Create new loan doc ref
+            db.collection("Loans").doc();
 
         const amountRequested = rowData.amountRequested || existingLoanDoc?.data().amountRequested || 0;
         const totalRepayment = calculateTotalRepayment(amountRequested);
@@ -178,7 +166,6 @@ export const processExcelUpload = functions.storage
             status: rowData.status || existingLoanDoc?.data().status || "active",
             excelImported: true,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            // Create createdAt only if it's a new loan
             ...(!existingLoanDoc && {createdAt: admin.firestore.FieldValue.serverTimestamp()}),
         };
 
@@ -186,12 +173,10 @@ export const processExcelUpload = functions.storage
         console.log(`${existingLoanDoc ? "Updating" : "Creating"} loan for borrower ${borrowerId}`);
       }
 
-      // Mark the Excel file as processed
       if(excelFileDoc) {
           batch.update(excelFileDoc.ref, {processed: true});
       }
 
-      // Commit all the batch operations
       await batch.commit();
 
       console.log(`Successfully processed ${rows.length} rows from ${filePath}.`);
@@ -199,7 +184,6 @@ export const processExcelUpload = functions.storage
     } catch (error) {
       console.error("Error processing Excel file:", error);
        if(excelFileDoc) {
-          // Mark as failed if possible
           await excelFileDoc.ref.update({processed: true, error: (error as Error).message});
       }
       return null;

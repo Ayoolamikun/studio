@@ -23,8 +23,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
     typeOfService: formData.get('typeOfService'),
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
-    // Explicitly parse amountRequested. It comes as a string.
-    // parseFloat will return NaN for an empty string, which the `|| 0` handles.
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
   };
   
@@ -45,21 +43,20 @@ export async function submitApplication(prevState: FormState, formData: FormData
     // 1. Handle file upload if a file exists
     if (file && file.size > 0) {
         const storage = getStorage(app);
-        // Use a more secure and unique file name
         const storageRef = ref(storage, `loan-documents/${Date.now()}-${file.name}`);
         
         // Convert file to buffer for upload
         const fileBuffer = await file.arrayBuffer();
         await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
 
-        fileUrl = await getDownloadURL(storageRef); // Get the public URL of the uploaded file
+        fileUrl = await getDownloadURL(storageRef);
     }
 
     // 2. Prepare the document to be saved in Firestore
     const docToSave = {
       ...validatedFields.data,
       submissionDate: new Date().toISOString(),
-      uploadedDocumentUrl: fileUrl, // Save the download URL or the "No file" string
+      uploadedDocumentUrl: fileUrl, 
     };
     
     // 3. Save the document to Firestore
@@ -91,12 +88,10 @@ export async function uploadExcelFile(formData: FormData) {
         const fileBuffer = await file.arrayBuffer();
         const uploadResult = await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
         
-        // The cloud function will be triggered by this upload.
-        // We'll also create a record in Firestore to track this upload.
         const fileRecord = {
             fileName: file.name,
-            fileUrl: `gs://${uploadResult.metadata.bucket}/${uploadResult.metadata.fullPath}`, // GCS URI for the function
-            downloadUrl: await getDownloadURL(uploadResult.ref), // Public URL for client access if needed
+            fileUrl: `gs://${uploadResult.metadata.bucket}/${uploadResult.metadata.fullPath}`,
+            downloadUrl: await getDownloadURL(uploadResult.ref),
             uploadedAt: new Date().toISOString(),
             processed: false,
         };
