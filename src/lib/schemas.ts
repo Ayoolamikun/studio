@@ -1,9 +1,6 @@
 
 import { z } from "zod";
 
-const MAX_FILE_SIZE = 5000000; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
-
 // This schema is used for server-side validation primarily.
 // The file upload is handled separately in the server action.
 export const loanApplicationSchema = z.object({
@@ -13,8 +10,7 @@ export const loanApplicationSchema = z.object({
   typeOfService: z.enum(["Loan", "Investment", "Membership"]),
   amountRequested: z.number({ invalid_type_error: "Please enter a valid amount." }).positive({ message: "Amount requested must be greater than zero." }),
   employmentType: z.enum(["Civil Servant", "SME", "Individual"]),
-  // The 'uploadedDocumentUrl' is validated on the client and handled in the server action,
-  // so we can make it optional in this base schema. It will be a string (URL) before saving.
+  // The 'uploadedDocumentUrl' is handled in the server action and is not part of this initial data validation.
   uploadedDocumentUrl: z.any().optional(),
   preferredContactMethod: z.enum(["Phone", "Email"]),
 });
