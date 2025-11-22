@@ -99,7 +99,7 @@ export default function ApplicationForm() {
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="John Doe" {...field} name={field.name} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -112,7 +112,7 @@ export default function ApplicationForm() {
                   <FormItem>
                     <FormLabel>Email Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="you@example.com" {...field} />
+                      <Input placeholder="you@example.com" {...field} name={field.name} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -127,7 +127,7 @@ export default function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="+234..." {...field} />
+                    <Input placeholder="+234..." {...field} name={field.name} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -140,7 +140,7 @@ export default function ApplicationForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type of Service</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a service type" />
@@ -168,7 +168,8 @@ export default function ApplicationForm() {
                       type="number" 
                       placeholder="e.g., 50000" 
                       {...field}
-                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                      name={field.name}
+                      onChange={e => field.onChange(e.target.valueAsNumber || 0)}
                       value={field.value === 0 ? '' : field.value}
                     />
                   </FormControl>
@@ -183,7 +184,7 @@ export default function ApplicationForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Employment Type</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your employment type" />
@@ -227,6 +228,7 @@ export default function ApplicationForm() {
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                       className="flex space-x-4"
+                      name={field.name}
                     >
                       <FormItem className="flex items-center space-x-2">
                         <FormControl>
