@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoanManagementTab } from './LoanManagementTab';
 import { ExcelImportTab } from './ExcelImportTab';
 import LoanCalculator from '../LoanCalculator';
+import { ApplicationsTab } from './ApplicationsTab';
 
 
 function getInitials(name: string | null | undefined) {
@@ -112,9 +113,13 @@ export function AdminDashboard({ user }: { user: User }) {
         <main className="flex-1 p-4 md:p-6">
           <Tabs defaultValue="loans">
             <TabsList>
+              <TabsTrigger value="applications">New Applications</TabsTrigger>
               <TabsTrigger value="loans">Loan Management</TabsTrigger>
               <TabsTrigger value="excel">Excel Import</TabsTrigger>
             </TabsList>
+            <TabsContent value="applications">
+              <ApplicationsTab />
+            </TabsContent>
             <TabsContent value="loans">
               <LoanManagementTab />
             </TabsContent>
