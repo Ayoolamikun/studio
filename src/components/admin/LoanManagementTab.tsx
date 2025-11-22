@@ -23,7 +23,7 @@ import { Spinner } from '@/components/Spinner';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
-import { Check, X, MoreHorizontal } from 'lucide-react';
+import { Check, X, MoreHorizontal, Hourglass, CreditCard, Banknote, ShieldCheck, ShieldX } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -55,6 +55,38 @@ type Borrower = {
 };
 
 type CombinedLoanData = WithId<Loan> & { borrower?: WithId<Borrower> };
+
+const getStatusConfig = (status: string) => {
+  switch (status) {
+    case 'approved':
+      return { variant: 'default', icon: ShieldCheck, label: 'Approved' };
+    case 'active':
+      return { variant: 'default', icon: CreditCard, label: 'Active' };
+    case 'paid':
+      return { variant: 'default', icon: ShieldCheck, label: 'Paid', className: "bg-green-600 hover:bg-green-700" };
+    case 'overdue':
+      return { variant: 'destructive', icon: ShieldX, label: 'Overdue' };
+    case 'rejected':
+      return { variant: 'destructive', icon: X, label: 'Rejected' };
+    case 'pending':
+    default:
+      return { variant: 'secondary', icon: Hourglass, label: 'Pending' };
+  }
+}
+
+function StatCard({ title, value, icon: Icon }: { title: string; value: string; icon: React.ElementType }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function LoanManagementTab() {
   const firestore = useFirestore();
@@ -103,125 +135,133 @@ export function LoanManagementTab() {
     });
   }, [combinedData, searchTerm, statusFilter]);
 
+  const stats = useMemo(() => {
+    if (!loans) return { totalLoans: 0, pending: 0, totalAmount: 0 };
+    return {
+      totalLoans: loans.length,
+      pending: loans.filter(l => l.status === 'pending').length,
+      totalAmount: loans.reduce((acc, l) => acc + l.amountRequested, 0),
+    };
+  }, [loans]);
+
   const handleStatusChange = (id: string, status: Loan['status']) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'Loans', id);
     updateDocumentNonBlocking(docRef, { status });
   };
   
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'approved':
-      case 'active':
-      case 'paid':
-        return 'default';
-      case 'overdue':
-      case 'rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  }
-  
   const isLoading = loansLoading || borrowersLoading;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Loan Management</CardTitle>
-        <CardDescription>Review, approve, and manage all loans.</CardDescription>
-        <div className="flex items-center gap-4 pt-4">
-            <Input 
-              placeholder="Search by name, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-              disabled={isLoading}
-            />
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isLoading}>Filter Status</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setStatusFilter('all')}>All</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter('pending')}>Pending</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter('approved')}>Approved</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter('active')}>Active</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter('rejected')}>Rejected</DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => setStatusFilter('paid')}>Paid</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter('overdue')}>Overdue</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <Spinner size="large" />
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard title="Total Loans" value={isLoading ? '...' : String(stats.totalLoans)} icon={Banknote} />
+        <StatCard title="Pending Applications" value={isLoading ? '...' : String(stats.pending)} icon={Hourglass} />
+        <StatCard title="Total Amount Loaned" value={isLoading ? '...' : formatCurrency(stats.totalAmount)} icon={CreditCard} />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Loans</CardTitle>
+          <CardDescription>Review, approve, and manage all loans.</CardDescription>
+          <div className="flex flex-col md:flex-row items-center gap-4 pt-4">
+              <Input 
+                placeholder="Search by name, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-sm"
+                disabled={isLoading}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={isLoading} className="w-full md:w-auto">Filter: <span className="capitalize ml-2 font-bold">{statusFilter}</span></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setStatusFilter('all')}>All</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('pending')}>Pending</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('approved')}>Approved</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('active')}>Active</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('rejected')}>Rejected</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('paid')}>Paid</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('overdue')}>Overdue</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
           </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Applicant</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData && filteredData.length > 0 ? (
-                filteredData.map(item => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="font-medium">{item.borrower?.name || 'N/A'}</div>
-                      <div className="text-sm text-muted-foreground">{item.borrower?.email || item.borrowerId}</div>
-                    </TableCell>
-                    <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
-                    <TableCell>{formatCurrency(item.balance)}</TableCell>
-                    <TableCell>{format(new Date(item.createdAt), 'PPP')}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(item.status)} className="capitalize">{item.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                       {item.status === 'pending' ? (
-                        <div className="flex gap-2 justify-end">
-                            <Button variant="outline" size="icon" onClick={() => handleStatusChange(item.id, 'approved')}>
-                                <Check className="h-4 w-4" />
-                            </Button>
-                             <Button variant="destructive" size="icon" onClick={() => handleStatusChange(item.id, 'rejected')}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                       ) : (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'active')}>Set to Active</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'paid')}>Set to Paid</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'overdue')}>Set to Overdue</DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-500" onClick={() => handleStatusChange(item.id, 'rejected')}>Reject</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                       )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Spinner size="large" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">No loans found matching your criteria.</TableCell>
+                  <TableHead>Applicant</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Balance</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredData && filteredData.length > 0 ? (
+                  filteredData.map(item => {
+                    const statusConfig = getStatusConfig(item.status);
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="font-medium">{item.borrower?.name || 'N/A'}</div>
+                          <div className="text-sm text-muted-foreground">{item.borrower?.email || item.borrowerId}</div>
+                        </TableCell>
+                        <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
+                        <TableCell>{formatCurrency(item.balance)}</TableCell>
+                        <TableCell>{format(new Date(item.createdAt), 'PPP')}</TableCell>
+                        <TableCell>
+                          <Badge variant={statusConfig.variant} className={statusConfig.className}>
+                            <statusConfig.icon className="mr-2 h-4 w-4" />
+                            {statusConfig.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.status === 'pending' ? (
+                          <div className="flex gap-2 justify-end">
+                              <Button variant="outline" size="icon" onClick={() => handleStatusChange(item.id, 'approved')}>
+                                  <Check className="h-4 w-4" />
+                              </Button>
+                              <Button variant="destructive" size="icon" onClick={() => handleStatusChange(item.id, 'rejected')}>
+                                  <X className="h-4 w-4" />
+                              </Button>
+                          </div>
+                          ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'active')}>Set to Active</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'paid')}>Set to Paid</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'overdue')}>Set to Overdue</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-500" onClick={() => handleStatusChange(item.id, 'rejected')}>Reject</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center h-24">No loans found matching your criteria.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

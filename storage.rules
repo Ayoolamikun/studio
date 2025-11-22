@@ -1,0 +1,42 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions from firestore.rules (cannot be shared, must be redefined)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // --- Start of Admin UID Configuration ---
+    let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+    // --- End of Admin UID Configuration ---
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.uid == ADMIN_UID;
+    }
+
+    // Matches any file in the 'loan-documents' folder
+    match /loan-documents/{fileName} {
+      // Allow anyone to create (upload) a document.
+      // This is for the public application form.
+      // You can add more constraints, e.g., request.resource.size < 5 * 1024 * 1024
+      allow create: if true;
+
+      // Only an admin can read, update or delete the documents.
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Matches any file in the 'excel-imports' folder
+    match /excel-imports/{fileName} {
+        // Only admins can read and write files here
+        allow read, write: if isAdmin();
+    }
+
+    // Deny all other operations on all other files by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

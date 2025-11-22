@@ -1,7 +1,7 @@
 
 'use client';
 
-import { LogOut } from 'lucide-react';
+import { LogOut, Calculator } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -11,7 +11,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from '@/components/ui/sidebar';
-
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ import Logo from '@/components/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoanManagementTab } from './LoanManagementTab';
 import { ExcelImportTab } from './ExcelImportTab';
+import LoanCalculator from '../LoanCalculator';
 
 
 function getInitials(name: string | null | undefined) {
@@ -84,8 +85,28 @@ export function AdminDashboard({ user }: { user: User }) {
 
       <SidebarInset>
         <header className="flex h-14 items-center justify-between border-b bg-background px-4">
-          <SidebarTrigger className="md:hidden" />
-          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="md:hidden" />
+            <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+          </div>
+          
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Calculator className="h-4 w-4" />
+                <span className="sr-only">Open Calculator</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Loan Calculator</SheetTitle>
+              </SheetHeader>
+              <div className="mt-8">
+                <LoanCalculator />
+              </div>
+            </SheetContent>
+          </Sheet>
+
         </header>
 
         <main className="flex-1 p-4 md:p-6">

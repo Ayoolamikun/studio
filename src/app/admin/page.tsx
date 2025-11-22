@@ -37,29 +37,33 @@ export default function AdminPage() {
   }, [user, isUserLoading, router]);
 
   // Show a loading spinner while checking auth state.
-  if (isUserLoading || (user && !isAuthorized)) {
+  if (isUserLoading || (user && !isAuthorized && user.uid !== ADMIN_UID)) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <Spinner size="large" />
         <p className="text-lg mt-4">Verifying permissions...</p>
-        
-        {/* If user is loaded but not authorized, show them their UID to help with setup */}
-        { !isUserLoading && user && user.uid !== ADMIN_UID && (
-            <Card className="mt-8 max-w-md text-center">
+      </div>
+    );
+  }
+
+  // If user is loaded but not authorized, show them an informative message.
+  if (!isUserLoading && user && user.uid !== ADMIN_UID) {
+    return (
+        <div className="flex h-screen flex-col items-center justify-center gap-4 p-4">
+            <Card className="mt-8 max-w-md text-center shadow-2xl">
                 <CardHeader>
-                    <CardTitle>Permission Denied</CardTitle>
+                    <CardTitle className='text-destructive'>Permission Denied</CardTitle>
                     <CardDescription>You are not authorized to view this page.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm">To gain admin access, the admin UID in the security rules needs to be updated. Your User ID is:</p>
+                    <p className="text-sm text-muted-foreground">To gain admin access, your UID must be set as the `ADMIN_UID` in the Firestore security rules. Your User ID is:</p>
                     <div className="mt-4 bg-secondary p-3 rounded-md">
                         <code className="font-mono text-base text-primary font-bold">{user.uid}</code>
                     </div>
-                     <Button variant="outline" className="mt-6" onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+                     <Button variant="outline" className="mt-6" onClick={() => router.push('/dashboard')}>Go to Your Dashboard</Button>
                 </CardContent>
             </Card>
-        )}
-      </div>
+        </div>
     );
   }
 
