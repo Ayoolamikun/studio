@@ -1,7 +1,7 @@
 
 'use client';
 
-import { LogOut, Calculator } from 'lucide-react';
+import { LogOut, Calculator, Files } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import Logo from '@/components/Logo';
+import Link from 'next/link';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoanManagementTab } from './LoanManagementTab';
@@ -74,6 +75,13 @@ export function AdminDashboard({ user }: { user: User }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 mb-2">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/files">
+                    <Files className="mr-2 h-4 w-4" />
+                    <span>My Files</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
