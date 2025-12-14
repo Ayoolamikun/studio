@@ -9,10 +9,19 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as xlsx from "xlsx";
 import axios from "axios";
+import { v2 as cloudinary } from "cloudinary";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
+
+// Configure Cloudinary using Firebase function config
+// These values are set using the `firebase functions:config:set` command
+cloudinary.config({
+  cloud_name: functions.config().cloudinary.cloud_name,
+  api_key: functions.config().cloudinary.api_key,
+  api_secret: functions.config().cloudinary.api_secret,
+});
 
 // These functions are self-contained within the cloud function environment.
 function getInterestRate(amount: number): number {
