@@ -83,5 +83,16 @@ service cloud.firestore {
       allow create: if true;
       allow read, write, delete: if isAdmin();
     }
+
+    /**
+     * @description File metadata stored after Cloudinary upload.
+     * Users can only read their own file documents.
+     * Writes are blocked from the client to enforce creation via Cloud Functions.
+     */
+    match /userFiles/{fileId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      // Writes are handled by the backend function, so client-side writes are disallowed.
+      allow write: if false; 
+    }
   }
 }
