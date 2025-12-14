@@ -198,3 +198,135 @@ export const processExcelUpload = functions.storage
       return null;
     }
   });
+
+
+/**
+ * Uploads a file to Cloudinary and saves metadata to Firestore.
+ */
+export const uploadFile = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be logged in to upload files.",
+    );
+  }
+
+  const {file, fileName, folder} = data;
+  const userId = context.auth.uid;
+
+  if (!file) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "File data is required.",
+    );
+  }
+
+  try {
+    const result = await cloudinary.uploader.upload(file, {
+      folder: folder || `users/${userId}`,
+      resource_type: "auto",
+      public_id: fileName ? fileName.split(".")[0] : undefined,
+    });
+
+    const fileDoc = await admin.firestore().collection("userFiles").add({
+      userId: userId,
+      fileUrl: result.secure_url,
+      publicId: result.public_id,
+      fileName: fileName || result.original_filename,
+      fileType: result.resource_type,
+      format: result.format,
+      size: result.bytes,
+      width: result.width,
+      height: result.height,
+      uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      fileId: fileDoc.id,
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+/**
+ * Deletes a file from Cloudinary and Firestore.
+ */
+export const deleteFile = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be logged in.",
+    );
+  }
+
+  const {fileId, publicId} = data;
+  const userId = context.auth.uid;
+
+  try {
+    const fileDoc = await admin.firestore().collection("userFiles")
+      .doc(fileId).get();
+
+    if (!fileDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "File not found");
+    }
+
+    if (fileDoc.data()?.userId !== userId) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "You do not have permission to delete this file.",
+      );
+    }
+
+    await cloudinary.uploader.destroy(publicId);
+    await admin.firestore().collection("userFiles").doc(fileId).delete();
+
+    return {success: true, message: "File deleted successfully"};
+  } catch (error: any) {
+    console.error("Delete error:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
+
+
+/**
+ * Retrieves all files for the authenticated user.
+ */
+export const getUserFiles = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be logged in.",
+    );
+  }
+
+  const userId = context.auth.uid;
+
+  try {
+    const snapshot = await admin
+      .firestore()
+      .collection("userFiles")
+      .where("userId", "==", userId)
+      .orderBy("uploadedAt", "desc")
+      .get();
+
+    const files = snapshot.docs.map((doc) => {
+      const docData = doc.data();
+      return {
+        id: doc.id,
+        ...docData,
+        uploadedAt: (docData.uploadedAt as admin.firestore.Timestamp)
+          ?.toDate().toISOString(),
+      };
+    });
+
+    return {success: true, files};
+  } catch (error: any) {
+    console.error("Get files error:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});
