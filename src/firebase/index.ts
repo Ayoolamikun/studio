@@ -3,8 +3,8 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
-import { getFunctions } from 'firebase/functions';
+import { getFirestore }from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -38,6 +38,10 @@ export function getSdks(firebaseApp: FirebaseApp) {
   const auth = getAuth(firebaseApp);
   const functions = getFunctions(firebaseApp);
 
+  if (process.env.NODE_ENV === 'development') {
+    connectFunctionsEmulator(functions, 'localhost', 5001);
+  }
+
   return {
     firebaseApp,
     auth,
@@ -54,3 +58,4 @@ export * from './non-blocking-updates';
 export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
+export * from './functions';
