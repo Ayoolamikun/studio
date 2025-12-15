@@ -17,9 +17,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Admin status is now checked by comparing the requestor's UID to the hardcoded ADMIN_UID.
+    // Admin status is now determined by a custom claim, not a hardcoded UID.
     function isAdmin() {
-      return isSignedIn() && request.auth.uid == ADMIN_UID;
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
     match /loanApplications/{applicationId} {
@@ -62,6 +62,15 @@ service cloud.firestore {
       allow create: if true;
       // Only an admin can read/update/delete submissions.
       allow read, update, delete: if isAdmin();
+    }
+
+     match /userFiles/{fileId} {
+      // Users can only read their own files
+      allow read: if request.auth != null && 
+                    request.auth.uid == resource.data.userId;
+      
+      // Only Cloud Functions can write (more secure)
+      allow write: if false;
     }
   }
 }

@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { Check, X, MoreHorizontal, Hourglass, CreditCard, Banknote, ShieldCheck, ShieldX } from 'lucide-react';
 import { format } from 'date-fns';
@@ -147,7 +148,8 @@ export function LoanManagementTab() {
   const handleStatusChange = (id: string, status: Loan['status']) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'Loans', id);
-    updateDocumentNonBlocking(docRef, { status });
+    // Use async/await here for better error handling if needed, but non-blocking is fine for this UI.
+    updateDoc(docRef, { status });
   };
   
   const isLoading = loansLoading || borrowersLoading;
@@ -225,13 +227,13 @@ export function LoanManagementTab() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.status === 'pending' ? (
+                          {(item.status === 'pending' || item.status === 'approved') ? (
                           <div className="flex gap-2 justify-end">
-                              <Button variant="outline" size="icon" onClick={() => handleStatusChange(item.id, 'approved')}>
-                                  <Check className="h-4 w-4" />
+                              <Button variant="outline" size="sm" onClick={() => handleStatusChange(item.id, 'active')}>
+                                  <Check className="mr-2 h-4 w-4"/> Set Active
                               </Button>
-                              <Button variant="destructive" size="icon" onClick={() => handleStatusChange(item.id, 'rejected')}>
-                                  <X className="h-4 w-4" />
+                              <Button variant="destructive" size="sm" onClick={() => handleStatusChange(item.id, 'rejected')}>
+                                  <X className="mr-2 h-4 w-4" /> Reject
                               </Button>
                           </div>
                           ) : (

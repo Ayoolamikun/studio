@@ -1,6 +1,7 @@
 
 'use client';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   Table,
   TableBody,
@@ -19,12 +20,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
-import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId, useAuth } from '@/firebase';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 // From docs/backend.json -> LoanApplication entity
 type LoanApplication = {
@@ -37,26 +39,75 @@ type LoanApplication = {
   uploadedDocumentUrl?: string;
   preferredContactMethod: 'Phone' | 'Email';
   submissionDate: string;
-  status?: 'reviewed' | 'pending';
+  status?: 'approved' | 'rejected' | 'pending';
 };
 
 
 export function ApplicationsTab() {
   const firestore = useFirestore();
+  const auth = useAuth();
+  const functions = auth ? getFunctions(auth.app) : null;
+  const { toast } = useToast();
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const applicationsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'loanApplications'), orderBy('submissionDate', 'desc')) : null,
+    () => firestore ? query(
+        collection(firestore, 'loanApplications'), 
+        where('status', 'in', ['pending', undefined]),
+        orderBy('submissionDate', 'desc')
+    ) : null,
     [firestore]
   );
   
   const { data: applications, isLoading: applicationsLoading } = useCollection<LoanApplication>(applicationsQuery);
 
-  const handleStatusChange = (id: string, status: LoanApplication['status']) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'loanApplications', id);
-    updateDocumentNonBlocking(docRef, { status });
+  const handleApprove = async (applicationId: string) => {
+    if (!functions) return;
+    setProcessingId(applicationId);
+    
+    try {
+        const approveApplication = httpsCallable<{applicationId: string}, {success: boolean, message: string}>(functions, 'approveApplication');
+        const result = await approveApplication({ applicationId });
+        if (result.data.success) {
+            toast({
+                title: 'Success',
+                description: result.data.message
+            });
+        } else {
+             throw new Error(result.data.message);
+        }
+    } catch (error: any) {
+         toast({
+            variant: 'destructive',
+            title: 'Approval Failed',
+            description: error.message || "An unexpected error occurred.",
+        });
+    } finally {
+        setProcessingId(null);
+    }
   };
-  
+
+  const handleReject = async (applicationId: string) => {
+      if (!firestore) return;
+      setProcessingId(applicationId);
+      const docRef = doc(firestore, 'loanApplications', applicationId);
+      try {
+        await updateDoc(docRef, { status: 'rejected' });
+        toast({
+            title: 'Application Rejected',
+            description: 'The application has been marked as rejected.'
+        });
+      } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: error.message || "Could not update the application status.",
+        });
+      } finally {
+        setProcessingId(null);
+      }
+  };
+
   const isLoading = applicationsLoading;
 
   return (
@@ -64,7 +115,7 @@ export function ApplicationsTab() {
       <Card>
         <CardHeader>
           <CardTitle>New Loan & Service Applications</CardTitle>
-          <CardDescription>Review all submissions from the public website form.</CardDescription>
+          <CardDescription>Review all submissions from the public website form. Approving an application will create a new Loan and Borrower record.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -79,7 +130,6 @@ export function ApplicationsTab() {
                   <TableHead>Service Type</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Submitted</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -96,28 +146,33 @@ export function ApplicationsTab() {
                         </TableCell>
                         <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
                         <TableCell>{format(new Date(item.submissionDate), 'PPP')}</TableCell>
-                        <TableCell>
-                          <Badge variant={item.status === 'reviewed' ? 'default' : 'outline'} className="capitalize">
-                            {item.status || 'Pending'}
-                          </Badge>
-                        </TableCell>
                         <TableCell className="text-right">
-                          {item.status !== 'reviewed' ? (
                           <div className="flex gap-2 justify-end">
-                              <Button variant="outline" size="sm" onClick={() => handleStatusChange(item.id, 'reviewed')}>
-                                  <Check className="mr-2 h-4 w-4" />
-                                  Mark as Reviewed
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleApprove(item.id)}
+                                disabled={processingId === item.id}
+                              >
+                                  {processingId === item.id ? <Spinner size="small" /> : <Check className="mr-2 h-4 w-4" />}
+                                  Approve
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleReject(item.id)}
+                                disabled={processingId === item.id}
+                              >
+                                  {processingId === item.id ? <Spinner size="small" /> : <X className="mr-2 h-4 w-4" />}
+                                  Reject
                               </Button>
                           </div>
-                          ) : (
-                            <Button variant="ghost" size="sm" disabled>Reviewed</Button>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">No new applications found.</TableCell>
+                    <TableCell colSpan={5} className="text-center h-24">No new applications found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

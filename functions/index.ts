@@ -276,10 +276,14 @@ export const deleteFile = functions.https.onCall(async (data, context) => {
     }
 
     if (fileDoc.data()?.userId !== userId) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "You do not have permission to delete this file.",
-      );
+      // Check if user is admin - only for deletion
+      const userRecord = await admin.auth().getUser(userId);
+      if (!userRecord.customClaims || !userRecord.customClaims.admin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "You do not have permission to delete this file.",
+        );
+      }
     }
 
     await cloudinary.uploader.destroy(publicId);
@@ -290,6 +294,94 @@ export const deleteFile = functions.https.onCall(async (data, context) => {
     console.error("Delete error:", error);
     throw new functions.https.HttpsError("internal", error.message);
   }
+});
+
+/**
+ * Approves a loan application, creating a Borrower and a Loan document.
+ */
+export const approveApplication = functions.https.onCall(async (data, context) => {
+    // 1. Check for admin privileges.
+    if (!context.auth || context.auth.token.admin !== true) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Only admins can approve applications.",
+        );
+    }
+
+    const { applicationId } = data;
+    if (!applicationId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "The function must be called with an 'applicationId'.",
+        );
+    }
+    
+    const applicationRef = db.collection("loanApplications").doc(applicationId);
+    
+    try {
+        const batch = db.batch();
+        const applicationDoc = await applicationRef.get();
+
+        if (!applicationDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "Loan application not found.");
+        }
+
+        const appData = applicationDoc.data()!;
+
+        if (appData.status === "approved") {
+            throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
+        }
+
+        // 2. Find or create the Borrower.
+        let borrowerId: string;
+        const borrowersRef = db.collection("Borrowers");
+        const existingBorrowerQuery = await borrowersRef.where("email", "==", appData.email).limit(1).get();
+
+        if (!existingBorrowerQuery.empty) {
+            borrowerId = existingBorrowerQuery.docs[0].id;
+        } else {
+            // Create a new borrower if one doesn't exist.
+            const newBorrowerRef = borrowersRef.doc(); // Auto-generate ID
+            borrowerId = newBorrowerRef.id;
+            batch.set(newBorrowerRef, {
+                name: appData.fullName,
+                email: appData.email,
+                phone: appData.phoneNumber,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        
+        // 3. Create the new Loan document.
+        if (appData.typeOfService === 'Loan') {
+            const amount = appData.amountRequested;
+            const totalRepayment = calculateTotalRepayment(amount);
+
+            const loanRef = db.collection("Loans").doc(); // Auto-generate ID
+            batch.set(loanRef, {
+                borrowerId: borrowerId,
+                amountRequested: amount,
+                interestRate: getInterestRate(amount),
+                totalRepayment: totalRepayment,
+                amountPaid: 0,
+                balance: totalRepayment,
+                status: "approved", // Initial status for a new loan.
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                applicationId: applicationId, // Link back to the original application.
+            });
+        }
+        
+        // 4. Update the original application status.
+        batch.update(applicationRef, { status: "approved" });
+
+        // 5. Commit all writes as a single transaction.
+        await batch.commit();
+
+        return { success: true, message: "Application approved successfully!" };
+    } catch (error: any) {
+        console.error("Approval Error:", error);
+        throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
+    }
 });
 
 
