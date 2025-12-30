@@ -47,13 +47,13 @@ type Loan = {
   createdAt: string;
 };
 
-type Borrower = {
+type Customer = {
   name: string;
   phone: string;
   email: string;
 };
 
-type CombinedLoanData = WithId<Loan> & { borrower?: WithId<Borrower> };
+type CombinedLoanData = WithId<Loan> & { customer?: WithId<Customer> };
 
 const getStatusConfig = (status: string) => {
   switch (status) {
@@ -83,36 +83,36 @@ export function LoanManagementTable() {
     () => firestore ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
     [firestore]
   );
-  const borrowersQuery = useMemoFirebase(
-    () => firestore ? collection(firestore, 'Borrowers') : null,
+  const customersQuery = useMemoFirebase(
+    () => firestore ? collection(firestore, 'Customers') : null,
     [firestore]
   );
   
   const { data: loans, isLoading: loansLoading } = useCollection<Loan>(loansQuery);
-  const { data: borrowers, isLoading: borrowersLoading } = useCollection<Borrower>(borrowersQuery);
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
-  const borrowersMap = useMemo(() => {
-    if (!borrowers) return new Map();
-    return new Map(borrowers.map(b => [b.id, b]));
-  }, [borrowers]);
+  const customersMap = useMemo(() => {
+    if (!customers) return new Map();
+    return new Map(customers.map(c => [c.id, c]));
+  }, [customers]);
 
   const combinedData = useMemo<CombinedLoanData[] | null>(() => {
     if (!loans) return null;
     return loans.map(loan => ({
       ...loan,
-      borrower: borrowersMap.get(loan.borrowerId)
+      customer: customersMap.get(loan.borrowerId)
     }));
-  }, [loans, borrowersMap]);
+  }, [loans, customersMap]);
   
   const filteredData = useMemo(() => {
     if (!combinedData) return [];
     
     return combinedData.filter(item => {
-      const borrower = item.borrower;
+      const customer = item.customer;
       const matchesSearch = searchTerm.trim() === '' ||
-        borrower?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        borrower?.phone.includes(searchTerm) ||
-        borrower?.email.toLowerCase().includes(searchTerm.toLowerCase());
+        customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer?.phone.includes(searchTerm) ||
+        customer?.email.toLowerCase().includes(searchTerm.toLowerCase());
         
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       
@@ -127,7 +127,7 @@ export function LoanManagementTable() {
     updateDocumentNonBlocking(docRef, { status });
   };
   
-  const isLoading = loansLoading || borrowersLoading;
+  const isLoading = loansLoading || customersLoading;
 
   return (
       <Card>
@@ -183,8 +183,8 @@ export function LoanManagementTable() {
                     return (
                       <TableRow key={item.id}>
                         <TableCell>
-                          <div className="font-medium">{item.borrower?.name || 'N/A'}</div>
-                          <div className="text-sm text-muted-foreground">{item.borrower?.email || item.borrowerId}</div>
+                          <div className="font-medium">{item.customer?.name || 'N/A'}</div>
+                          <div className="text-sm text-muted-foreground">{item.customer?.email || item.borrowerId}</div>
                         </TableCell>
                         <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
                         <TableCell>{formatCurrency(item.balance)}</TableCell>

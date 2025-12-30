@@ -112,45 +112,45 @@ export const processExcelUpload = functions.storage
         }, {} as any);
 
 
-        let borrowerDoc: admin.firestore.DocumentSnapshot | undefined;
-        let borrowerRef: admin.firestore.DocumentReference | undefined;
+        let customerDoc: admin.firestore.DocumentSnapshot | undefined;
+        let customerRef: admin.firestore.DocumentReference | undefined;
 
         if (rowData.bvn) {
-            borrowerRef = db.collection("Borrowers").doc(rowData.bvn);
-            borrowerDoc = await borrowerRef.get();
+            customerRef = db.collection("Customers").doc(rowData.bvn);
+            customerDoc = await customerRef.get();
         } else if (rowData.phone) {
-             const querySnapshot = await db.collection("Borrowers").where("phone", "==", rowData.phone).limit(1).get();
+             const querySnapshot = await db.collection("Customers").where("phone", "==", rowData.phone).limit(1).get();
              if(!querySnapshot.empty) {
-                borrowerDoc = querySnapshot.docs[0];
-                borrowerRef = borrowerDoc.ref;
+                customerDoc = querySnapshot.docs[0];
+                customerRef = customerDoc.ref;
              }
         } else if (rowData.name) {
-             const querySnapshot = await db.collection("Borrowers").where("name", "==", rowData.name).limit(1).get();
+             const querySnapshot = await db.collection("Customers").where("name", "==", rowData.name).limit(1).get();
              if(!querySnapshot.empty) {
-                borrowerDoc = querySnapshot.docs[0];
-                borrowerRef = borrowerDoc.ref;
+                customerDoc = querySnapshot.docs[0];
+                customerRef = customerDoc.ref;
              }
         } else {
             console.warn("Skipping row, no identifiable info (bvn, phone, or name):", rowData);
             continue;
         }
 
-        const borrowerId = (borrowerDoc && borrowerDoc.exists) ? borrowerDoc.id : rowData.bvn || rowData.phone || `new_${Date.now()}`;
+        const customerId = (customerDoc && customerDoc.exists) ? customerDoc.id : rowData.bvn || rowData.phone || `new_${Date.now()}`;
 
-        if ((!borrowerDoc || !borrowerDoc.exists) && borrowerRef) {
-            const newBorrowerData = {
+        if ((!customerDoc || !customerDoc.exists) && customerRef) {
+            const newCustomerData = {
                 name: rowData.name || "N/A",
                 phone: rowData.phone || "N/A",
                 bvn: rowData.bvn || "N/A",
                 email: rowData.email || "N/A",
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             };
-            batch.set(borrowerRef, newBorrowerData, {merge: true});
-            console.log(`Creating new borrower: ${borrowerId}`);
+            batch.set(customerRef, newCustomerData, {merge: true});
+            console.log(`Creating new customer: ${customerId}`);
         }
 
         const loansQuery = await db.collection("Loans")
-            .where("borrowerId", "==", borrowerId)
+            .where("borrowerId", "==", customerId)
             .orderBy("createdAt", "desc")
             .limit(1)
             .get();
@@ -166,7 +166,7 @@ export const processExcelUpload = functions.storage
         const balance = totalRepayment - amountPaid;
 
         const loanData = {
-            borrowerId,
+            borrowerId: customerId,
             amountRequested,
             totalRepayment,
             interestRate: getInterestRate(amountRequested),
@@ -179,7 +179,7 @@ export const processExcelUpload = functions.storage
         };
 
         batch.set(loanRef, loanData, {merge: true});
-        console.log(`${existingLoanDoc ? "Updating" : "Creating"} loan for borrower ${borrowerId}`);
+        console.log(`${existingLoanDoc ? "Updating" : "Creating"} loan for customer ${customerId}`);
       }
 
       if(excelFileDoc) {
@@ -332,18 +332,18 @@ export const approveApplication = functions.https.onCall(async (data, context) =
             throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
         }
 
-        // 2. Find or create the Borrower.
-        let borrowerId: string;
-        const borrowersRef = db.collection("Borrowers");
-        const existingBorrowerQuery = await borrowersRef.where("email", "==", appData.email).limit(1).get();
+        // 2. Find or create the Customer.
+        let customerId: string;
+        const customersRef = db.collection("Customers");
+        const existingCustomerQuery = await customersRef.where("email", "==", appData.email).limit(1).get();
 
-        if (!existingBorrowerQuery.empty) {
-            borrowerId = existingBorrowerQuery.docs[0].id;
+        if (!existingCustomerQuery.empty) {
+            customerId = existingCustomerQuery.docs[0].id;
         } else {
-            // Create a new borrower if one doesn't exist.
-            const newBorrowerRef = borrowersRef.doc(); // Auto-generate ID
-            borrowerId = newBorrowerRef.id;
-            batch.set(newBorrowerRef, {
+            // Create a new customer if one doesn't exist.
+            const newCustomerRef = customersRef.doc(); // Auto-generate ID
+            customerId = newCustomerRef.id;
+            batch.set(newCustomerRef, {
                 name: appData.fullName,
                 email: appData.email,
                 phone: appData.phoneNumber,
@@ -358,7 +358,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
 
             const loanRef = db.collection("Loans").doc(); // Auto-generate ID
             batch.set(loanRef, {
-                borrowerId: borrowerId,
+                borrowerId: customerId,
                 amountRequested: amount,
                 interestRate: getInterestRate(amount),
                 totalRepayment: totalRepayment,

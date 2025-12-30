@@ -22,6 +22,7 @@ import { useCollection, useMemoFirebase, WithId } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { format } from 'date-fns';
+import { PlusCircle } from 'lucide-react';
 
 type Customer = {
   name: string;
@@ -36,7 +37,7 @@ export function CustomersTable() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const customersQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'Borrowers'), orderBy('createdAt', 'desc')) : null,
+    () => firestore ? query(collection(firestore, 'Customers'), orderBy('createdAt', 'desc')) : null,
     [firestore]
   );
   
@@ -60,8 +61,16 @@ export function CustomersTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Customers</CardTitle>
-        <CardDescription>View and manage all customer records in the system.</CardDescription>
+        <div className="flex justify-between items-center">
+            <div>
+                <CardTitle>All Customers</CardTitle>
+                <CardDescription>View and manage all customer records in the system.</CardDescription>
+            </div>
+            <Button>
+                <PlusCircle className="mr-2 h-4 w-4"/>
+                Add New Borrower
+            </Button>
+        </div>
         <div className="flex flex-col md:flex-row items-center gap-4 pt-4">
             <Input 
               placeholder="Search by name, email, or phone..."
@@ -97,7 +106,7 @@ export function CustomersTable() {
                         <div className="text-muted-foreground text-sm">{item.phone}</div>
                       </TableCell>
                       <TableCell>{item.bvn || 'N/A'}</TableCell>
-                      <TableCell>{format(new Date(item.createdAt), 'PPP')}</TableCell>
+                      <TableCell>{item.createdAt ? format(new Date(item.createdAt), 'PPP') : 'N/A'}</TableCell>
                     </TableRow>
                   ))
               ) : (

@@ -30,20 +30,11 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    match /Borrowers/{borrowerId} {
-      // Any signed-in user can create their own borrower profile
-      allow create: if isOwner(borrowerId);
-      // Only owner or an admin can read or update their profile
-      allow read, update: if isOwner(borrowerId) || isAdmin();
-      // Only an admin can delete a borrower profile
-      allow delete: if isAdmin();
-    }
-    
     match /Customers/{customerId} {
       // Only admins can manage customer records
       allow read, write, delete: if isAdmin();
     }
-
+    
     match /Loans/{loanId} {
       // Admins can write any loan document
       allow write: if isAdmin();
