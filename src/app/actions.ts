@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -5,11 +6,6 @@ import { storage as adminStorage } from 'firebase-admin';
 import { firestore as adminFirestore } from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as XLSX from 'xlsx';
-
-// This is a helper function to initialize the server-side admin app
-// It's defined in a separate file to avoid re-declaration and ensure singleton pattern.
-// NOTE: This file is NOT created yet. You'll need to create it.
-// import { initializeServerApp } from '@/firebase/server-init';
 
 // A simple in-memory flag to ensure initialization only runs once.
 let isServerAppInitialized = false;
