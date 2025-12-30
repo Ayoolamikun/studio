@@ -2,6 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useUser } from '@/firebase';
@@ -15,7 +16,18 @@ export default function DashboardLayout({
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  if (isUserLoading) {
+  useEffect(() => {
+    if (isUserLoading) return; // Wait until user status is resolved
+
+    if (!user) {
+      router.push('/login');
+    } else if (user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
+      router.push('/admin');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || !user || user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
+    // Show a loading spinner while checking auth or redirecting
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <Spinner size="large" />
@@ -24,18 +36,7 @@ export default function DashboardLayout({
     );
   }
 
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
-  
-  // This layout is for standard user dashboards, not the admin panel
-  // Admin page has its own layout logic (Sidebar etc.)
-  if (user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
-     router.push('/admin');
-     return null;
-  }
-
+  // Render the layout for a standard, non-admin user
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
       <Header />
