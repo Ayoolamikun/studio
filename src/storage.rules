@@ -1,0 +1,53 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.uid == ADMIN_UID;
+    }
+
+    // --- PUBLIC UPLOAD PATHS ---
+    // Anyone can write to these paths to submit an application.
+    // Only the admin can read the submitted files.
+
+    match /loan-documents/{allPaths=**} {
+      allow write: if true;
+      allow read: if isAdmin();
+    }
+    
+    match /guarantor-ids/{allPaths=**} {
+      allow write: if true;
+      allow read: if isAdmin();
+    }
+
+    // --- AUTHENTICATED USER PATHS ---
+    // Authenticated users can manage files in their own folder.
+    // This is used for the "My Files" feature in the user dashboard.
+    
+    match /user-uploads/{userId}/{allPaths=**} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- ADMIN-ONLY PATHS ---
+    // Only the admin can read from or write to the Excel import folder.
+    
+    match /excel-imports/{fileName} {
+        allow read, write: if isAdmin();
+    }
+
+    // --- DEFAULT RULE ---
+    // By default, deny all other access to prevent unauthorized actions.
+    
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
