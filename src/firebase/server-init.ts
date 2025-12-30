@@ -8,31 +8,21 @@ export async function initializeServerApp() {
   // Check if the app is already initialized to prevent re-initialization
   if (!admin.apps.length) {
     try {
-      // Attempt to initialize using environment variables
-      // This is the primary method for Vercel, Firebase Hosting, etc.
+      // Initialize using environment variables for production environments like Vercel/App Hosting
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          // Replace escaped newlines from environment variable
+          // Replace escaped newlines from environment variable, otherwise it fails
           privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
         }),
         storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       });
-      console.log("Firebase Admin SDK initialized successfully.");
+      console.log("Firebase Admin SDK initialized successfully via service account.");
     } catch (error: any) {
       console.error("Firebase Admin SDK initialization error:", error.message);
-      // This fallback is useful for local development if GOOGLE_APPLICATION_CREDENTIALS is set
-      // but should not be relied upon for production deployments.
-      if (!process.env.FIREBASE_PROJECT_ID && process.env.NODE_ENV === 'development') {
-         console.warn("Falling back to default admin initialization. Ensure GOOGLE_APPLICATION_CREDENTIALS is set for local development.");
-         admin.initializeApp({
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-         });
-      } else if (process.env.NODE_ENV === 'production') {
-        // In production, failure to initialize is a critical error.
-        throw new Error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
-      }
+      // This is a critical error in production.
+      throw new Error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
     }
   }
 

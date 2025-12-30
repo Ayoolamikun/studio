@@ -13,9 +13,11 @@ type FormState = {
 }
 
 export async function submitApplication(prevState: FormState, formData: FormData): Promise<FormState> {
+  // 1. Initialize the Admin SDK
   const { firestore, storage } = await initializeServerApp();
   const bucket = storage.bucket();
   
+  // 2. Extract and prepare form data
   const rawData: any = {
     fullName: formData.get('fullName'),
     email: formData.get('email'),
@@ -24,8 +26,9 @@ export async function submitApplication(prevState: FormState, formData: FormData
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
-    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'), // Keep as File object for validation
-    guarantorIdUrl: formData.get('guarantorIdUrl') // Keep as File object for validation
+    // Pass the file objects directly for validation
+    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'), 
+    guarantorIdUrl: formData.get('guarantorIdUrl')
   };
 
   if (rawData.employmentType === "Private Individual") {
@@ -36,6 +39,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
       rawData.guarantorRelationship = formData.get('guarantorRelationship');
   }
   
+  // 3. Validate the data using Zod schema
   const validatedFields = loanApplicationSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
@@ -46,11 +50,10 @@ export async function submitApplication(prevState: FormState, formData: FormData
     };
   }
 
-  // This is a trusted server environment.
-  // The Admin SDK has elevated privileges to write to Storage.
-  const uploadFile = async (file: File | null, path: string): Promise<string> => {
+  // 4. Define the file upload function using the Admin SDK
+  const uploadFile = async (file: File | null, folder: string): Promise<string> => {
       if (file && file.size > 0) {
-          const filePath = `${path}/${Date.now()}-${file.name}`;
+          const filePath = `${folder}/${Date.now()}-${file.name.replace(/\s/g, '_')}`;
           const fileBuffer = await file.arrayBuffer();
           const fileRef = bucket.file(filePath);
           
@@ -67,20 +70,21 @@ export async function submitApplication(prevState: FormState, formData: FormData
 
 
   try {
+    // 5. Upload files using the admin-powered function
     const userDocUrl = await uploadFile(validatedFields.data.uploadedDocumentUrl, 'loan-documents');
     const guarantorIdUrl = await uploadFile(validatedFields.data.guarantorIdUrl, 'guarantor-ids');
 
+    // 6. Prepare the final document for Firestore
     const docToSave = {
       ...validatedFields.data,
       submissionDate: new Date().toISOString(),
+      // Replace file objects with their public URLs
       uploadedDocumentUrl: userDocUrl,
       guarantorIdUrl: guarantorIdUrl,
+      status: 'pending', // Set initial status
     };
     
-    // Remove file objects before saving to Firestore
-    delete docToSave.uploadedDocumentUrlFile;
-    delete docToSave.guarantorIdUrlFile;
-    
+    // 7. Save to Firestore
     const collectionRef = collection(firestore, "loanApplications");
     await addDoc(collectionRef, docToSave);
 
@@ -89,6 +93,10 @@ export async function submitApplication(prevState: FormState, formData: FormData
   } catch (error) {
     console.error("Form submission error:", error);
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+    // Provide a more user-friendly error
+    if (errorMessage.includes('storage') || errorMessage.includes('permission')) {
+        return { success: false, message: `There was a problem with the file upload. Please ensure your file is valid and try again.` };
+    }
     return { success: false, message: `An unexpected error occurred: ${errorMessage}. Please try again.` };
   }
 }
