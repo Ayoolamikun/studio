@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { firestore, storage } from '@/firebase';
+import { useRouter } from 'next/navigation';
+
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -28,6 +30,7 @@ import { cn } from '@/lib/utils';
 
 export default function ApplyPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
 
   const form = useForm<LoanApplicationValues>({
@@ -65,16 +68,16 @@ export default function ApplyPage() {
       let guarantorIdUrl: string | undefined = undefined;
 
       // --- Handle Main Document Upload ---
-      if (data.uploadedDocumentUrl) {
-        const docFile = (data.uploadedDocumentUrl as FileList)[0];
+      if (data.uploadedDocumentUrl && data.uploadedDocumentUrl.length > 0) {
+        const docFile = data.uploadedDocumentUrl[0];
         const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
         await uploadBytes(docRef, docFile);
         uploadedDocumentUrl = await getDownloadURL(docRef);
       }
       
       // --- Handle Guarantor ID Upload (if applicable) ---
-      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl) {
-         const guarantorFile = (data.guarantorIdUrl as FileList)[0];
+      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl && data.guarantorIdUrl.length > 0) {
+         const guarantorFile = data.guarantorIdUrl[0];
          const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
          await uploadBytes(guarantorIdRef, guarantorFile);
          guarantorIdUrl = await getDownloadURL(guarantorIdRef);
@@ -82,26 +85,20 @@ export default function ApplyPage() {
 
       const submissionData = {
         ...data,
-        uploadedDocumentUrl,
-        guarantorIdUrl,
         submissionDate: serverTimestamp(),
-        amountRequested: Number(data.amountRequested),
         status: 'pending',
+        uploadedDocumentUrl, // URL from storage
+        guarantorIdUrl, // URL from storage
       };
       
-      // Remove the file objects before sending to Firestore
+      // Remove file list objects before saving to firestore
       delete (submissionData as any).uploadedDocumentUrl;
       delete (submissionData as any).guarantorIdUrl;
 
       // --- Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
-      toast({
-        title: 'Application Submitted!',
-        description: "We've received your application and will be in touch shortly.",
-      });
-      form.reset();
-      setCurrentStep(0);
+      router.push('/apply/thank-you');
     } catch (error: any) {
       console.error('Submission Error:', error);
       toast({
@@ -120,17 +117,27 @@ export default function ApplyPage() {
 
   const nextStep = async () => {
     const currentFields = steps[currentStep].fields;
-    const isValid = await form.trigger(currentFields as any);
+    const isValid = await form.trigger(currentFields as (keyof LoanApplicationValues)[]);
     if (isValid) {
-      setCurrentStep(currentStep + 1);
+      if (currentStep === 1 && employmentType === 'BYSG') {
+        // Skip guarantor step if not needed
+        setCurrentStep(currentStep + 2); 
+      } else {
+        setCurrentStep(currentStep + 1);
+      }
     }
   };
 
   const prevStep = () => {
-    setCurrentStep(currentStep - 1);
+    if (currentStep === 3 && employmentType === 'BYSG') {
+      setCurrentStep(currentStep - 2);
+    } else {
+      setCurrentStep(currentStep - 1);
+    }
   };
   
-  const isFinalStep = (currentStep === 1 && employmentType !== 'Private Individual') || (currentStep === 2 && employmentType === 'Private Individual');
+  const isFinalStep = currentStep === steps.length || (currentStep === 1 && employmentType === 'BYSG');
+  const isGuarantorStep = currentStep === 2 && employmentType === 'Private Individual';
 
 
   return (
@@ -195,7 +202,7 @@ export default function ApplyPage() {
                         )} />
                          <FormField control={form.control} name="amountRequested" render={({ field }) => (
                             <FormItem><FormLabel>Amount Requested (NGN)</FormLabel>
-                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
+                            <FormControl><Input type="number" {...field} /></FormControl>
                             <FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="employmentType" render={({ field }) => (
@@ -214,10 +221,10 @@ export default function ApplyPage() {
                               <FormMessage />
                           </FormItem>
                         )} />
-                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field }) => (
+                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...props } }) => (
                            <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
                             <FormControl>
-                               <Input type="file" {...form.register("uploadedDocumentUrl")} />
+                               <Input type="file" {...props} onChange={(e) => onChange(e.target.files)} />
                             </FormControl>
                            <FormDescription>Please upload your most recent payslip or a valid ID.</FormDescription>
                            <FormMessage /></FormItem>
@@ -226,7 +233,7 @@ export default function ApplyPage() {
                   </div>
 
                   {/* Step 3: Guarantor Details */}
-                   <div className={cn(currentStep === 2 && employmentType === 'Private Individual' ? 'block' : 'hidden')}>
+                   <div className={cn(isGuarantorStep ? 'block' : 'hidden')}>
                      <h3 className="text-lg font-semibold mb-4 text-primary">Step 3: Guarantor Details</h3>
                      <p className="text-sm text-muted-foreground mb-4">This section is required for private individuals.</p>
                      <div className="space-y-4">
@@ -245,10 +252,10 @@ export default function ApplyPage() {
                         <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
                             <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="guarantorIdUrl" render={({ field }) => (
+                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...props } }) => (
                            <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
                             <FormControl>
-                               <Input type="file" {...form.register("guarantorIdUrl")} />
+                               <Input type="file" {...props} onChange={(e) => onChange(e.target.files)} />
                             </FormControl>
                            <FormMessage /></FormItem>
                         )} />
@@ -273,9 +280,15 @@ export default function ApplyPage() {
                       )}
                     </div>
                     <div>
-                      {!isFinalStep && currentStep < 2 && (
+                      {!isFinalStep && !isGuarantorStep && (
                         <Button type="button" onClick={nextStep}>
                           Next <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      )}
+
+                       {isGuarantorStep && (
+                        <Button type="button" onClick={nextStep}>
+                          Review Application <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       )}
                       
