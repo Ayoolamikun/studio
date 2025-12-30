@@ -4,7 +4,6 @@
 import { initializeServerApp } from "@/firebase/server-init";
 import { addDoc, collection } from "firebase/firestore";
 import { loanApplicationSchema } from "@/lib/schemas";
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as XLSX from 'xlsx';
 
 type FormState = {
@@ -14,11 +13,9 @@ type FormState = {
 }
 
 export async function submitApplication(prevState: FormState, formData: FormData): Promise<FormState> {
-  // The server-init now uses Admin SDK, which has elevated privileges
   const { firestore, storage } = await initializeServerApp();
   const bucket = storage.bucket();
   
-  // Manually construct the object and parse the number correctly.
   const rawData: any = {
     fullName: formData.get('fullName'),
     email: formData.get('email'),
@@ -27,11 +24,10 @@ export async function submitApplication(prevState: FormState, formData: FormData
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
-    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'),
-    guarantorIdUrl: formData.get('guarantorIdUrl')
+    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'), // Keep as File object for validation
+    guarantorIdUrl: formData.get('guarantorIdUrl') // Keep as File object for validation
   };
 
-  // Add guarantor fields if they exist
   if (rawData.employmentType === "Private Individual") {
       rawData.guarantorFullName = formData.get('guarantorFullName');
       rawData.guarantorPhoneNumber = formData.get('guarantorPhoneNumber');
@@ -50,7 +46,8 @@ export async function submitApplication(prevState: FormState, formData: FormData
     };
   }
 
-  // Updated upload function for Admin SDK
+  // This is a trusted server environment.
+  // The Admin SDK has elevated privileges to write to Storage.
   const uploadFile = async (file: File | null, path: string): Promise<string> => {
       if (file && file.size > 0) {
           const filePath = `${path}/${Date.now()}-${file.name}`;
@@ -65,13 +62,13 @@ export async function submitApplication(prevState: FormState, formData: FormData
           await fileRef.makePublic();
           return fileRef.publicUrl();
       }
-      return "No file uploaded";
+      return "";
   }
 
 
   try {
-    const userDocUrl = await uploadFile(formData.get('uploadedDocumentUrl') as File, 'loan-documents');
-    const guarantorIdUrl = await uploadFile(formData.get('guarantorIdUrl') as File, 'guarantor-ids');
+    const userDocUrl = await uploadFile(validatedFields.data.uploadedDocumentUrl, 'loan-documents');
+    const guarantorIdUrl = await uploadFile(validatedFields.data.guarantorIdUrl, 'guarantor-ids');
 
     const docToSave = {
       ...validatedFields.data,
@@ -79,6 +76,10 @@ export async function submitApplication(prevState: FormState, formData: FormData
       uploadedDocumentUrl: userDocUrl,
       guarantorIdUrl: guarantorIdUrl,
     };
+    
+    // Remove file objects before saving to Firestore
+    delete docToSave.uploadedDocumentUrlFile;
+    delete docToSave.guarantorIdUrlFile;
     
     const collectionRef = collection(firestore, "loanApplications");
     await addDoc(collectionRef, docToSave);

@@ -1,9 +1,14 @@
+
+// This configuration is used for client-side Firebase initialization.
+// It is populated by environment variables prefixed with NEXT_PUBLIC_.
+// See the .env file for the corresponding variables.
+
 export const firebaseConfig = {
-  "projectId": "studio-7087913639-9a972",
-  "appId": "1:833191446723:web:d8497cf4d7b502c718fa76",
-  "apiKey": "AIzaSyB1Me1GP5hIQiHEUaLqC7nWfv-EMdejFic",
-  "authDomain": "studio-7087913639-9a972.firebaseapp.com",
-  "storageBucket": "studio-7087913639-9a972.appspot.com",
-  "measurementId": "",
-  "messagingSenderId": "833191446723"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };

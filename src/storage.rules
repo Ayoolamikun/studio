@@ -14,8 +14,9 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == ADMIN_UID;
     }
 
-    // Server-side admin SDK handles uploads to these paths, so no client-side write access is needed.
-    // Admin can read them.
+    // --- Public Routes for Application Submission ---
+    // These paths are written to by the trusted server-side action (Admin SDK).
+    // Direct client writes are and should be blocked.
     match /loan-documents/{allPaths=**} {
       allow write: if false; 
       allow read: if isAdmin();
@@ -26,17 +27,20 @@ service firebase.storage {
       allow read: if isAdmin();
     }
 
-    // Authenticated users can manage files in their own folder.
+    // --- Authenticated User Routes ---
+    // Users can read and write files only within their own designated folder.
     match /user-uploads/{userId}/{allPaths=**} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // --- Admin-Only Routes ---
     // Only the admin can manage the Excel import folder.
     match /excel-imports/{fileName} {
-        allow read, write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    // Default rule: deny all other access.
+    // --- Default Deny ---
+    // Deny all other access to prevent unauthorized reads/writes.
     match /{path=**} {
       allow read, write: if false;
     }
