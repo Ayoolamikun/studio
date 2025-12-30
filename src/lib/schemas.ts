@@ -4,23 +4,41 @@ import { z } from "zod";
 const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-// Schema for a single file upload, checks for a FileList with at least one file.
+// This schema validates a file upload. It uses z.any() to avoid server-side errors,
+// as File/FileList objects are not available in the Node.js environment.
+// Validation is then performed on the client side.
 const fileSchema = z
-  .instanceof(FileList)
-  .refine((files) => files?.length > 0, "A file is required.")
-  .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+  .any()
+  .refine((file) => {
+    // On the server, we skip validation.
+    if (typeof window === 'undefined') return true;
+    return file instanceof File;
+  }, "A file is required.")
+  .refine((file) => {
+    if (typeof window === 'undefined') return true;
+    return file?.size <= MAX_FILE_SIZE;
+  }, `Max file size is 5MB.`)
   .refine(
-    (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
+    (file) => {
+      if (typeof window === 'undefined') return true;
+      return ACCEPTED_FILE_TYPES.includes(file?.type);
+    },
     ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
   );
 
-// Schema for an optional file upload
+// Schema for an optional file upload.
 const optionalFileSchema = z
-  .instanceof(FileList)
+  .any()
   .optional()
-  .refine((files) => !files || files.length === 0 || (files?.[0]?.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
+  .refine((file) => {
+    if (typeof window === 'undefined') return true;
+    return !file || (file instanceof File && file.size <= MAX_FILE_SIZE);
+  }, `Max file size is 5MB.`)
   .refine(
-    (files) => !files || files.length === 0 || ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
+    (file) => {
+      if (typeof window === 'undefined') return true;
+      return !file || (file instanceof File && ACCEPTED_FILE_TYPES.includes(file.type));
+    },
     ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
   );
 
@@ -68,5 +86,3 @@ export const loanApplicationSchema = z.object({
 
 
 export type LoanApplicationValues = z.infer<typeof loanApplicationSchema>;
-
-    

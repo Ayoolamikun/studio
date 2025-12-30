@@ -46,7 +46,7 @@ export default function ApplyPage() {
       guarantorAddress: '',
       guarantorEmploymentPlace: '',
       guarantorRelationship: '',
-      // File inputs are uncontrolled, so we don't set default values for them.
+      // File inputs are uncontrolled, so they are not included in defaultValues.
     },
     mode: 'onChange',
   });
@@ -67,16 +67,16 @@ export default function ApplyPage() {
       let guarantorIdUrl: string | undefined = undefined;
 
       // --- Handle Main Document Upload ---
-      if (data.uploadedDocumentUrl && data.uploadedDocumentUrl.length > 0) {
-        const docFile = data.uploadedDocumentUrl[0];
+      if (data.uploadedDocumentUrl) {
+        const docFile = data.uploadedDocumentUrl;
         const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
         await uploadBytes(docRef, docFile);
         uploadedDocumentUrl = await getDownloadURL(docRef);
       }
       
       // --- Handle Guarantor ID Upload (if applicable) ---
-      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl && data.guarantorIdUrl.length > 0) {
-         const guarantorFile = data.guarantorIdUrl[0];
+      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl) {
+         const guarantorFile = data.guarantorIdUrl;
          const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
          await uploadBytes(guarantorIdRef, guarantorFile);
          guarantorIdUrl = await getDownloadURL(guarantorIdRef);
@@ -89,10 +89,6 @@ export default function ApplyPage() {
         uploadedDocumentUrl, // URL from storage
         guarantorIdUrl, // URL from storage
       };
-      
-      // Remove file list objects before saving to firestore
-      delete (submissionData as any).uploadedDocumentUrl;
-      delete (submissionData as any).guarantorIdUrl;
 
       // --- Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
@@ -224,7 +220,7 @@ export default function ApplyPage() {
                          <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
                             <FormControl>
-                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files)} />
+                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
                             </FormControl>
                            <FormDescription>Please upload your most recent payslip or a valid ID.</FormDescription>
                            <FormMessage /></FormItem>
@@ -255,7 +251,7 @@ export default function ApplyPage() {
                         <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
                             <FormControl>
-                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files)} />
+                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
                             </FormControl>
                            <FormMessage /></FormItem>
                         )} />
@@ -305,5 +301,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
