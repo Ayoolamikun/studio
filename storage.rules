@@ -21,13 +21,22 @@ service firebase.storage {
     match /loan-documents/{fileName} {
       // Allow anyone to create (upload) a document.
       // This is for the public application form.
-      // You can add more constraints, e.g., request.resource.size < 5 * 1024 * 1024
       allow create: if true;
 
       // Only an admin can read, update or delete the documents.
       allow read, update, delete: if isAdmin();
     }
     
+    // Matches any file in the 'guarantor-ids' folder
+    match /guarantor-ids/{fileName} {
+      // Allow anyone to create (upload) a guarantor's ID.
+      // This is for the public application form.
+      allow create: if true;
+
+      // Only an admin can read, update or delete the documents.
+      allow read, update, delete: if isAdmin();
+    }
+
     // Matches any file in the 'excel-imports' folder
     match /excel-imports/{fileName} {
         // Only admins can read and write files here
