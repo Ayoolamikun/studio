@@ -16,7 +16,7 @@ export async function initializeServerApp() {
 
       admin.initializeApp({
         credential,
-        storageBucket: 'studio-7087913639-9a972.appspot.com',
+        storageBucket: 'gs://studio-7087913639-9a972.appspot.com',
       });
 
     } catch (error: any) {

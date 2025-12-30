@@ -116,7 +116,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
 
 export async function uploadExcelFile(formData: FormData) {
     const { storage, firestore } = await initializeServerApp();
-    const bucket = storage.bucket();
+    const bucket = storage.bucket("gs://studio-7087913639-9a972.appspot.com");
     const file = formData.get('excelFile') as File;
 
     if (!file || file.size === 0) {
