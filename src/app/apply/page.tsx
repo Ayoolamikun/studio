@@ -46,7 +46,6 @@ export default function ApplyPage() {
       guarantorAddress: '',
       guarantorEmploymentPlace: '',
       guarantorRelationship: '',
-      // File inputs are uncontrolled, so they are not included in defaultValues.
     },
     mode: 'onChange',
   });
@@ -217,7 +216,7 @@ export default function ApplyPage() {
                               <FormMessage />
                           </FormItem>
                         )} />
-                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...fieldProps } }) => (
+                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { value, onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
                             <FormControl>
                                <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
@@ -248,7 +247,7 @@ export default function ApplyPage() {
                         <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
                             <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...fieldProps } }) => (
+                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { value, onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
                             <FormControl>
                                <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
