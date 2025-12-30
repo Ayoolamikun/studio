@@ -10,10 +10,9 @@ export async function initializeServerApp() {
   if (!admin.apps.length) {
     try {
       // The serviceAccount is imported directly from the JSON file.
-      // Ensure the file path is correct and the file contains your actual service account credentials.
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        storageBucket: 'studio-7087913639-9a972.appspot.com',
       });
 
     } catch (error: any) {
