@@ -16,37 +16,28 @@ service firebase.storage {
 
     // --- Public Upload Folders ---
     // These paths are written to by the trusted server-side action (Admin SDK).
-    // Direct client writes are and should be blocked.
-    // Admin can read them for verification, files are public for viewing.
+    // Direct client writes are and should be blocked. Public read is allowed.
     match /loan-documents/{allPaths=**} {
       allow write: if false; 
-      allow read: if isAdmin() || true; // allow public read
+      allow read: if true;
     }
     
     match /guarantor-ids/{allPaths=**} {
       allow write: if false;
-      allow read: if isAdmin() || true; // allow public read
+      allow read: if true;
     }
 
     // --- Authenticated User Folder ---
     // Users can read and write files only within their own designated folder.
-    // This is for features like "My Files".
     match /user-uploads/{userId}/{allPaths=**} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Admin-Only Excel Import Folder ---
-    // The admin uses a server action that leverages the admin SDK to write.
-    // Direct client writes should be blocked. Admin can read.
+    // Admin uses a server action to write. Direct client writes are blocked.
     match /excel-imports/{fileName} {
         allow write: if false;
         allow read: if isAdmin();
-    }
-
-    // --- Default Deny ---
-    // Deny all other access to prevent unauthorized reads/writes.
-    match /{path=**} {
-      allow read, write: if false;
     }
   }
 }

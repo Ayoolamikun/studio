@@ -77,8 +77,9 @@ export async function submitApplication(prevState: FormState, formData: FormData
 
   try {
     // 5. Upload files using the admin-powered function
-    const userDocFile = validatedFields.data.uploadedDocumentUrl instanceof File ? validatedFields.data.uploadedDocumentUrl : null;
-    const guarantorIdFile = validatedFields.data.guarantorIdUrl instanceof File ? validatedFields.data.guarantorIdUrl : null;
+    const userDocFile = formData.get("uploadedDocumentUrl") instanceof File ? formData.get("uploadedDocumentUrl") as File : null;
+    const guarantorIdFile = formData.get("guarantorIdUrl") instanceof File ? formData.get("guarantorIdUrl") as File : null;
+
 
     const userDocUrl = await uploadFile(userDocFile, 'loan-documents');
     const guarantorIdUrl = await uploadFile(guarantorIdFile, 'guarantor-ids');
@@ -104,8 +105,8 @@ export async function submitApplication(prevState: FormState, formData: FormData
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
     
     // Check for storage errors specifically
-    if (error instanceof Error && 'code' in error && (error as any).code?.includes('storage')) {
-         return { success: false, message: `A storage error occurred. Please try again. Error: ${errorMessage}` };
+    if (error instanceof Error && 'code' in error && (error as any).code?.toString().includes('storage')) {
+         return { success: false, message: `A storage error occurred. Please check your configuration. Error: ${errorMessage}` };
     }
     
     return { success: false, message: `An unexpected error occurred: ${errorMessage}. Please try again.` };

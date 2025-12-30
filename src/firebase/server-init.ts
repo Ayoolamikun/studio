@@ -8,7 +8,7 @@ export async function initializeServerApp() {
   // Check if the app is already initialized to prevent re-initialization
   if (!admin.apps.length) {
     try {
-      // Initialize using environment variables for production environments like Vercel/App Hosting
+      // Initialize using server-side environment variables
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
