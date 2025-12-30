@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -65,15 +66,17 @@ export function ApplicationsTable() {
     setProcessingId(applicationId);
     
     try {
-        const approveApplication = httpsCallable<{applicationId: string}, {success: boolean, message: string}>(functions, 'approveApplication');
+        const approveApplication = httpsCallable(functions, 'approveApplication');
         const result = await approveApplication({ applicationId });
-        if (result.data.success) {
+        const data = result.data as {success: boolean; message: string};
+
+        if (data.success) {
             toast({
                 title: 'Success',
-                description: result.data.message
+                description: data.message
             });
         } else {
-             throw new Error(result.data.message);
+             throw new Error(data.message);
         }
     } catch (error: any) {
          toast({

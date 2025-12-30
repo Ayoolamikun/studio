@@ -48,11 +48,12 @@ export default function FileUploadPage() {
     if (!functions) return;
     setLoading(true);
     try {
-      const getUserFiles = httpsCallable<{ success: boolean, files: CloudFile[] }>(functions, 'getUserFiles');
+      const getUserFiles = httpsCallable(functions, 'getUserFiles');
       const result = await getUserFiles();
+      const data = result.data as { success: boolean; files: CloudFile[] };
       
-      if (result.data.success) {
-        setFiles(result.data.files);
+      if (data.success) {
+        setFiles(data.files);
       }
     } catch (error: any) {
       console.error('Error loading files:', error);
@@ -87,20 +88,18 @@ export default function FileUploadPage() {
     setUploading(true);
     try {
       const base64File = await convertToBase64(file);
-      const uploadFile = httpsCallable<{ file: string, fileName: string, folder: string }, { success: boolean }>(functions, 'uploadFile');
-      const result = await uploadFile({
+      const uploadFile = httpsCallable(functions, 'uploadFile');
+      await uploadFile({
         file: base64File,
         fileName: file.name,
         folder: 'user-uploads',
       });
 
-      if (result.data.success) {
-        toast({
-          title: 'Success!',
-          description: 'File uploaded successfully!',
-        });
-        loadUserFiles(); // Reload files
-      }
+      toast({
+        title: 'Success!',
+        description: 'File uploaded successfully!',
+      });
+      loadUserFiles(); // Reload files
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -121,16 +120,14 @@ export default function FileUploadPage() {
     }
 
     try {
-      const deleteFile = httpsCallable<{ fileId: string, publicId: string }, { success: boolean }>(functions, 'deleteFile');
-      const result = await deleteFile({ fileId, publicId });
+      const deleteFile = httpsCallable(functions, 'deleteFile');
+      await deleteFile({ fileId, publicId });
 
-      if (result.data.success) {
-        toast({
-          title: 'Success!',
-          description: 'File deleted successfully!',
-        });
-        loadUserFiles(); // Reload files
-      }
+      toast({
+        title: 'Success!',
+        description: 'File deleted successfully!',
+      });
+      loadUserFiles(); // Reload files
     } catch (error: any) {
       console.error('Delete error:', error);
       toast({
