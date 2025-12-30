@@ -5,23 +5,23 @@ const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
 // This schema validates a file upload. It uses z.any() to avoid server-side errors,
-// as File/FileList objects are not available in the Node.js environment.
+// as File objects are not available in the Node.js environment.
 // Validation is then performed on the client side.
 const fileSchema = z
   .any()
   .refine((file) => {
-    // On the server, we skip validation.
+    // On the server, we skip validation. On the client, we check for a File object.
     if (typeof window === 'undefined') return true;
     return file instanceof File;
   }, "A file is required.")
   .refine((file) => {
-    if (typeof window === 'undefined') return true;
-    return file?.size <= MAX_FILE_SIZE;
+    if (typeof window === 'undefined' || !(file instanceof File)) return true;
+    return file.size <= MAX_FILE_SIZE;
   }, `Max file size is 5MB.`)
   .refine(
     (file) => {
-      if (typeof window === 'undefined') return true;
-      return ACCEPTED_FILE_TYPES.includes(file?.type);
+      if (typeof window === 'undefined' || !(file instanceof File)) return true;
+      return ACCEPTED_FILE_TYPES.includes(file.type);
     },
     ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
   );
@@ -31,13 +31,13 @@ const optionalFileSchema = z
   .any()
   .optional()
   .refine((file) => {
-    if (typeof window === 'undefined') return true;
-    return !file || (file instanceof File && file.size <= MAX_FILE_SIZE);
+    if (typeof window === 'undefined' || !file) return true;
+    return file instanceof File && file.size <= MAX_FILE_SIZE;
   }, `Max file size is 5MB.`)
   .refine(
     (file) => {
-      if (typeof window === 'undefined') return true;
-      return !file || (file instanceof File && ACCEPTED_FILE_TYPES.includes(file.type));
+      if (typeof window === 'undefined' || !file) return true;
+      return file instanceof File && ACCEPTED_FILE_TYPES.includes(file.type);
     },
     ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
   );
@@ -77,9 +77,12 @@ export const loanApplicationSchema = z.object({
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Relationship to guarantor is required.", path: ["guarantorRelationship"] });
         }
         // Validate guarantorIdUrl specifically for Private Individual
+        // This runs a more specific check on the guarantorIdUrl field.
         const fileResult = fileSchema.safeParse(data.guarantorIdUrl);
         if (!fileResult.success) {
-             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's ID card is required.", path: ["guarantorIdUrl"] });
+            // Get the specific error message from the fileSchema refinement
+             const errorMessage = fileResult.error.issues[0]?.message || "Guarantor's ID card is required and must be a valid file.";
+             ctx.addIssue({ code: z.ZodIssueCode.custom, message: errorMessage, path: ["guarantorIdUrl"] });
         }
     }
 });

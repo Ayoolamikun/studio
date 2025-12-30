@@ -67,7 +67,7 @@ export default function ApplyPage() {
 
       // --- Handle Main Document Upload ---
       if (data.uploadedDocumentUrl) {
-        const docFile = data.uploadedDocumentUrl;
+        const docFile = data.uploadedDocumentUrl as File;
         const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
         await uploadBytes(docRef, docFile);
         uploadedDocumentUrl = await getDownloadURL(docRef);
@@ -75,7 +75,7 @@ export default function ApplyPage() {
       
       // --- Handle Guarantor ID Upload (if applicable) ---
       if (data.employmentType === 'Private Individual' && data.guarantorIdUrl) {
-         const guarantorFile = data.guarantorIdUrl;
+         const guarantorFile = data.guarantorIdUrl as File;
          const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
          await uploadBytes(guarantorIdRef, guarantorFile);
          guarantorIdUrl = await getDownloadURL(guarantorIdRef);
@@ -112,28 +112,21 @@ export default function ApplyPage() {
   const nextStep = async () => {
     const currentFields = steps[currentStep].fields;
     const isValid = await form.trigger(currentFields as (keyof LoanApplicationValues)[]);
+    
     if (isValid) {
-        // Special case: if we are at step 1 and employment is BYSG, skip to final step
-        if (currentStep === 1 && employmentType === 'BYSG') {
-            setCurrentStep(steps.length); // Go to a "final" step index
-        } else {
-            setCurrentStep(currentStep + 1);
-        }
+        setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = () => {
-      // Special case: If coming back from final step and employment was BYSG
-     if (currentStep === steps.length && employmentType === 'BYSG') {
-         setCurrentStep(1); // Go back to service details
-     } else {
+     if (currentStep > 0) {
         setCurrentStep(currentStep - 1);
      }
   };
   
-  const isFinalStep = currentStep === steps.length || (currentStep === 2 && employmentType === 'Private Individual');
   const isGuarantorStep = currentStep === 2 && employmentType === 'Private Individual';
-
+  const isBysgFinalStep = currentStep === 2 && employmentType === 'BYSG';
+  const isFinalStep = isGuarantorStep || isBysgFinalStep;
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -257,7 +250,7 @@ export default function ApplyPage() {
                      </div>
                   </div>
                   
-                  {isFinalStep && (
+                  {isBysgFinalStep && (
                      <div>
                        <h3 className="text-lg font-semibold mb-4 text-primary">Final Step: Review & Submit</h3>
                        <p className="text-muted-foreground">You're all set! Please review your information before submitting. Click the "Submit Application" button below.</p>
@@ -275,11 +268,19 @@ export default function ApplyPage() {
                       )}
                     </div>
                     <div>
-                      {!isFinalStep ? (
+                      {currentStep < 1 || (currentStep === 1 && employmentType === "BYSG") ? (
                         <Button type="button" onClick={nextStep}>
                           Next <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                      ) : (
+                      ) : null}
+
+                      {currentStep === 1 && employmentType === 'Private Individual' ? (
+                          <Button type="button" onClick={nextStep}>
+                              Next <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                      ): null}
+                      
+                      {isFinalStep && (
                         <Button type="submit" disabled={form.formState.isSubmitting}>
                           {form.formState.isSubmitting ? (
                             <><Spinner size="small" /> Submitting...</>
