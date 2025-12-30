@@ -14,7 +14,7 @@ const loanServices = [
     imageId: 'loan-personal'
   },
   {
-    title: 'Civil Servant Loan',
+    title: 'State Government Loan',
     description: 'Tailored for government employees, requiring a payslip or employment verification for quick access to funds.',
     imageId: 'loan-civil'
   },

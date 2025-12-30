@@ -7,18 +7,11 @@ import { Leaf, Gem, Crown } from 'lucide-react';
 
 const investmentTiers = [
   {
-    name: 'Bronze',
-    icon: Leaf,
-    range: '₦0 – ₦3M',
-    returns: '1–2% Annual Returns',
-    color: 'text-yellow-600',
-  },
-  {
-    name: 'Silver',
+    name: 'Gold',
     icon: Gem,
-    range: '₦3M – ₦10M',
-    returns: '2–2.9% Annual Returns',
-    color: 'text-gray-400',
+    range: '₦0 – ₦10M',
+    returns: 'Up to 2.9% Annual Returns',
+    color: 'text-yellow-500',
     featured: true,
   },
   {
@@ -42,12 +35,12 @@ const InvestmentPlansSection = ({ className }: { className?: string }) => {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-8 md:grid-cols-3 md:items-start">
+        <div className="mt-12 grid gap-8 md:grid-cols-2 md:items-start justify-center">
           {investmentTiers.map((tier) => (
             <Card
               key={tier.name}
               className={cn(
-                'flex flex-col text-center shadow-lg transition-all',
+                'flex flex-col text-center shadow-lg transition-all max-w-sm mx-auto',
                 tier.featured ? 'border-2 border-primary scale-105 shadow-2xl z-10' : 'hover:scale-105'
               )}
             >
