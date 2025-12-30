@@ -107,21 +107,16 @@ export default function ApplyPage() {
     const currentFields = steps[currentStep].fields;
     const isValid = await form.trigger(currentFields as any);
     if (isValid) {
-      if (currentStep === 1 && employmentType !== 'Private Individual') {
-        setCurrentStep(currentStep + 2); // Skip guarantor step
-      } else {
-        setCurrentStep(currentStep + 1);
-      }
+      setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = () => {
-     if (currentStep === 2 && employmentType !== 'Private Individual') {
-        setCurrentStep(currentStep - 2); // Go back from final step, skipping guarantor
-      } else {
-        setCurrentStep(currentStep - 1);
-      }
+    setCurrentStep(currentStep - 1);
   };
+  
+  const isFinalStep = (currentStep === 1 && employmentType !== 'Private Individual') || (currentStep === 2 && employmentType === 'Private Individual');
+
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -245,11 +240,12 @@ export default function ApplyPage() {
                      </div>
                   </div>
                   
-                  {/* Final Review Step (Implicit) */}
-                  <div className={cn( (currentStep === 2 && employmentType !== 'Private Individual') || currentStep === 3 ? 'block' : 'hidden' )}>
-                     <h3 className="text-lg font-semibold mb-4 text-primary">Final Step: Review & Submit</h3>
-                     <p className="text-muted-foreground">You're all set! Please review your information before submitting. Click the "Submit Application" button below.</p>
-                  </div>
+                  {isFinalStep && (
+                     <div>
+                       <h3 className="text-lg font-semibold mb-4 text-primary">Final Step: Review & Submit</h3>
+                       <p className="text-muted-foreground">You're all set! Please review your information before submitting. Click the "Submit Application" button below.</p>
+                    </div>
+                  )}
 
                   {/* Navigation and Submission */}
                   <Separator className="my-8" />
@@ -262,17 +258,13 @@ export default function ApplyPage() {
                       )}
                     </div>
                     <div>
-                      {currentStep < 2 && (
+                      {!isFinalStep && currentStep < 2 && (
                         <Button type="button" onClick={nextStep}>
                           Next <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       )}
-                      {(currentStep === 1 && employmentType !== 'Private Individual') && (
-                         <Button type="button" onClick={nextStep}>
-                           Review & Submit <ArrowRight className="ml-2 h-4 w-4" />
-                         </Button>
-                      )}
-                      {((currentStep === 2 && employmentType === 'Private Individual') || (currentStep > 2)) && (
+                      
+                      {isFinalStep && (
                         <Button type="submit" disabled={form.formState.isSubmitting}>
                           {form.formState.isSubmitting ? (
                             <><Spinner size="small" /> Submitting...</>
