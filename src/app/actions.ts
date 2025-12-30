@@ -49,7 +49,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
     };
   }
 
-  // 4. Define the server-side file upload function
+  // 4. Define the server-side file upload function using the Admin SDK
   const uploadFile = async (file: File | null, folder: string): Promise<string> => {
       if (!file || file.size === 0) {
         return "";
@@ -67,16 +67,21 @@ export async function submitApplication(prevState: FormState, formData: FormData
         },
       });
 
+      // Make the file public to get a shareable URL
       await fileUpload.makePublic();
       
-      return fileUpload.publicUrl();
+      // Construct the public URL
+      return `https://storage.googleapis.com/${bucket.name}/${filePath}`;
   }
 
 
   try {
     // 5. Upload files using the admin-powered function
-    const userDocUrl = await uploadFile(validatedFields.data.uploadedDocumentUrl as File, 'loan-documents');
-    const guarantorIdUrl = await uploadFile(validatedFields.data.guarantorIdUrl as File, 'guarantor-ids');
+    const userDocFile = validatedFields.data.uploadedDocumentUrl instanceof File ? validatedFields.data.uploadedDocumentUrl : null;
+    const guarantorIdFile = validatedFields.data.guarantorIdUrl instanceof File ? validatedFields.data.guarantorIdUrl : null;
+
+    const userDocUrl = await uploadFile(userDocFile, 'loan-documents');
+    const guarantorIdUrl = await uploadFile(guarantorIdFile, 'guarantor-ids');
 
     // 6. Prepare the final document for Firestore
     const docToSave = {
@@ -126,7 +131,8 @@ export async function uploadExcelFile(formData: FormData) {
             metadata: { contentType: file.type },
         });
         await fileRef.makePublic();
-        const downloadUrl = fileRef.publicUrl();
+        
+        const downloadUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
 
 
         const fileRecord = {
@@ -213,5 +219,3 @@ export async function generateExcelReport(formData: FormData): Promise<FormState
         return { success: false, message: `Report generation failed: ${errorMessage}` };
     }
 }
-
-    
