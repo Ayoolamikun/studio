@@ -84,8 +84,8 @@ export default function ApplyPage() {
         ...data,
         submissionDate: serverTimestamp(),
         status: 'pending',
-        uploadedDocumentUrl, // URL from storage
-        guarantorIdUrl, // URL from storage
+        uploadedDocumentUrl, // URL from storage or undefined
+        guarantorIdUrl, // URL from storage or undefined
       };
 
       // --- Save to Firestore ---
@@ -300,3 +300,5 @@ export default function ApplyPage() {
     </div>
   );
 }
+
+    
