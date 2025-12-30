@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -85,7 +86,7 @@ export default function AdminDashboardPage() {
         [firestore]
     );
     const applicationsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'loanApplications'), where('status', 'in', ['pending', undefined])) : null,
+        () => firestore ? query(collection(firestore, 'loanApplications'), where('status', '==', 'pending')) : null,
         [firestore]
     );
     const customersQuery = useMemoFirebase(
