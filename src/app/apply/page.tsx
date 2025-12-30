@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { firestore, storage } from '@/firebase';
@@ -15,7 +14,6 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,6 +46,7 @@ export default function ApplyPage() {
       guarantorAddress: '',
       guarantorEmploymentPlace: '',
       guarantorRelationship: '',
+      // File inputs are uncontrolled, so we don't set default values for them.
     },
     mode: 'onChange',
   });
@@ -119,24 +118,25 @@ export default function ApplyPage() {
     const currentFields = steps[currentStep].fields;
     const isValid = await form.trigger(currentFields as (keyof LoanApplicationValues)[]);
     if (isValid) {
-      if (currentStep === 1 && employmentType === 'BYSG') {
-        // Skip guarantor step if not needed
-        setCurrentStep(currentStep + 2); 
-      } else {
-        setCurrentStep(currentStep + 1);
-      }
+        // Special case: if we are at step 1 and employment is BYSG, skip to final step
+        if (currentStep === 1 && employmentType === 'BYSG') {
+            setCurrentStep(steps.length); // Go to a "final" step index
+        } else {
+            setCurrentStep(currentStep + 1);
+        }
     }
   };
 
   const prevStep = () => {
-    if (currentStep === 3 && employmentType === 'BYSG') {
-      setCurrentStep(currentStep - 2);
-    } else {
-      setCurrentStep(currentStep - 1);
-    }
+      // Special case: If coming back from final step and employment was BYSG
+     if (currentStep === steps.length && employmentType === 'BYSG') {
+         setCurrentStep(1); // Go back to service details
+     } else {
+        setCurrentStep(currentStep - 1);
+     }
   };
   
-  const isFinalStep = currentStep === steps.length || (currentStep === 1 && employmentType === 'BYSG');
+  const isFinalStep = currentStep === steps.length || (currentStep === 2 && employmentType === 'Private Individual');
   const isGuarantorStep = currentStep === 2 && employmentType === 'Private Individual';
 
 
@@ -221,10 +221,10 @@ export default function ApplyPage() {
                               <FormMessage />
                           </FormItem>
                         )} />
-                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...props } }) => (
+                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
                             <FormControl>
-                               <Input type="file" {...props} onChange={(e) => onChange(e.target.files)} />
+                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files)} />
                             </FormControl>
                            <FormDescription>Please upload your most recent payslip or a valid ID.</FormDescription>
                            <FormMessage /></FormItem>
@@ -252,10 +252,10 @@ export default function ApplyPage() {
                         <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
                             <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...props } }) => (
+                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
                             <FormControl>
-                               <Input type="file" {...props} onChange={(e) => onChange(e.target.files)} />
+                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files)} />
                             </FormControl>
                            <FormMessage /></FormItem>
                         )} />
@@ -280,19 +280,11 @@ export default function ApplyPage() {
                       )}
                     </div>
                     <div>
-                      {!isFinalStep && !isGuarantorStep && (
+                      {!isFinalStep ? (
                         <Button type="button" onClick={nextStep}>
                           Next <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                      )}
-
-                       {isGuarantorStep && (
-                        <Button type="button" onClick={nextStep}>
-                          Review Application <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      {isFinalStep && (
+                      ) : (
                         <Button type="submit" disabled={form.formState.isSubmitting}>
                           {form.formState.isSubmitting ? (
                             <><Spinner size="small" /> Submitting...</>
@@ -313,3 +305,5 @@ export default function ApplyPage() {
     </div>
   );
 }
+
+    
