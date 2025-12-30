@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import {
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { MoreHorizontal, Hourglass, ShieldCheck, ShieldX, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
@@ -80,10 +81,17 @@ export function LoanManagementTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const loansQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
-    [firestore]
-  );
+  const loansQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    let q = query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc'));
+    
+    if (statusFilter !== 'all') {
+        q = query(q, where('status', '==', statusFilter));
+    }
+    
+    return q;
+  }, [firestore, statusFilter]);
+
   const customersQuery = useMemoFirebase(
     () => firestore ? collection(firestore, 'Customers') : null,
     [firestore]
@@ -110,16 +118,12 @@ export function LoanManagementTable() {
     
     return combinedData.filter(item => {
       const customer = item.customer;
-      const matchesSearch = searchTerm.trim() === '' ||
+      return searchTerm.trim() === '' ||
         customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer?.phone.includes(searchTerm) ||
         customer?.email.toLowerCase().includes(searchTerm.toLowerCase());
-        
-      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
     });
-  }, [combinedData, searchTerm, statusFilter]);
+  }, [combinedData, searchTerm]);
 
   
   const handleStatusChange = (id: string, status: Loan['status']) => {
