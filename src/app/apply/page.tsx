@@ -46,40 +46,55 @@ export default function ApplyPage() {
       guarantorEmploymentPlace: '',
       guarantorRelationship: '',
     },
+    mode: 'onChange',
   });
 
   const employmentType = form.watch('employmentType');
 
   const processForm: SubmitHandler<LoanApplicationValues> = async (data) => {
+    if (!firestore || !storage) {
+        toast({
+            variant: 'destructive',
+            title: 'Submission Failed',
+            description: 'Firebase is not initialized. Please try again later.',
+        });
+        return;
+    }
     try {
       let uploadedDocumentUrl: string | undefined = undefined;
       let guarantorIdUrl: string | undefined = undefined;
 
       // --- Handle Main Document Upload ---
-      const documentFile = data.uploadedDocumentUrl;
-      if (documentFile instanceof File) {
-        const docRef = ref(storage, `loan-documents/${Date.now()}_${documentFile.name}`);
-        await uploadBytes(docRef, documentFile);
+      if (data.uploadedDocumentUrl) {
+        const docFile = (data.uploadedDocumentUrl as FileList)[0];
+        const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
+        await uploadBytes(docRef, docFile);
         uploadedDocumentUrl = await getDownloadURL(docRef);
       }
       
       // --- Handle Guarantor ID Upload (if applicable) ---
-      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl instanceof File) {
-         const guarantorFile = data.guarantorIdUrl;
+      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl) {
+         const guarantorFile = (data.guarantorIdUrl as FileList)[0];
          const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
          await uploadBytes(guarantorIdRef, guarantorFile);
          guarantorIdUrl = await getDownloadURL(guarantorIdRef);
       }
 
-      // --- Save to Firestore ---
-      await addDoc(collection(firestore, 'loanApplications'), {
+      const submissionData = {
         ...data,
         uploadedDocumentUrl,
         guarantorIdUrl,
         submissionDate: serverTimestamp(),
         amountRequested: Number(data.amountRequested),
         status: 'pending',
-      });
+      };
+      
+      // Remove the file objects before sending to Firestore
+      delete (submissionData as any).uploadedDocumentUrl;
+      delete (submissionData as any).guarantorIdUrl;
+
+      // --- Save to Firestore ---
+      await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
       toast({
         title: 'Application Submitted!',
@@ -199,10 +214,10 @@ export default function ApplyPage() {
                               <FormMessage />
                           </FormItem>
                         )} />
-                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, value, ...rest }}) => (
+                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field }) => (
                            <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
                             <FormControl>
-                               <Input type="file" onChange={e => onChange(e.target.files ? e.target.files[0] : null)} {...rest} />
+                               <Input type="file" {...form.register("uploadedDocumentUrl")} />
                             </FormControl>
                            <FormDescription>Please upload your most recent payslip or a valid ID.</FormDescription>
                            <FormMessage /></FormItem>
@@ -230,10 +245,10 @@ export default function ApplyPage() {
                         <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
                             <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, value, ...rest }}) => (
+                        <FormField control={form.control} name="guarantorIdUrl" render={({ field }) => (
                            <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
                             <FormControl>
-                               <Input type="file" onChange={e => onChange(e.target.files ? e.target.files[0] : null)} {...rest} />
+                               <Input type="file" {...form.register("guarantorIdUrl")} />
                             </FormControl>
                            <FormMessage /></FormItem>
                         )} />
