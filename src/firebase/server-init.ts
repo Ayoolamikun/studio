@@ -8,13 +8,21 @@ export async function initializeServerApp() {
   // Check if the app is already initialized to prevent re-initialization
   if (!admin.apps.length) {
     try {
+      // Correctly parse the private key which may be escaped in environment variables
+      const privateKey = process.env.FIREBASE_PRIVATE_KEY
+        ? JSON.parse(process.env.FIREBASE_PRIVATE_KEY)
+        : undefined;
+
+      if (!privateKey) {
+        throw new Error("FIREBASE_PRIVATE_KEY environment variable is not set or is invalid.");
+      }
+      
       // Initialize using server-side environment variables
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          // Replace escaped newlines from environment variable, otherwise it fails
-          privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+          privateKey: privateKey,
         }),
         storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       });
