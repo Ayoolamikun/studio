@@ -28,11 +28,15 @@
         },
         "employmentType": {
           "type": "string",
-          "description": "The employment type of the applicant (Civil Servant, SME, Individual)."
+          "description": "The employment type of the applicant.",
+          "enum": [
+            "BYSG",
+            "Private Individual"
+          ]
         },
         "uploadedDocumentUrl": {
           "type": "string",
-          "description": "Name of the uploaded document (Payslip, ID, Collateral)."
+          "description": "URL of the uploaded user document (Payslip, ID, Collateral)."
         },
         "preferredContactMethod": {
           "type": "string",
@@ -42,6 +46,30 @@
           "type": "string",
           "description": "Date and time when the loan application was submitted.",
           "format": "date-time"
+        },
+        "guarantorFullName": {
+          "type": "string",
+          "description": "Full name of the guarantor."
+        },
+        "guarantorPhoneNumber": {
+          "type": "string",
+          "description": "Phone number of the guarantor."
+        },
+        "guarantorAddress": {
+          "type": "string",
+          "description": "Address of the guarantor."
+        },
+        "guarantorEmploymentPlace": {
+          "type": "string",
+          "description": "Place of employment of the guarantor."
+        },
+        "guarantorRelationship": {
+          "type": "string",
+          "description": "Relationship of the guarantor to the borrower."
+        },
+        "guarantorIdUrl": {
+          "type": "string",
+          "description": "URL of the uploaded guarantor ID."
         }
       },
       "required": [
@@ -83,7 +111,11 @@
           "format": "date-time"
         }
       },
-      "required": ["name", "email", "createdAt"]
+      "required": [
+        "name",
+        "email",
+        "createdAt"
+      ]
     }
   },
   "auth": {

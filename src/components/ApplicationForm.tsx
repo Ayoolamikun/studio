@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "./ui/separator";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -52,13 +53,21 @@ export default function ApplicationForm() {
       email: "",
       phoneNumber: "",
       amountRequested: 0,
-      employmentType: "Civil Servant",
+      employmentType: undefined,
       typeOfService: "Loan",
       preferredContactMethod: "Email",
       uploadedDocumentUrl: undefined,
+      guarantorFullName: "",
+      guarantorPhoneNumber: "",
+      guarantorAddress: "",
+      guarantorEmploymentPlace: "",
+      guarantorRelationship: "",
+      guarantorIdUrl: undefined,
     },
     mode: "onChange",
   });
+
+  const employmentType = form.watch("employmentType");
 
   useEffect(() => {
     if (state.message) {
@@ -183,17 +192,16 @@ export default function ApplicationForm() {
               name="employmentType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Employment Type</FormLabel>
+                  <FormLabel>Customer Type</FormLabel>
                    <Select onValueChange={field.onChange} defaultValue={field.value} name={field.name}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select your employment type" />
+                        <SelectValue placeholder="Select your customer type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Civil Servant">Civil Servant</SelectItem>
-                      <SelectItem value="SME">SME</SelectItem>
-                       <SelectItem value="Individual">Individual</SelectItem>
+                      <SelectItem value="BYSG">BYSG (Bayelsa State Government)</SelectItem>
+                      <SelectItem value="Private Individual">Private Individual</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -216,6 +224,60 @@ export default function ApplicationForm() {
                 );
               }}
             />
+
+            {employmentType === 'Private Individual' && (
+              <div className="space-y-6 pt-6 border-t">
+                <h3 className="text-lg font-semibold text-primary">Guarantor Information (Required)</h3>
+                
+                <FormField control={form.control} name="guarantorFullName" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Guarantor Full Name</FormLabel>
+                        <FormControl><Input placeholder="Guarantor's name" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="guarantorPhoneNumber" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Guarantor Phone Number</FormLabel>
+                        <FormControl><Input placeholder="Guarantor's phone" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="guarantorAddress" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Guarantor Address</FormLabel>
+                        <FormControl><Input placeholder="Guarantor's address" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="guarantorEmploymentPlace" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Guarantor Place of Employment</FormLabel>
+                        <FormControl><Input placeholder="Where they work" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Relationship to Borrower</FormLabel>
+                        <FormControl><Input placeholder="e.g., Sibling, Colleague" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                 <FormField
+                    control={form.control}
+                    name="guarantorIdUrl"
+                    render={() => (
+                        <FormItem>
+                            <FormLabel>Upload Guarantor's ID (PDF or Image)</FormLabel>
+                            <FormControl><Input type="file" {...form.register("guarantorIdUrl")} accept="image/*,application/pdf" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+              </div>
+            )}
+
 
             <FormField
               control={form.control}

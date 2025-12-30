@@ -2,13 +2,15 @@
 "use server";
 
 import { initializeServerApp } from "@/firebase/server-init";
-import { addDoc, collection, getFirestore } from "firebase/firestore";
+import { addDoc, collection, getFirestore, getDocs } from "firebase/firestore";
 import { loanApplicationSchema } from "@/lib/schemas";
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as XLSX from 'xlsx';
 
 type FormState = {
     success: boolean;
     message: string;
+    data?: any[];
 }
 
 export async function submitApplication(prevState: FormState, formData: FormData): Promise<FormState> {
@@ -16,7 +18,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
   const firestore = getFirestore(app);
   
   // Manually construct the object and parse the number correctly.
-  const rawData = {
+  const rawData: any = {
     fullName: formData.get('fullName'),
     email: formData.get('email'),
     phoneNumber: formData.get('phoneNumber'),
@@ -24,7 +26,18 @@ export async function submitApplication(prevState: FormState, formData: FormData
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
+    uploadedDocumentUrl: formData.get('uploadedDocumentUrl'),
   };
+
+  // Add guarantor fields if they exist
+  if (rawData.employmentType === "Private Individual") {
+      rawData.guarantorFullName = formData.get('guarantorFullName');
+      rawData.guarantorPhoneNumber = formData.get('guarantorPhoneNumber');
+      rawData.guarantorAddress = formData.get('guarantorAddress');
+      rawData.guarantorEmploymentPlace = formData.get('guarantorEmploymentPlace');
+      rawData.guarantorRelationship = formData.get('guarantorRelationship');
+      rawData.guarantorIdUrl = formData.get('guarantorIdUrl');
+  }
   
   const validatedFields = loanApplicationSchema.safeParse(rawData);
 
@@ -36,27 +49,28 @@ export async function submitApplication(prevState: FormState, formData: FormData
     };
   }
 
-  let fileUrl = "No file uploaded";
-  const file = formData.get('uploadedDocumentUrl') as File;
+  const uploadFile = async (file: File | null, path: string): Promise<string> => {
+      if (file && file.size > 0) {
+          const storage = getStorage(app);
+          const storageRef = ref(storage, `${path}/${Date.now()}-${file.name}`);
+          const fileBuffer = await file.arrayBuffer();
+          await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
+          return getDownloadURL(storageRef);
+      }
+      return "No file uploaded";
+  }
+
 
   try {
-    // 1. Handle file upload if a file exists
-    if (file && file.size > 0) {
-        const storage = getStorage(app);
-        const storageRef = ref(storage, `loan-documents/${Date.now()}-${file.name}`);
-        
-        // Convert file to buffer for upload
-        const fileBuffer = await file.arrayBuffer();
-        await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
-
-        fileUrl = await getDownloadURL(storageRef);
-    }
+    const userDocUrl = await uploadFile(formData.get('uploadedDocumentUrl') as File, 'loan-documents');
+    const guarantorIdUrl = await uploadFile(formData.get('guarantorIdUrl') as File, 'guarantor-ids');
 
     // 2. Prepare the document to be saved in Firestore
     const docToSave = {
       ...validatedFields.data,
       submissionDate: new Date().toISOString(),
-      uploadedDocumentUrl: fileUrl, 
+      uploadedDocumentUrl: userDocUrl,
+      guarantorIdUrl: guarantorIdUrl,
     };
     
     // 3. Save the document to Firestore
@@ -104,5 +118,71 @@ export async function uploadExcelFile(formData: FormData) {
         console.error('File upload error:', error);
         const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during upload.';
         return { success: false, message: `Upload failed: ${errorMessage}` };
+    }
+}
+
+
+export async function generateExcelReport(formData: FormData): Promise<FormState> {
+    const { firestore } = await initializeServerApp();
+    const month = formData.get('month') as string; // YYYY-MM
+
+    if (!month) {
+        return { success: false, message: "Month is required to generate the report." };
+    }
+
+    try {
+        const loansSnapshot = await getDocs(collection(firestore, 'Loans'));
+        const customersSnapshot = await getDocs(collection(firestore, 'Customers'));
+        
+        const customersMap = new Map(customersSnapshot.docs.map(doc => [doc.id, doc.data()]));
+
+        const reportData = loansSnapshot.docs.map(loanDoc => {
+            const loan = loanDoc.data();
+            const customer = customersMap.get(loan.borrowerId);
+            const totalRepayment = loan.totalRepayment || 0;
+            const amountPaid = loan.amountPaid || 0;
+            const balance = totalRepayment - amountPaid;
+
+            let paymentStatus = 'UNDERPAID';
+            if (balance <= 0) paymentStatus = 'PAID';
+            if (amountPaid > totalRepayment) paymentStatus = 'OVERPAID';
+            if(loan.status === 'active' && amountPaid === 0) paymentStatus = 'UNDERPAID';
+
+            return {
+                'Borrower Full Name': customer?.name || 'N/A',
+                'Customer Type': customer?.employmentType || 'N/A', // Assuming employmentType is on customer
+                'Phone Number': customer?.phone || 'N/A',
+                'BVN': customer?.bvn || 'N/A',
+                'Loan Type': loan.loanType || 'New', // Assuming loanType field
+                'Loan Amount Approved': loan.amountRequested,
+                'Interest Rate': loan.interestRate,
+                'Loan Tenor (Months)': loan.duration || 'N/A',
+                'Monthly Installment': loan.totalRepayment / (loan.duration || 1),
+                'Total Repayment Expected': totalRepayment,
+                'Total Amount Paid': amountPaid,
+                'Outstanding Balance': balance,
+                'Payment Status': paymentStatus,
+                'Loan Start Date': loan.createdAt ? new Date(loan.createdAt).toLocaleDateString() : 'N/A',
+                'Loan End Date': loan.dueDate || 'N/A',
+                'Last Payment Date': loan.lastPaymentDate || 'N/A',
+                'Guarantor Name': 'N/A',
+                'Guarantor Phone': 'N/A',
+            };
+        });
+
+        if (reportData.length === 0) {
+            return { success: false, message: "No loan data found for the selected period." };
+        }
+
+        return { 
+            success: true, 
+            message: "Report data generated successfully.",
+            data: reportData,
+        };
+
+    } catch (error) {
+        console.error('Excel report generation error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+        return { success: false, message: `Report generation failed: ${errorMessage}` };
     }
 }
