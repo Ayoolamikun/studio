@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import {
@@ -24,7 +23,7 @@ import { Spinner } from '@/components/Spinner';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
-import { Check, X, MoreHorizontal, Hourglass, CreditCard, Banknote, ShieldCheck, ShieldX } from 'lucide-react';
+import { Check, X, MoreHorizontal, Hourglass, CreditCard, ShieldCheck, ShieldX } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -35,11 +34,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// From backend.json
 type Loan = {
   borrowerId: string;
   amountRequested: number;
-  duration: number;
+  duration?: number;
   interestRate?: number;
   totalRepayment?: number;
   amountPaid: number;
@@ -75,26 +73,12 @@ const getStatusConfig = (status: string) => {
   }
 }
 
-function StatCard({ title, value, icon: Icon }: { title: string; value: string; icon: React.ElementType }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-      </CardContent>
-    </Card>
-  );
-}
 
-export function LoanManagementTab() {
+export function LoanManagementTable() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Queries will only run if firestore is available.
   const loansQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc')) : null,
     [firestore]
@@ -136,35 +120,20 @@ export function LoanManagementTab() {
     });
   }, [combinedData, searchTerm, statusFilter]);
 
-  const stats = useMemo(() => {
-    if (!loans) return { totalLoans: 0, pending: 0, totalAmount: 0 };
-    return {
-      totalLoans: loans.length,
-      pending: loans.filter(l => l.status === 'pending').length,
-      totalAmount: loans.reduce((acc, l) => acc + l.amountRequested, 0),
-    };
-  }, [loans]);
-
+  
   const handleStatusChange = (id: string, status: Loan['status']) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'Loans', id);
-    // Use async/await here for better error handling if needed, but non-blocking is fine for this UI.
-    updateDoc(docRef, { status });
+    updateDocumentNonBlocking(docRef, { status });
   };
   
   const isLoading = loansLoading || borrowersLoading;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Total Loans" value={isLoading ? '...' : String(stats.totalLoans)} icon={Banknote} />
-        <StatCard title="Pending Applications" value={isLoading ? '...' : String(stats.pending)} icon={Hourglass} />
-        <StatCard title="Total Amount Loaned" value={isLoading ? '...' : formatCurrency(stats.totalAmount)} icon={CreditCard} />
-      </div>
       <Card>
         <CardHeader>
           <CardTitle>All Loans</CardTitle>
-          <CardDescription>Review, approve, and manage all loans.</CardDescription>
+          <CardDescription>Review, approve, and manage all loans in the system.</CardDescription>
           <div className="flex flex-col md:flex-row items-center gap-4 pt-4">
               <Input 
                 placeholder="Search by name, email, or phone..."
@@ -227,16 +196,6 @@ export function LoanManagementTab() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {(item.status === 'pending' || item.status === 'approved') ? (
-                          <div className="flex gap-2 justify-end">
-                              <Button variant="outline" size="sm" onClick={() => handleStatusChange(item.id, 'active')}>
-                                  <Check className="mr-2 h-4 w-4"/> Set Active
-                              </Button>
-                              <Button variant="destructive" size="sm" onClick={() => handleStatusChange(item.id, 'rejected')}>
-                                  <X className="mr-2 h-4 w-4" /> Reject
-                              </Button>
-                          </div>
-                          ) : (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
@@ -249,7 +208,6 @@ export function LoanManagementTab() {
                               <DropdownMenuItem className="text-red-500" onClick={() => handleStatusChange(item.id, 'rejected')}>Reject</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                          )}
                         </TableCell>
                       </TableRow>
                     )
@@ -264,6 +222,5 @@ export function LoanManagementTab() {
           )}
         </CardContent>
       </Card>
-    </div>
   );
 }

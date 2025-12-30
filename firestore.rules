@@ -38,6 +38,11 @@ service cloud.firestore {
       // Only an admin can delete a borrower profile
       allow delete: if isAdmin();
     }
+    
+    match /Customers/{customerId} {
+      // Only admins can manage customer records
+      allow read, write, delete: if isAdmin();
+    }
 
     match /Loans/{loanId} {
       // Admins can write any loan document

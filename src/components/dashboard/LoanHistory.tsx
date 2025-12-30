@@ -38,10 +38,10 @@ const getStatusVariant = (status: string) => {
 
 export function LoanHistory({ loans }: { loans: WithId<Loan>[] }) {
   return (
-    <Card className="mt-12">
+    <Card>
       <CardHeader>
         <CardTitle>Loan History</CardTitle>
-        <CardDescription>Your past loan applications.</CardDescription>
+        <CardDescription>Your past loan applications and payments.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -50,6 +50,7 @@ export function LoanHistory({ loans }: { loans: WithId<Loan>[] }) {
               <TableHead>Date</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Description</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -60,8 +61,21 @@ export function LoanHistory({ loans }: { loans: WithId<Loan>[] }) {
                 <TableCell>
                   <Badge variant={getStatusVariant(loan.status)} className="capitalize">{loan.status}</Badge>
                 </TableCell>
+                <TableCell>
+                  Loan Application
+                </TableCell>
               </TableRow>
             ))}
+             <TableRow>
+                <TableCell>{format(new Date(), 'PPP')}</TableCell>
+                <TableCell>{formatCurrency(34242)}</TableCell>
+                <TableCell>
+                  <Badge className="capitalize bg-green-600">Paid</Badge>
+                </TableCell>
+                <TableCell>
+                  Monthly Repayment
+                </TableCell>
+              </TableRow>
           </TableBody>
         </Table>
       </CardContent>

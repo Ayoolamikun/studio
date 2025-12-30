@@ -19,7 +19,7 @@ function SubmitButton() {
   );
 }
 
-export function ExcelImportTab() {
+export default function ExcelImportPage() {
   const { toast } = useToast();
   const [fileName, setFileName] = useState('');
 

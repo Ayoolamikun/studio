@@ -54,6 +54,36 @@
         "preferredContactMethod",
         "submissionDate"
       ]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Represents a customer or borrower in the system.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The full name of the customer."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the customer.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the customer."
+        },
+        "bvn": {
+          "type": "string",
+          "description": "The Bank Verification Number of the customer."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date the customer was created.",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "email", "createdAt"]
     }
   },
   "auth": {
@@ -67,6 +97,12 @@
         "$ref": "#/entities/LoanApplication"
       },
       "description": "Stores all loan applications submitted through the public form."
+    },
+    "/Customers/{customerId}": {
+      "schema": {
+        "$ref": "#/entities/Customer"
+      },
+      "description": "Stores all customer records."
     }
   }
 }

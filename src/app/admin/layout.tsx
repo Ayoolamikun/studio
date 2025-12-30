@@ -1,7 +1,6 @@
-
 'use client';
 
-import { LogOut, Calculator, Files } from 'lucide-react';
+import { LogOut, Files, LayoutDashboard, HandCoins, UserCheck, Users, BarChart, Settings } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -10,8 +9,11 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -23,16 +25,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, signOut } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import Logo from '@/components/Logo';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { Spinner } from '@/components/Spinner';
+import { useEffect } from 'react';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoanManagementTab } from './LoanManagementTab';
-import { ExcelImportTab } from './ExcelImportTab';
-import LoanCalculator from '../LoanCalculator';
-import { ApplicationsTab } from './ApplicationsTab';
-
+// The admin UID will be hardcoded in your firestore.rules file.
+const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
 function getInitials(name: string | null | undefined) {
   if (!name) return 'A';
@@ -41,14 +42,48 @@ function getInitials(name: string | null | undefined) {
   return initials.toUpperCase().slice(0, 2);
 }
 
-export function AdminDashboard({ user }: { user: User }) {
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const auth = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isUserLoading } = useUser();
   
+  useEffect(() => {
+    if (isUserLoading) return;
+    if (!user) {
+        router.push('/login');
+    } else if (user.uid !== ADMIN_UID) {
+        router.push('/dashboard');
+    }
+  }, [user, isUserLoading, router]);
+
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
-    // Redirect handled by auth listener in main app layout
+    router.push('/login');
   };
+
+  const navItems = [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/loans', label: 'Loans', icon: HandCoins },
+    { href: '/admin/approvals', label: 'Approvals', icon: UserCheck },
+    { href: '/admin/customers', label: 'Customers', icon: Users },
+    { href: '/admin/reports', label: 'Reports', icon: BarChart },
+  ];
+
+  if (isUserLoading || !user) {
+    return (
+        <div className="flex h-screen flex-col items-center justify-center gap-4">
+            <Spinner size="large" />
+            <p className="text-lg mt-4">Loading Admin Portal...</p>
+        </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -57,7 +92,18 @@ export function AdminDashboard({ user }: { user: User }) {
           <Logo />
         </SidebarHeader>
         <SidebarContent>
-          {/* Main content can go here if needed, or just use the inset */}
+           <SidebarMenu>
+            {navItems.map((item) => (
+                <SidebarMenuItem key={item.label}>
+                    <Link href={item.href} legacyBehavior passHref>
+                        <SidebarMenuButton isActive={pathname === item.href}>
+                            <item.icon />
+                            {item.label}
+                        </SidebarMenuButton>
+                    </Link>
+                </SidebarMenuItem>
+            ))}
+           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
           <DropdownMenu>
@@ -82,6 +128,10 @@ export function AdminDashboard({ user }: { user: User }) {
                     <span>My Files</span>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
@@ -96,45 +146,16 @@ export function AdminDashboard({ user }: { user: User }) {
         <header className="flex h-14 items-center justify-between border-b bg-background px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="md:hidden" />
-            <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+            <h1 className="text-xl font-semibold capitalize">{pathname.split('/').pop()?.replace('-', ' ')}</h1>
           </div>
           
           <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Calculator className="h-4 w-4" />
-                <span className="sr-only">Open Calculator</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Loan Calculator</SheetTitle>
-              </SheetHeader>
-              <div className="mt-8">
-                <LoanCalculator />
-              </div>
-            </SheetContent>
+            {/* Can add sheet content here if needed */}
           </Sheet>
 
         </header>
-
-        <main className="flex-1 p-4 md:p-6">
-          <Tabs defaultValue="loans">
-            <TabsList>
-              <TabsTrigger value="applications">New Applications</TabsTrigger>
-              <TabsTrigger value="loans">Loan Management</TabsTrigger>
-              <TabsTrigger value="excel">Excel Import</TabsTrigger>
-            </TabsList>
-            <TabsContent value="applications">
-              <ApplicationsTab />
-            </TabsContent>
-            <TabsContent value="loans">
-              <LoanManagementTab />
-            </TabsContent>
-            <TabsContent value="excel">
-              <ExcelImportTab />
-            </TabsContent>
-          </Tabs>
+        <main className="flex-1 overflow-auto p-4 md:p-6 bg-secondary/50">
+            {children}
         </main>
       </SidebarInset>
     </SidebarProvider>
