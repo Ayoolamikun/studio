@@ -46,7 +46,7 @@ function RecentLoans({ loans }: { loans: Loan[] }) {
         .slice(0, 5);
 
     return (
-        <Card className="col-span-1 lg:col-span-2">
+        <Card className="col-span-1 lg:col-span-3">
             <CardHeader>
                 <CardTitle>Recently Settled Loans</CardTitle>
                 <CardDescription>A log of the most recently completed loans.</CardDescription>
@@ -99,7 +99,7 @@ export default function AdminDashboardPage() {
     const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
     const stats = useMemo(() => {
-        if (!loans) return { totalDebits: 0, totalCredits: 0, pendingLoans: 0, pendingTopups: 0 };
+        if (!loans) return { totalDebits: 0, totalCredits: 0, pendingLoans: 0, pendingTopups: 0, outstandingBalance: 0, activeLoans: 0 };
         
         const totalCredits = loans.reduce((acc, l) => acc + l.amountPaid, 0);
         const totalDebits = loans.reduce((acc, l) => acc + l.amountRequested, 0);
@@ -131,8 +131,6 @@ export default function AdminDashboardPage() {
                 <StatCard title="Total Debit(s)" value={formatCurrency(stats.totalDebits)} icon={Banknote} color="bg-red-500/10 text-red-500" description="Total loans disbursed" />
                 <StatCard title="Pending Loans" value={stats.pendingLoans} icon={BellPlus} color="bg-orange-500/10 text-orange-500" description="New applications awaiting approval" />
                 <StatCard title="Pending Topup" value={stats.pendingTopups} icon={BellPlus} color="bg-blue-500/10 text-blue-500" description="Approved, awaiting disbursal" />
-            </div>
-             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 <StatCard title="Outstanding Balance" value={formatCurrency(stats.outstandingBalance)} icon={TrendingUp} description="Across all active loans"/>
                 <StatCard title="Total Active Loans" value={stats.activeLoans} icon={PackageCheck} description="Currently running loans" />
                 <StatCard title="Total Customers" value={customers?.length ?? 0} icon={Users} description="Total number of borrowers" />
