@@ -33,7 +33,7 @@ type LoanApplication = {
   fullName: string;
   email: string;
   phoneNumber: string;
-  typeOfService: 'Loan' | 'Investment' | 'Membership';
+  typeOfService: 'Loan' | 'Investment';
   amountRequested: number;
   employmentType: 'Civil Servant' | 'SME' | 'Individual';
   uploadedDocumentUrl?: string;

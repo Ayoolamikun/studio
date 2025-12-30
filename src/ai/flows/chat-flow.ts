@@ -26,11 +26,8 @@ const prompt = ai.definePrompt(
         1. **Loans:**
            - **Personal Loans:** For individuals with valid collateral.
            - **State Government Loans:** For government employees, requiring a payslip.
-           - **SME Loans:** For registered businesses.
         2. **Investments:**
            - We offer fixed-rate investment plans with different tiers (Gold, Platinum) based on the investment amount.
-        3. **Membership:**
-           - Members get access to exclusive rates, insights, and profit-sharing benefits.
       - **How to Apply:** Users can apply for any service by filling out the form on the website.
       - **Contact:** The main contact email is corporatemagnate@outlook.com. The office is in Bayelsa, Nigeria.
 

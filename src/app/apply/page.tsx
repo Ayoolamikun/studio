@@ -179,7 +179,6 @@ export default function ApplyPage() {
                               <SelectContent>
                                 <SelectItem value="Loan">Loan</SelectItem>
                                 <SelectItem value="Investment">Investment</SelectItem>
-                                <SelectItem value="Membership">Membership</SelectItem>
                               </SelectContent>
                             </Select><FormMessage />
                           </FormItem>
@@ -294,4 +293,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-

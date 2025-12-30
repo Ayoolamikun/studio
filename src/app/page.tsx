@@ -3,7 +3,6 @@ import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import AboutSection from '@/components/AboutSection';
 import LoanServicesSection from '@/components/LoanServicesSection';
-import MembershipSection from '@/components/MembershipSection';
 import ApplicationSection from '@/components/ApplicationSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import ContactSection from '@/components/ContactSection';
@@ -21,7 +20,6 @@ export default function Home() {
         <div className="space-y-16 md:space-y-24 my-16 md:my-24">
           <AboutSection />
           <LoanServicesSection />
-          <MembershipSection />
           <ApplicationSection />
           <TestimonialsSection />
           <ContactSection />
