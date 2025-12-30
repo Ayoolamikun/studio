@@ -17,7 +17,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
   const { firestore, storage } = await initializeServerApp();
   const bucket = storage.bucket();
   
-  // 2. Extract and prepare form data
+  // 2. Extract and prepare form data for validation
   const rawData: any = {
     fullName: formData.get('fullName'),
     email: formData.get('email'),
@@ -26,7 +26,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
     employmentType: formData.get('employmentType'),
     preferredContactMethod: formData.get('preferredContactMethod'),
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
-    // Pass the file objects directly for validation
     uploadedDocumentUrl: formData.get('uploadedDocumentUrl'), 
     guarantorIdUrl: formData.get('guarantorIdUrl')
   };
@@ -50,29 +49,34 @@ export async function submitApplication(prevState: FormState, formData: FormData
     };
   }
 
-  // 4. Define the file upload function using the Admin SDK
+  // 4. Define the server-side file upload function
   const uploadFile = async (file: File | null, folder: string): Promise<string> => {
-      if (file && file.size > 0) {
-          const filePath = `${folder}/${Date.now()}-${file.name.replace(/\s/g, '_')}`;
-          const fileBuffer = await file.arrayBuffer();
-          const fileRef = bucket.file(filePath);
-          
-          await fileRef.save(Buffer.from(fileBuffer), {
-              metadata: { contentType: file.type },
-          });
-
-          // Make the file public to get a downloadable URL
-          await fileRef.makePublic();
-          return fileRef.publicUrl();
+      if (!file || file.size === 0) {
+        return "";
       }
-      return "";
+      
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      const filePath = `${folder}/${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+      const fileUpload = bucket.file(filePath);
+
+      await fileUpload.save(buffer, {
+        metadata: {
+          contentType: file.type,
+        },
+      });
+
+      await fileUpload.makePublic();
+      
+      return fileUpload.publicUrl();
   }
 
 
   try {
     // 5. Upload files using the admin-powered function
-    const userDocUrl = await uploadFile(validatedFields.data.uploadedDocumentUrl, 'loan-documents');
-    const guarantorIdUrl = await uploadFile(validatedFields.data.guarantorIdUrl, 'guarantor-ids');
+    const userDocUrl = await uploadFile(validatedFields.data.uploadedDocumentUrl as File, 'loan-documents');
+    const guarantorIdUrl = await uploadFile(validatedFields.data.guarantorIdUrl as File, 'guarantor-ids');
 
     // 6. Prepare the final document for Firestore
     const docToSave = {
@@ -93,10 +97,12 @@ export async function submitApplication(prevState: FormState, formData: FormData
   } catch (error) {
     console.error("Form submission error:", error);
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
-    // Provide a more user-friendly error
-    if (errorMessage.includes('storage') || errorMessage.includes('permission')) {
-        return { success: false, message: `There was a problem with the file upload. Please ensure your file is valid and try again.` };
+    
+    // Check for storage errors specifically
+    if (error instanceof Error && 'code' in error && (error as any).code?.includes('storage')) {
+         return { success: false, message: `A storage error occurred. Please try again. Error: ${errorMessage}` };
     }
+    
     return { success: false, message: `An unexpected error occurred: ${errorMessage}. Please try again.` };
   }
 }
@@ -207,3 +213,5 @@ export async function generateExcelReport(formData: FormData): Promise<FormState
         return { success: false, message: `Report generation failed: ${errorMessage}` };
     }
 }
+
+    

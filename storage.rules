@@ -36,9 +36,11 @@ service firebase.storage {
     }
 
     // --- Admin-Only Excel Import Folder ---
-    // Only the admin can manage the Excel import folder.
+    // The admin uses a server action that leverages the admin SDK to write.
+    // Direct client writes should be blocked. Admin can read.
     match /excel-imports/{fileName} {
-        allow read, write: if isAdmin();
+        allow write: if false;
+        allow read: if isAdmin();
     }
 
     // --- Default Deny ---
@@ -48,3 +50,5 @@ service firebase.storage {
     }
   }
 }
+
+    
