@@ -2,7 +2,7 @@
 "use server";
 
 import { initializeServerApp } from "@/firebase/server-init";
-import { addDoc, collection, getFirestore, getDocs } from "firebase/firestore";
+import { addDoc, collection } from "firebase/firestore";
 import { loanApplicationSchema } from "@/lib/schemas";
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as XLSX from 'xlsx';
@@ -14,8 +14,9 @@ type FormState = {
 }
 
 export async function submitApplication(prevState: FormState, formData: FormData): Promise<FormState> {
-  const { app } = await initializeServerApp();
-  const firestore = getFirestore(app);
+  // The server-init now uses Admin SDK, which has elevated privileges
+  const { firestore, storage } = await initializeServerApp();
+  const bucket = storage.bucket();
   
   // Manually construct the object and parse the number correctly.
   const rawData: any = {
@@ -27,6 +28,7 @@ export async function submitApplication(prevState: FormState, formData: FormData
     preferredContactMethod: formData.get('preferredContactMethod'),
     amountRequested: parseFloat(formData.get('amountRequested') as string) || 0,
     uploadedDocumentUrl: formData.get('uploadedDocumentUrl'),
+    guarantorIdUrl: formData.get('guarantorIdUrl')
   };
 
   // Add guarantor fields if they exist
@@ -36,7 +38,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
       rawData.guarantorAddress = formData.get('guarantorAddress');
       rawData.guarantorEmploymentPlace = formData.get('guarantorEmploymentPlace');
       rawData.guarantorRelationship = formData.get('guarantorRelationship');
-      rawData.guarantorIdUrl = formData.get('guarantorIdUrl');
   }
   
   const validatedFields = loanApplicationSchema.safeParse(rawData);
@@ -49,13 +50,20 @@ export async function submitApplication(prevState: FormState, formData: FormData
     };
   }
 
+  // Updated upload function for Admin SDK
   const uploadFile = async (file: File | null, path: string): Promise<string> => {
       if (file && file.size > 0) {
-          const storage = getStorage(app);
-          const storageRef = ref(storage, `${path}/${Date.now()}-${file.name}`);
+          const filePath = `${path}/${Date.now()}-${file.name}`;
           const fileBuffer = await file.arrayBuffer();
-          await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
-          return getDownloadURL(storageRef);
+          const fileRef = bucket.file(filePath);
+          
+          await fileRef.save(Buffer.from(fileBuffer), {
+              metadata: { contentType: file.type },
+          });
+
+          // Make the file public to get a downloadable URL
+          await fileRef.makePublic();
+          return fileRef.publicUrl();
       }
       return "No file uploaded";
   }
@@ -65,7 +73,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
     const userDocUrl = await uploadFile(formData.get('uploadedDocumentUrl') as File, 'loan-documents');
     const guarantorIdUrl = await uploadFile(formData.get('guarantorIdUrl') as File, 'guarantor-ids');
 
-    // 2. Prepare the document to be saved in Firestore
     const docToSave = {
       ...validatedFields.data,
       submissionDate: new Date().toISOString(),
@@ -73,7 +80,6 @@ export async function submitApplication(prevState: FormState, formData: FormData
       guarantorIdUrl: guarantorIdUrl,
     };
     
-    // 3. Save the document to Firestore
     const collectionRef = collection(firestore, "loanApplications");
     await addDoc(collectionRef, docToSave);
 
@@ -88,9 +94,8 @@ export async function submitApplication(prevState: FormState, formData: FormData
 
 
 export async function uploadExcelFile(formData: FormData) {
-    const { app } = await initializeServerApp();
-    const storage = getStorage(app);
-    const firestore = getFirestore(app);
+    const { storage, firestore } = await initializeServerApp();
+    const bucket = storage.bucket();
     const file = formData.get('excelFile') as File;
 
     if (!file || file.size === 0) {
@@ -98,14 +103,21 @@ export async function uploadExcelFile(formData: FormData) {
     }
 
     try {
-        const storageRef = ref(storage, `excel-imports/${Date.now()}-${file.name}`);
+        const filePath = `excel-imports/${Date.now()}-${file.name}`;
         const fileBuffer = await file.arrayBuffer();
-        const uploadResult = await uploadBytes(storageRef, fileBuffer, { contentType: file.type });
+        const fileRef = bucket.file(filePath);
         
+        await fileRef.save(Buffer.from(fileBuffer), {
+            metadata: { contentType: file.type },
+        });
+        await fileRef.makePublic();
+        const downloadUrl = fileRef.publicUrl();
+
+
         const fileRecord = {
             fileName: file.name,
-            fileUrl: `gs://${uploadResult.metadata.bucket}/${uploadResult.metadata.fullPath}`,
-            downloadUrl: await getDownloadURL(uploadResult.ref),
+            fileUrl: `gs://${bucket.name}/${filePath}`,
+            downloadUrl: downloadUrl,
             uploadedAt: new Date().toISOString(),
             processed: false,
         };
@@ -131,8 +143,8 @@ export async function generateExcelReport(formData: FormData): Promise<FormState
     }
 
     try {
-        const loansSnapshot = await getDocs(collection(firestore, 'Loans'));
-        const customersSnapshot = await getDocs(collection(firestore, 'Customers'));
+        const loansSnapshot = await firestore.collection('Loans').get();
+        const customersSnapshot = await firestore.collection('Customers').get();
         
         const customersMap = new Map(customersSnapshot.docs.map(doc => [doc.id, doc.data()]));
 
@@ -162,7 +174,7 @@ export async function generateExcelReport(formData: FormData): Promise<FormState
                 'Total Amount Paid': amountPaid,
                 'Outstanding Balance': balance,
                 'Payment Status': paymentStatus,
-                'Loan Start Date': loan.createdAt ? new Date(loan.createdAt).toLocaleDateString() : 'N/A',
+                'Loan Start Date': loan.createdAt?.toDate ? loan.createdAt.toDate().toLocaleDateString() : 'N/A',
                 'Loan End Date': loan.dueDate || 'N/A',
                 'Last Payment Date': loan.lastPaymentDate || 'N/A',
                 'Guarantor Name': 'N/A',

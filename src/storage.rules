@@ -14,38 +14,29 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == ADMIN_UID;
     }
 
-    // --- PUBLIC UPLOAD PATHS ---
-    // Anyone can write to these paths to submit an application.
-    // Only the admin can read the submitted files.
-
+    // Server-side admin SDK handles uploads to these paths, so no client-side write access is needed.
+    // Admin can read them.
     match /loan-documents/{allPaths=**} {
-      allow write: if true;
+      allow write: if false; 
       allow read: if isAdmin();
     }
     
     match /guarantor-ids/{allPaths=**} {
-      allow write: if true;
+      allow write: if false;
       allow read: if isAdmin();
     }
 
-    // --- AUTHENTICATED USER PATHS ---
     // Authenticated users can manage files in their own folder.
-    // This is used for the "My Files" feature in the user dashboard.
-    
     match /user-uploads/{userId}/{allPaths=**} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- ADMIN-ONLY PATHS ---
-    // Only the admin can read from or write to the Excel import folder.
-    
+    // Only the admin can manage the Excel import folder.
     match /excel-imports/{fileName} {
         allow read, write: if isAdmin();
     }
 
-    // --- DEFAULT RULE ---
-    // By default, deny all other access to prevent unauthorized actions.
-    
+    // Default rule: deny all other access.
     match /{path=**} {
       allow read, write: if false;
     }

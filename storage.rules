@@ -14,31 +14,29 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == ADMIN_UID;
     }
 
-    // Allow anyone to upload application documents. Publicly writable.
+    // Server-side admin SDK handles uploads to these paths, so no client-side write access is needed.
+    // Admin can read them.
     match /loan-documents/{allPaths=**} {
-      allow write: if true;
-      allow read: if isAdmin(); // Only admin can read
+      allow write: if false;
+      allow read: if isAdmin();
     }
     
-    // Allow anyone to upload guarantor IDs. Publicly writable.
     match /guarantor-ids/{allPaths=**} {
-      allow write: if true;
-      allow read: if isAdmin(); // Only admin can read
+      allow write: if false;
+      allow read: if isAdmin();
     }
 
-    // Allow authenticated users to manage files in their own folder.
+    // Authenticated users can manage files in their own folder.
     match /user-uploads/{userId}/{allPaths=**} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Matches any file in the 'excel-imports' folder
+    // Only the admin can manage the Excel import folder.
     match /excel-imports/{fileName} {
-        // Only admins can read and write files here
         allow read, write: if isAdmin();
     }
 
-    // A general rule for other paths if needed in the future.
-    // By default, deny all other access.
+    // Default rule: deny all other access.
     match /{path=**} {
       allow read, write: if false;
     }
