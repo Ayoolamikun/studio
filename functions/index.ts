@@ -102,9 +102,14 @@ export const processExcelUpload = functions.storage
             else if (key.includes("phone")) obj.phone = String(val);
             else if (key.includes("bvn")) obj.bvn = String(val);
             else if (key.includes("amount granted")) obj.amountRequested = val;
+            else if (key.includes("new loan amount")) obj.amountRequested = val;
             else if (key.includes("amount paid")) obj.amountPaid = val;
             else if (key.includes("balance")) obj.balance = val;
             else if (key.includes("due date")) obj.dueDate = val;
+            else if (key.includes("end date")) obj.dueDate = val;
+            else if (key.includes("period")) obj.tenure = val;
+            else if (key.includes("tenure")) obj.tenure = val;
+            else if (key.includes("interest")) obj.interest = val;
             else if (key.includes("status")) obj.status = String(val).toLowerCase();
             else obj[key] = val;
           }
@@ -161,7 +166,7 @@ export const processExcelUpload = functions.storage
             db.collection("Loans").doc();
 
         const amountRequested = rowData.amountRequested || existingLoanDoc?.data().amountRequested || 0;
-        const totalRepayment = calculateTotalRepayment(amountRequested);
+        const totalRepayment = rowData.interest ? amountRequested + rowData.interest : calculateTotalRepayment(amountRequested);
         const amountPaid = rowData.amountPaid || 0;
         const balance = totalRepayment - amountPaid;
 
@@ -169,9 +174,11 @@ export const processExcelUpload = functions.storage
             borrowerId: customerId,
             amountRequested,
             totalRepayment,
+            interest: rowData.interest || amountRequested * getInterestRate(amountRequested),
             interestRate: getInterestRate(amountRequested),
             amountPaid,
             balance,
+            duration: rowData.tenure,
             status: rowData.status || existingLoanDoc?.data().status || "active",
             excelImported: true,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
