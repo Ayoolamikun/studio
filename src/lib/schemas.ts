@@ -19,18 +19,20 @@ export const loanApplicationSchema = z.object({
   guarantorIdUrl: z.any().optional(),
 }).refine(data => {
     if (data.employmentType === "Private Individual") {
+        // When the form is submitted, the file object is present. Check for it.
+        const guarantorIdUploaded = data.guarantorIdUrl instanceof File && data.guarantorIdUrl.size > 0;
+        
         return !!data.guarantorFullName &&
                !!data.guarantorPhoneNumber &&
                !!data.guarantorAddress &&
                !!data.guarantorEmploymentPlace &&
                !!data.guarantorRelationship &&
-               (data.guarantorIdUrl instanceof File && data.guarantorIdUrl.size > 0);
+               guarantorIdUploaded;
     }
     return true;
 }, {
-    message: "Guarantor details, including ID upload, are required for Private Individuals.",
-    // This path can be improved to point to a specific field if your UI library supports it.
-    // For now, it will be a general form error.
+    message: "All guarantor details, including ID upload, are required for Private Individuals.",
+    // Pointing the error to the first guarantor field for better UX
     path: ["guarantorFullName"], 
 });
 
