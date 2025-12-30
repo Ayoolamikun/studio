@@ -76,11 +76,9 @@ export const loanApplicationSchema = z.object({
         if (!data.guarantorRelationship || data.guarantorRelationship.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Relationship to guarantor is required.", path: ["guarantorRelationship"] });
         }
-        // Validate guarantorIdUrl specifically for Private Individual
-        // This runs a more specific check on the guarantorIdUrl field.
+        // This is the key fix: Only run the file validation for the guarantor's ID if the employment type is "Private Individual".
         const fileResult = fileSchema.safeParse(data.guarantorIdUrl);
         if (!fileResult.success) {
-            // Get the specific error message from the fileSchema refinement
              const errorMessage = fileResult.error.issues[0]?.message || "Guarantor's ID card is required and must be a valid file.";
              ctx.addIssue({ code: z.ZodIssueCode.custom, message: errorMessage, path: ["guarantorIdUrl"] });
         }

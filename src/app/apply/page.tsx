@@ -6,10 +6,9 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { firestore, storage } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
-
+import { firestore, storage } from '@/firebase';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -114,19 +113,27 @@ export default function ApplyPage() {
     const isValid = await form.trigger(currentFields as (keyof LoanApplicationValues)[]);
     
     if (isValid) {
-        setCurrentStep(currentStep + 1);
+        if (currentStep === 1 && employmentType === 'BYSG') {
+            // If user is BYSG, skip guarantor step and go to final review
+            setCurrentStep(currentStep + 2); // This is a virtual step
+        } else {
+            setCurrentStep(currentStep + 1);
+        }
     }
   };
 
   const prevStep = () => {
      if (currentStep > 0) {
-        setCurrentStep(currentStep - 1);
+        if (currentStep === 3) { // If on virtual final step for BYSG
+            setCurrentStep(1); // Go back to service details
+        } else {
+            setCurrentStep(currentStep - 1);
+        }
      }
   };
   
-  const isGuarantorStep = currentStep === 2 && employmentType === 'Private Individual';
-  const isBysgFinalStep = currentStep === 2 && employmentType === 'BYSG';
-  const isFinalStep = isGuarantorStep || isBysgFinalStep;
+  const isLastRegularStep = currentStep === steps.length - 1;
+  const isFinalStep = (currentStep === 1 && employmentType === 'BYSG') || (currentStep === 2 && employmentType === 'Private Individual');
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -221,7 +228,7 @@ export default function ApplyPage() {
                   </div>
 
                   {/* Step 3: Guarantor Details */}
-                   <div className={cn(isGuarantorStep ? 'block' : 'hidden')}>
+                   <div className={cn(currentStep === 2 ? 'block' : 'hidden')}>
                      <h3 className="text-lg font-semibold mb-4 text-primary">Step 3: Guarantor Details</h3>
                      <p className="text-sm text-muted-foreground mb-4">This section is required for private individuals.</p>
                      <div className="space-y-4">
@@ -250,7 +257,7 @@ export default function ApplyPage() {
                      </div>
                   </div>
                   
-                  {isBysgFinalStep && (
+                  {isFinalStep && (
                      <div>
                        <h3 className="text-lg font-semibold mb-4 text-primary">Final Step: Review & Submit</h3>
                        <p className="text-muted-foreground">You're all set! Please review your information before submitting. Click the "Submit Application" button below.</p>
@@ -268,17 +275,11 @@ export default function ApplyPage() {
                       )}
                     </div>
                     <div>
-                      {currentStep < 1 || (currentStep === 1 && employmentType === "BYSG") ? (
+                      {!isFinalStep ? (
                         <Button type="button" onClick={nextStep}>
                           Next <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       ) : null}
-
-                      {currentStep === 1 && employmentType === 'Private Individual' ? (
-                          <Button type="button" onClick={nextStep}>
-                              Next <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
-                      ): null}
                       
                       {isFinalStep && (
                         <Button type="submit" disabled={form.formState.isSubmitting}>
