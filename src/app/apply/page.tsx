@@ -46,7 +46,7 @@ export default function ApplyPage() {
         title: 'Success!',
         description: 'Your application has been submitted.',
       });
-      e.currentTarget.reset();
+      (e.target as HTMLFormElement).reset();
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -69,7 +69,7 @@ export default function ApplyPage() {
               Submit Application
             </h1>
             <p className="mt-4 text-muted-foreground md:text-lg">
-              Please upload your application documents below.
+              Please upload your application documents below. We accept PDF, DOC, and DOCX files.
             </p>
           </div>
           <Card className="mt-12 mx-auto max-w-lg shadow-lg">
