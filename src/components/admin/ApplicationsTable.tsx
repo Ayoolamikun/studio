@@ -119,60 +119,62 @@ export function ApplicationsTable() {
             <Spinner size="large" />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Applicant</TableHead>
-                <TableHead>Service Type</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {applications && applications.length > 0 ? (
-                applications.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="font-medium">{item.fullName}</div>
-                        <div className="text-sm text-muted-foreground">{item.email}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{item.typeOfService}</Badge>
-                      </TableCell>
-                      <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
-                      <TableCell>{format(new Date(item.submissionDate), 'PPP')}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleApprove(item.id)}
-                              disabled={processingId === item.id}
-                            >
-                                {processingId === item.id ? <Spinner size="small" /> : <Check className="mr-2 h-4 w-4" />}
-                                Approve
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleReject(item.id)}
-                              disabled={processingId === item.id}
-                            >
-                                {processingId === item.id ? <Spinner size="small" /> : <X className="mr-2 h-4 w-4" />}
-                                Reject
-                            </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-              ) : (
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">No new applications found.</TableCell>
+                  <TableHead className="min-w-[200px]">Applicant</TableHead>
+                  <TableHead>Service Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead className="text-right min-w-[200px]">Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {applications && applications.length > 0 ? (
+                  applications.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="font-medium">{item.fullName}</div>
+                          <div className="text-sm text-muted-foreground">{item.email}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{item.typeOfService}</Badge>
+                        </TableCell>
+                        <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
+                        <TableCell>{format(new Date(item.submissionDate), 'PPP')}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleApprove(item.id)}
+                                disabled={processingId === item.id}
+                              >
+                                  {processingId === item.id ? <Spinner size="small" /> : <Check className="mr-2 h-4 w-4" />}
+                                  Approve
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleReject(item.id)}
+                                disabled={processingId === item.id}
+                              >
+                                  {processingId === item.id ? <Spinner size="small" /> : <X className="mr-2 h-4 w-4" />}
+                                  Reject
+                              </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">No new applications found.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

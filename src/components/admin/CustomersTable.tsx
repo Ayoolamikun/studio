@@ -61,7 +61,7 @@ export function CustomersTable() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap gap-4 justify-between items-center">
             <div>
                 <CardTitle>All Customers</CardTitle>
                 <CardDescription>View and manage all customer records in the system.</CardDescription>
@@ -87,35 +87,37 @@ export function CustomersTable() {
             <Spinner size="large" />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>BVN</TableHead>
-                <TableHead>Date Joined</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData && filteredData.length > 0 ? (
-                filteredData.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>
-                        <div>{item.email}</div>
-                        <div className="text-muted-foreground text-sm">{item.phone}</div>
-                      </TableCell>
-                      <TableCell>{item.bvn || 'N/A'}</TableCell>
-                      <TableCell>{item.createdAt ? format(new Date(item.createdAt), 'PPP') : 'N/A'}</TableCell>
-                    </TableRow>
-                  ))
-              ) : (
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24">No customers found.</TableCell>
+                  <TableHead className="min-w-[200px]">Name</TableHead>
+                  <TableHead className="min-w-[250px]">Contact</TableHead>
+                  <TableHead>BVN</TableHead>
+                  <TableHead>Date Joined</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredData && filteredData.length > 0 ? (
+                  filteredData.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>
+                          <div>{item.email}</div>
+                          <div className="text-muted-foreground text-sm">{item.phone}</div>
+                        </TableCell>
+                        <TableCell>{item.bvn || 'N/A'}</TableCell>
+                        <TableCell>{item.createdAt ? format(new Date(item.createdAt), 'PPP') : 'N/A'}</TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center h-24">No customers found.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

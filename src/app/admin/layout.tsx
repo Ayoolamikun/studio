@@ -59,6 +59,8 @@ export default function AdminLayout({
     if (!user) {
         router.push('/login');
     } else if (user.uid !== ADMIN_UID) {
+        // This case should be handled by the user dashboard layout,
+        // but as a fallback, redirect non-admins away.
         router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
@@ -75,9 +77,10 @@ export default function AdminLayout({
     { href: '/admin/approvals', label: 'Approvals', icon: UserCheck },
     { href: '/admin/customers', label: 'Customers', icon: Users },
     { href: '/admin/reports', label: 'Reports', icon: BarChart },
+    { href: '/admin/excel', label: 'Excel Import', icon: Files },
   ];
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || user.uid !== ADMIN_UID) {
     return (
         <div className="flex h-screen flex-col items-center justify-center gap-4">
             <Spinner size="large" />
@@ -97,9 +100,9 @@ export default function AdminLayout({
             {navItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
                     <Link href={item.href} legacyBehavior passHref>
-                        <SidebarMenuButton isActive={pathname === item.href}>
+                        <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
                             <item.icon />
-                            {item.label}
+                            <span>{item.label}</span>
                         </SidebarMenuButton>
                     </Link>
                 </SidebarMenuItem>
@@ -114,9 +117,9 @@ export default function AdminLayout({
                   <AvatarImage src={user.photoURL ?? ''} />
                   <AvatarFallback>{getInitials(user.displayName || user.email)}</AvatarFallback>
                 </Avatar>
-                <div className="text-left">
-                  <p className="text-sm font-medium">{user.displayName || 'Admin User'}</p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                <div className="text-left group-data-[collapsible=icon]:hidden">
+                  <p className="text-sm font-medium truncate">{user.displayName || 'Admin User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
@@ -147,7 +150,7 @@ export default function AdminLayout({
         <header className="flex h-14 items-center justify-between border-b bg-background px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="md:hidden" />
-            <h1 className="text-xl font-semibold capitalize">{pathname.split('/').pop()?.replace('-', ' ')}</h1>
+            <h1 className="text-xl font-semibold capitalize">{pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}</h1>
           </div>
           
           <Sheet>

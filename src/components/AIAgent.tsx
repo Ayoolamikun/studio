@@ -68,26 +68,28 @@ export default function AIAgent() {
 
   useEffect(() => {
     if (isOpen) {
-        setMessages([{ role: 'assistant', content: "Hello! How can I help you learn about Corporate Magnate's services today?" }]);
+        if(messages.length === 0) {
+            setMessages([{ role: 'assistant', content: "Hello! How can I help you learn about Corporate Magnate's services today?" }]);
+        }
         inputRef.current?.focus();
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length]);
 
   return (
     <>
-      <div className="fixed bottom-6 left-6 z-50">
+      <div className="fixed bottom-6 right-6 z-50">
         <Button
           size="icon"
           className="rounded-full w-16 h-16 shadow-2xl transition-transform hover:scale-110 bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => setIsOpen(!isOpen)}
         >
-          {isOpen ? <X className="h-8 w-8" /> : <MessageCircle className="h-8 w-8" />}
+          {isOpen ? <X className="h-8 w-8" /> : <Bot className="h-8 w-8" />}
         </Button>
       </div>
       
       <div className={cn(
-          "fixed bottom-24 left-6 z-50 transition-opacity duration-300",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          "fixed bottom-24 right-6 z-50 transition-all duration-300",
+          isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
       )}>
         <Card className="w-[350px] h-[500px] shadow-2xl flex flex-col">
           <CardHeader className='flex-row items-center justify-between'>

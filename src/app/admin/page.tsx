@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Spinner } from '@/components/Spinner';
 
+// The admin UID must match the one in your security rules and layout
+const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+
 export default function AdminRootPage() {
   const router = useRouter();
   const { user, isUserLoading } = useUser();
@@ -11,9 +14,14 @@ export default function AdminRootPage() {
   useEffect(() => {
     if (!isUserLoading) {
       if (!user) {
-        router.push('/login');
+        // Not logged in, send to login page
+        router.replace('/login');
+      } else if (user.uid === ADMIN_UID) {
+        // User is admin, send to the main admin dashboard
+        router.replace('/admin/dashboard');
       } else {
-        router.push('/admin/dashboard');
+        // User is logged in but not admin, send to their own dashboard
+        router.replace('/dashboard');
       }
     }
   }, [user, isUserLoading, router]);
