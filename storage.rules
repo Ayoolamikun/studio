@@ -4,37 +4,31 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper functions from firestore.rules (cannot be shared, must be redefined)
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // --- Start of Admin UID Configuration ---
     let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
-    // --- End of Admin UID Configuration ---
 
     function isAdmin() {
       return isSignedIn() && request.auth.uid == ADMIN_UID;
     }
 
-    // Matches any file in the 'loan-documents' folder
-    match /loan-documents/{fileName} {
-      // Allow anyone to create (upload) a document.
-      // This is for the public application form.
-      allow create: if true;
-
-      // Only an admin can read, update or delete the documents.
-      allow read, update, delete: if isAdmin();
+    // Allow anyone to upload application documents. Publicly writable.
+    match /loan-documents/{allPaths=**} {
+      allow write: if true;
+      allow read: if isAdmin(); // Only admin can read
     }
     
-    // Matches any file in the 'guarantor-ids' folder
-    match /guarantor-ids/{fileName} {
-      // Allow anyone to create (upload) a guarantor's ID.
-      // This is for the public application form.
-      allow create: if true;
+    // Allow anyone to upload guarantor IDs. Publicly writable.
+    match /guarantor-ids/{allPaths=**} {
+      allow write: if true;
+      allow read: if isAdmin(); // Only admin can read
+    }
 
-      // Only an admin can read, update or delete the documents.
-      allow read, update, delete: if isAdmin();
+    // Allow authenticated users to manage files in their own folder.
+    match /user-uploads/{userId}/{allPaths=**} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Matches any file in the 'excel-imports' folder
@@ -43,8 +37,9 @@ service firebase.storage {
         allow read, write: if isAdmin();
     }
 
-    // Deny all other operations on all other files by default
-    match /{allPaths=**} {
+    // A general rule for other paths if needed in the future.
+    // By default, deny all other access.
+    match /{path=**} {
       allow read, write: if false;
     }
   }
