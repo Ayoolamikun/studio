@@ -114,8 +114,7 @@ export default function ApplyPage() {
     
     if (isValid) {
         if (currentStep === 1 && employmentType === 'BYSG') {
-            // If user is BYSG, skip guarantor step and go to final review
-            setCurrentStep(currentStep + 2); // This is a virtual step
+            setCurrentStep(steps.length); // Go to final review step
         } else {
             setCurrentStep(currentStep + 1);
         }
@@ -124,7 +123,7 @@ export default function ApplyPage() {
 
   const prevStep = () => {
      if (currentStep > 0) {
-        if (currentStep === 3) { // If on virtual final step for BYSG
+        if (currentStep === steps.length) { // If on virtual final step for BYSG
             setCurrentStep(1); // Go back to service details
         } else {
             setCurrentStep(currentStep - 1);
@@ -132,8 +131,7 @@ export default function ApplyPage() {
      }
   };
   
-  const isLastRegularStep = currentStep === steps.length - 1;
-  const isFinalStep = (currentStep === 1 && employmentType === 'BYSG') || (currentStep === 2 && employmentType === 'Private Individual');
+  const isFinalStep = currentStep === steps.length || (currentStep === steps.length - 1 && employmentType === 'Private Individual');
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -197,7 +195,7 @@ export default function ApplyPage() {
                         )} />
                          <FormField control={form.control} name="amountRequested" render={({ field }) => (
                             <FormItem><FormLabel>Amount Requested (NGN)</FormLabel>
-                            <FormControl><Input type="number" {...field} /></FormControl>
+                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /></FormControl>
                             <FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="employmentType" render={({ field }) => (
@@ -302,3 +300,5 @@ export default function ApplyPage() {
     </div>
   );
 }
+
+    
