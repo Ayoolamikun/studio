@@ -53,7 +53,7 @@ export function ApplicationsTable() {
   const applicationsQuery = useMemoFirebase(
     () => firestore ? query(
         collection(firestore, 'loanApplications'), 
-        where('status', 'in', ['pending', undefined]),
+        where('status', '==', 'pending'),
         orderBy('submissionDate', 'desc')
     ) : null,
     [firestore]
