@@ -3,8 +3,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { LoanDetails } from '@/components/dashboard/LoanDetails';
 import { LoanHistory } from '@/components/dashboard/LoanHistory';
 import { RepaymentSchedule } from '@/components/dashboard/RepaymentSchedule';
@@ -25,7 +23,7 @@ type Loan = {
   amountPaid: number;
   balance: number;
   status: 'pending' | 'approved' | 'rejected' | 'active' | 'paid' | 'overdue';
-  createdAt: string;
+  createdAt: any;
 };
 
 
@@ -69,12 +67,12 @@ export default function DashboardPage() {
   }
 
   if (!user) {
+    // This should be handled by the layout, but as a fallback
     router.push('/login');
     return null;
   }
 
   const handleTopUp = () => {
-    // This is a placeholder for the top-up functionality.
     toast({
         title: "Feature Coming Soon!",
         description: "The loan top-up feature is currently in development.",
@@ -116,7 +114,7 @@ export default function DashboardPage() {
                       ) : (
                         <Card>
                             <CardContent className="py-12 text-center">
-                                <p className="text-muted-foreground">No past payments found.</p>
+                                <p className="text-muted-foreground">No past loan history found.</p>
                             </CardContent>
                         </Card>
                       )}

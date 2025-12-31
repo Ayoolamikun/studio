@@ -118,10 +118,14 @@ export function LoanManagementTable() {
     
     return combinedData.filter(item => {
       const customer = item.customer;
-      return searchTerm.trim() === '' ||
-        customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer?.phone.includes(searchTerm) ||
-        customer?.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchTermLower = searchTerm.toLowerCase();
+      
+      const nameMatch = customer?.name?.toLowerCase().includes(searchTermLower);
+      const emailMatch = customer?.email?.toLowerCase().includes(searchTermLower);
+      const phoneMatch = customer?.phone?.includes(searchTerm);
+      const idMatch = item.borrowerId.toLowerCase().includes(searchTermLower);
+
+      return searchTerm.trim() === '' || nameMatch || emailMatch || phoneMatch || idMatch;
     });
   }, [combinedData, searchTerm]);
 

@@ -49,7 +49,8 @@ export default function ApplyPage() {
     mode: 'onChange',
   });
 
-  const employmentType = form.watch('employmentType');
+  const { formState: { isSubmitting }, watch } = form;
+  const employmentType = watch('employmentType');
 
   const processForm: SubmitHandler<LoanApplicationValues> = async (data) => {
     if (!firestore || !storage) {
@@ -66,7 +67,7 @@ export default function ApplyPage() {
 
       // --- Handle Main Document Upload ---
       const docFile = data.uploadedDocumentUrl;
-      if (docFile) {
+      if (docFile instanceof File) {
         const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
         await uploadBytes(docRef, docFile);
         uploadedDocumentUrl = await getDownloadURL(docRef);
@@ -74,18 +75,19 @@ export default function ApplyPage() {
       
       // --- Handle Guarantor ID Upload (if applicable) ---
       const guarantorFile = data.guarantorIdUrl;
-      if (data.employmentType === 'Private Individual' && guarantorFile) {
+      if (data.employmentType === 'Private Individual' && guarantorFile instanceof File) {
          const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
          await uploadBytes(guarantorIdRef, guarantorFile);
          guarantorIdUrl = await getDownloadURL(guarantorIdRef);
       }
 
+      // Create a clean data object for submission
       const submissionData = {
         ...data,
         submissionDate: serverTimestamp(),
         status: 'pending',
-        uploadedDocumentUrl, // URL from storage or undefined
-        guarantorIdUrl, // URL from storage or undefined
+        uploadedDocumentUrl,
+        guarantorIdUrl,
       };
 
       // --- Save to Firestore ---
@@ -109,12 +111,12 @@ export default function ApplyPage() {
   ];
 
   const nextStep = async () => {
-    const currentFields = steps[currentStep].fields;
-    const isValid = await form.trigger(currentFields as (keyof LoanApplicationValues)[]);
+    const currentFields = steps[currentStep].fields as (keyof LoanApplicationValues)[];
+    const isValid = await form.trigger(currentFields);
     
     if (isValid) {
         if (currentStep === 1 && employmentType === 'BYSG') {
-            setCurrentStep(steps.length); // Go to final review step
+            setCurrentStep(steps.length); // Skip guarantor step
         } else {
             setCurrentStep(currentStep + 1);
         }
@@ -123,7 +125,8 @@ export default function ApplyPage() {
 
   const prevStep = () => {
      if (currentStep > 0) {
-        if (currentStep === steps.length && employmentType === 'BYSG') { // If on virtual final step for BYSG
+        // If coming back from the final review step for a BYSG user
+        if (currentStep === steps.length && employmentType === 'BYSG') {
             setCurrentStep(1); // Go back to service details
         } else {
             setCurrentStep(currentStep - 1);
@@ -131,7 +134,7 @@ export default function ApplyPage() {
      }
   };
   
-  const isFinalStep = currentStep === steps.length || (currentStep === 2 && employmentType === 'Private Individual');
+  const isFinalStep = (currentStep === 2 && employmentType === 'Private Individual') || currentStep === steps.length;
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -214,7 +217,7 @@ export default function ApplyPage() {
                               <FormMessage />
                           </FormItem>
                         )} />
-                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { value, onChange, ...fieldProps } }) => (
+                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
                             <FormControl>
                                <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
@@ -245,7 +248,7 @@ export default function ApplyPage() {
                         <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
                             <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { value, onChange, ...fieldProps } }) => (
+                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...fieldProps } }) => (
                            <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
                             <FormControl>
                                <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
@@ -267,21 +270,21 @@ export default function ApplyPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       {currentStep > 0 && (
-                        <Button type="button" variant="outline" onClick={prevStep}>
+                        <Button type="button" variant="outline" onClick={prevStep} disabled={isSubmitting}>
                           <ArrowLeft className="mr-2 h-4 w-4" /> Previous
                         </Button>
                       )}
                     </div>
-                    <div>
-                      {!isFinalStep ? (
+                    <div className="flex gap-4">
+                      {!isFinalStep && (
                         <Button type="button" onClick={nextStep}>
                           Next <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                      ) : null}
+                      )}
                       
                       {isFinalStep && (
-                        <Button type="submit" disabled={form.formState.isSubmitting}>
-                          {form.formState.isSubmitting ? (
+                        <Button type="submit" disabled={isSubmitting}>
+                          {isSubmitting ? (
                             <><Spinner size="small" /> Submitting...</>
                           ) : (
                             <><Send className="mr-2 h-4 w-4" /> Submit Application</>

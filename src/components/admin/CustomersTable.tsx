@@ -31,7 +31,7 @@ type Customer = {
   phone: string;
   email: string;
   bvn: string;
-  createdAt: string;
+  createdAt: any; // Can be a string or a Firestore Timestamp
 };
 
 export function CustomersTable() {
@@ -60,6 +60,20 @@ export function CustomersTable() {
   }, [customers, searchTerm]);
   
   const isLoading = customersLoading;
+
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    // Firestore Timestamps have a toDate() method
+    if (date.toDate) {
+      return format(date.toDate(), 'PPP');
+    }
+    // Handle string dates
+    try {
+      return format(new Date(date), 'PPP');
+    } catch {
+      return 'Invalid Date';
+    }
+  };
 
   return (
     <>
@@ -112,7 +126,7 @@ export function CustomersTable() {
                             <div className="text-muted-foreground text-sm">{item.phone}</div>
                           </TableCell>
                           <TableCell>{item.bvn || 'N/A'}</TableCell>
-                          <TableCell>{item.createdAt ? format(new Date(item.createdAt), 'PPP') : 'N/A'}</TableCell>
+                          <TableCell>{formatDate(item.createdAt)}</TableCell>
                         </TableRow>
                       ))
                   ) : (

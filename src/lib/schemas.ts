@@ -4,6 +4,7 @@ import { z } from "zod";
 const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
+
 // This schema validates a file upload. It uses z.any() to avoid server-side errors,
 // as File objects are not available in the Node.js environment.
 // Validation is then performed on the client side.
@@ -31,12 +32,17 @@ const optionalFileSchema = z
   .any()
   .optional()
   .refine((file) => {
-    if (typeof window === 'undefined' || !file) return true;
+    // If no file is provided, it's valid.
+    if (!file) return true;
+    // On the server, we skip validation.
+    if (typeof window === 'undefined') return true;
+    // On the client, if a file exists, validate it.
     return file instanceof File && file.size <= MAX_FILE_SIZE;
   }, `Max file size is 5MB.`)
   .refine(
     (file) => {
-      if (typeof window === 'undefined' || !file) return true;
+      if (!file) return true;
+      if (typeof window === 'undefined') return true;
       return file instanceof File && ACCEPTED_FILE_TYPES.includes(file.type);
     },
     ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
@@ -76,7 +82,8 @@ export const loanApplicationSchema = z.object({
         if (!data.guarantorRelationship || data.guarantorRelationship.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Relationship to guarantor is required.", path: ["guarantorRelationship"] });
         }
-        // This is the key fix: Only run the file validation for the guarantor's ID if the employment type is "Private Individual".
+        
+        // Only require and validate the guarantor ID if the user is a Private Individual.
         const fileResult = fileSchema.safeParse(data.guarantorIdUrl);
         if (!fileResult.success) {
              const errorMessage = fileResult.error.issues[0]?.message || "Guarantor's ID card is required and must be a valid file.";
