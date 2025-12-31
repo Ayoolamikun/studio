@@ -77,13 +77,25 @@ export default function ApplyPage() {
       }
 
       // --- Create a clean data object for submission ---
-      const { passportPhotoUrl: _p, idUrl: _i, ...restOfData } = data;
       const submissionData = {
-        ...restOfData,
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        placeOfEmployment: data.placeOfEmployment,
+        bvn: data.bvn,
+        loanAmount: data.loanAmount,
+        loanDuration: data.loanDuration,
+        customerType: data.customerType,
         passportPhotoUrl, 
         idUrl,
         submissionDate: serverTimestamp(),
         status: 'Processing',
+        ...(data.customerType === 'Private Individual' && {
+            guarantorFullName: data.guarantorFullName,
+            guarantorPhoneNumber: data.guarantorPhoneNumber,
+            guarantorAddress: data.guarantorAddress,
+            guarantorRelationship: data.guarantorRelationship,
+        }),
       };
 
       // --- Save to Firestore ---
@@ -94,10 +106,18 @@ export default function ApplyPage() {
 
     } catch (error: any) {
       console.error('Submission Error:', error);
+      let description = 'An unexpected error occurred. Please check your inputs and try again.';
+      if (error.code === 'storage/unauthorized') {
+          description = "Permission denied. You might need to be signed in or your security rules are incorrect."
+      } else if (error.code === 'storage/retry-limit-exceeded') {
+          description = 'Upload failed due to a network error. Please check your internet connection and try again.'
+      } else if (error.message) {
+          description = error.message;
+      }
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
-        description: error.message || 'An unexpected error occurred. Please check your inputs and try again.',
+        description: description,
       });
     }
   };

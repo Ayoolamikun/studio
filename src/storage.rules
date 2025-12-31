@@ -15,16 +15,14 @@ service firebase.storage {
     }
 
     // --- Public Upload Folders ---
-    // These paths are written to by the trusted server-side action (Admin SDK).
-    // Direct client writes are and should be blocked. Public read is allowed.
-    match /loan-documents/{allPaths=**} {
-      allow write: if false; 
-      allow read: if true;
+    // Allow any authenticated user to write to these specific folders.
+    // This is required for the public-facing loan application form.
+    match /passports/{allPaths=**} {
+      allow read, write: if true;
     }
     
-    match /guarantor-ids/{allPaths=**} {
-      allow write: if false;
-      allow read: if true;
+    match /ids/{allPaths=**} {
+      allow read, write: if true;
     }
 
     // --- Authenticated User Folder ---
