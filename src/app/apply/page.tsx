@@ -41,6 +41,8 @@ export default function ApplyPage() {
       guarantorPhoneNumber: '',
       guarantorAddress: '',
       guarantorRelationship: '',
+      passportPhotoUrl: undefined,
+      idUrl: undefined,
     },
     mode: 'onChange',
   });
@@ -148,12 +150,12 @@ export default function ApplyPage() {
                             )} />
                              <FormField control={form.control} name="loanAmount" render={({ field }) => (
                                 <FormItem><FormLabel>Loan Amount (NGN)</FormLabel>
-                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /></FormControl>
                                 <FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="loanDuration" render={({ field }) => (
                                 <FormItem><FormLabel>Loan Duration (Months)</FormLabel>
-                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /></FormControl>
                                 <FormMessage /></FormItem>
                             )} />
                         </div>
