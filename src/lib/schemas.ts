@@ -18,7 +18,7 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  // Define files as `any` type initially, validation will be done in `superRefine`.
+  // Define files as `any` type initially. Refinement will handle validation.
   passportPhotoUrl: z.any(),
   idUrl: z.any(),
 
@@ -32,26 +32,28 @@ export const loanApplicationSchema = z.object({
     if (!isBrowser) return;
 
     // --- Passport Photo Validation (always required) ---
-    if (!data.passportPhotoUrl || !(data.passportPhotoUrl instanceof File)) {
+    const passportFile = data.passportPhotoUrl;
+    if (!passportFile || !(passportFile instanceof File)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Passport photograph is required.", path: ["passportPhotoUrl"] });
     } else {
-        if (data.passportPhotoUrl.size > MAX_FILE_SIZE) {
+        if (passportFile.size > MAX_FILE_SIZE) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Max file size is 5MB.`, path: ["passportPhotoUrl"] });
         }
-        if (!ACCEPTED_PHOTO_TYPES.includes(data.passportPhotoUrl.type)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Only ${ACCEPTED_PHOTO_TYPES.join(', ')} formats are accepted.`, path: ["passportPhotoUrl"] });
+        if (!ACCEPTED_PHOTO_TYPES.includes(passportFile.type)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Only image files are accepted.`, path: ["passportPhotoUrl"] });
         }
     }
 
     // --- ID Document Validation (always required) ---
-    if (!data.idUrl || !(data.idUrl instanceof File)) {
+    const idFile = data.idUrl;
+    if (!idFile || !(idFile instanceof File)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A valid ID document is required.", path: ["idUrl"] });
     } else {
-        if (data.idUrl.size > MAX_FILE_SIZE) {
+        if (idFile.size > MAX_FILE_SIZE) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Max file size is 5MB.`, path: ["idUrl"] });
         }
-        if (!ACCEPTED_ID_TYPES.includes(data.idUrl.type)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Only ${ACCEPTED_ID_TYPES.join(', ')} formats are accepted.`, path: ["idUrl"] });
+        if (!ACCEPTED_ID_TYPES.includes(idFile.type)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Images and PDFs are accepted.`, path: ["idUrl"] });
         }
     }
 

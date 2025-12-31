@@ -3,7 +3,7 @@
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, StorageReference } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +20,19 @@ import { Spinner } from '@/components/Spinner';
 import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/**
+ * A helper function to upload a single file to Firebase Storage.
+ * @param file The file to upload.
+ * @param path The storage path (e.g., 'passports').
+ * @returns The download URL of the uploaded file.
+ */
+const uploadFile = async (file: File, path: string): Promise<string> => {
+  const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
+  const snapshot = await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(snapshot.ref);
+  return downloadURL;
+};
 
 
 export default function ApplyPage() {
@@ -41,6 +54,8 @@ export default function ApplyPage() {
       guarantorPhoneNumber: '',
       guarantorAddress: '',
       guarantorRelationship: '',
+      passportPhotoUrl: undefined,
+      idUrl: undefined,
     },
     mode: 'onChange',
   });
@@ -59,35 +74,19 @@ export default function ApplyPage() {
     }
     
     try {
-      // --- Start all upload promises in parallel ---
-      const uploadPromises: Promise<string | null>[] = [];
-      
-      const passportFile = data.passportPhotoUrl as File | undefined;
-      const idFile = data.idUrl as File | undefined;
+      const passportFile = data.passportPhotoUrl as File;
+      const idFile = data.idUrl as File;
 
-      if (passportFile) {
-        const passportRef = ref(storage, `passports/${Date.now()}_${passportFile.name}`);
-        uploadPromises.push(uploadBytes(passportRef, passportFile).then(snapshot => getDownloadURL(snapshot.ref)));
-      } else {
-        uploadPromises.push(Promise.resolve(null)); // Placeholder if no file
-      }
+      // Start all required uploads in parallel
+      const uploadPromises: Promise<string>[] = [
+        uploadFile(passportFile, 'passports'),
+        uploadFile(idFile, 'ids'),
+      ];
 
-      if (idFile) {
-        const idRef = ref(storage, `ids/${Date.now()}_${idFile.name}`);
-        uploadPromises.push(uploadBytes(idRef, idFile).then(snapshot => getDownloadURL(snapshot.ref)));
-      } else {
-        uploadPromises.push(Promise.resolve(null));
-      }
-
-      // --- Wait for all uploads to complete ---
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
-      if (!passportPhotoUrl || !idUrl) {
-          throw new Error("Required file uploads failed. Please try again.");
-      }
-
-      // --- Create a clean data object for submission ---
-      const submissionData = {
+      // Create a clean data object for submission
+      const submissionData: any = {
         fullName: data.fullName,
         email: data.email,
         phoneNumber: data.phoneNumber,
@@ -100,13 +99,15 @@ export default function ApplyPage() {
         idUrl,
         submissionDate: serverTimestamp(),
         status: 'Processing',
-        ...(data.customerType === 'Private Individual' && {
-            guarantorFullName: data.guarantorFullName,
-            guarantorPhoneNumber: data.guarantorPhoneNumber,
-            guarantorAddress: data.guarantorAddress,
-            guarantorRelationship: data.guarantorRelationship,
-        }),
       };
+
+      // Add guarantor info if customer type is Private Individual
+      if (data.customerType === 'Private Individual') {
+          submissionData.guarantorFullName = data.guarantorFullName;
+          submissionData.guarantorPhoneNumber = data.guarantorPhoneNumber;
+          submissionData.guarantorAddress = data.guarantorAddress;
+          submissionData.guarantorRelationship = data.guarantorRelationship;
+      }
 
       // --- Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
@@ -118,7 +119,7 @@ export default function ApplyPage() {
       console.error('Submission Error:', error);
       let description = 'An unexpected error occurred. Please check your inputs and try again.';
       if (error.code === 'storage/unauthorized') {
-          description = "Permission denied. You might need to be signed in or your security rules are incorrect."
+          description = "Permission denied. Please ensure you have the correct storage rules configured."
       } else if (error.code === 'storage/retry-limit-exceeded') {
           description = 'Upload failed due to a network error. Please check your internet connection and try again.'
       } else if (error.message) {
@@ -198,7 +199,7 @@ export default function ApplyPage() {
                             <FormField
                               control={form.control}
                               name="passportPhotoUrl"
-                              render={({ field: { value, onChange, ...fieldProps } }) => (
+                              render={({ field: { onChange, ...fieldProps } }) => (
                                 <FormItem>
                                   <FormLabel>Passport Photograph</FormLabel>
                                   <FormControl>
@@ -217,7 +218,7 @@ export default function ApplyPage() {
                             <FormField
                               control={form.control}
                               name="idUrl"
-                              render={({ field: { value, onChange, ...fieldProps } }) => (
+                              render={({ field: { onChange, ...fieldProps } }) => (
                                 <FormItem>
                                   <FormLabel>NIN or Valid ID</FormLabel>
                                   <FormControl>
