@@ -41,8 +41,7 @@ export default function ApplyPage() {
       guarantorPhoneNumber: '',
       guarantorAddress: '',
       guarantorRelationship: '',
-      passportPhotoUrl: undefined,
-      idUrl: undefined,
+      // File inputs are uncontrolled and should not have a default value here
     },
     mode: 'onChange',
   });
@@ -166,20 +165,24 @@ export default function ApplyPage() {
                         <h3 className="text-lg font-semibold text-primary border-b pb-2">Document Uploads</h3>
                         <div className="grid md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="passportPhotoUrl" render={({ field: { onChange, ...fieldProps } }) => (
-                                <FormItem><FormLabel>Passport Photograph</FormLabel>
-                                <FormControl>
-                                    <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} accept="image/jpeg,image/png,image/webp" />
-                                </FormControl>
-                                <FormDescription>A clear, recent passport-style photo.</FormDescription>
-                                <FormMessage /></FormItem>
+                                <FormItem>
+                                    <FormLabel>Passport Photograph</FormLabel>
+                                    <FormControl>
+                                        <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} accept="image/jpeg,image/png,image/webp" />
+                                    </FormControl>
+                                    <FormDescription>A clear, recent passport-style photo.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
                             )} />
                             <FormField control={form.control} name="idUrl" render={({ field: { onChange, ...fieldProps } }) => (
-                                <FormItem><FormLabel>NIN or Valid ID</FormLabel>
-                                <FormControl>
-                                    <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} accept="image/jpeg,image/png,image/webp,application/pdf" />
-                                </FormControl>
-                                <FormDescription>Upload your National ID, Voter's Card, Driver's License, or Int'l Passport.</FormDescription>
-                                <FormMessage /></FormItem>
+                                <FormItem>
+                                    <FormLabel>NIN or Valid ID</FormLabel>
+                                    <FormControl>
+                                        <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} accept="image/jpeg,image/png,image/webp,application/pdf" />
+                                    </FormControl>
+                                    <FormDescription>Upload your National ID, Voter's Card, Driver's License, or Int'l Passport.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
                             )} />
                         </div>
                     </div>
