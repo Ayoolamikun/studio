@@ -63,30 +63,25 @@ export default function ApplyPage() {
       let idUrl = '';
 
       // --- Handle Passport Photo Upload ---
-      if (data.passportPhotoUrl) {
+      if (data.passportPhotoUrl instanceof File) {
         const passportRef = ref(storage, `passports/${Date.now()}_${data.passportPhotoUrl.name}`);
         await uploadBytes(passportRef, data.passportPhotoUrl);
         passportPhotoUrl = await getDownloadURL(passportRef);
-      } else {
-        throw new Error("Passport photo is required.");
       }
       
       // --- Handle ID Upload ---
-      if (data.idUrl) {
+      if (data.idUrl instanceof File) {
          const idRef = ref(storage, `ids/${Date.now()}_${data.idUrl.name}`);
          await uploadBytes(idRef, data.idUrl);
          idUrl = await getDownloadURL(idRef);
-      } else {
-        throw new Error("ID document is required.");
       }
 
       // --- Create a clean data object for submission ---
-      // This removes the original File objects before sending to Firestore
       const { passportPhotoUrl: _p, idUrl: _i, ...restOfData } = data;
       const submissionData = {
         ...restOfData,
-        passportPhotoUrl, // the URL string
-        idUrl,            // the URL string
+        passportPhotoUrl, 
+        idUrl,
         submissionDate: serverTimestamp(),
         status: 'Processing',
       };

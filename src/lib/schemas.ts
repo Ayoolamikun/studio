@@ -5,21 +5,8 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-// Helper function to create a file schema.
-// It's robust for both client and server-side rendering.
-const fileSchema = (acceptedTypes: string[], typeName: string) => 
-  z.custom<File>((val) => {
-    // On the server, we can't validate the File object, so we pass.
-    if (typeof window === 'undefined') return true;
-    return val instanceof File;
-  }, {
-    message: `Please upload a valid ${typeName} file.`,
-  }).refine((file) => file.size <= MAX_FILE_SIZE, {
-    message: `Max file size is 5MB.`,
-  }).refine((file) => acceptedTypes.includes(file.type), {
-    message: `Only ${acceptedTypes.join(', ')} formats are accepted for the ${typeName}.`,
-  });
-
+// Check if running in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 export const loanApplicationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
@@ -31,17 +18,44 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  passportPhotoUrl: fileSchema(ACCEPTED_PHOTO_TYPES, "Passport Photo"),
-  idUrl: fileSchema(ACCEPTED_ID_TYPES, "ID Document"),
+  // Define files as `any` type initially, validation will be done in `superRefine`.
+  passportPhotoUrl: z.any(),
+  idUrl: z.any(),
 
-  // Guarantor fields are optional at the top level
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
   guarantorAddress: z.string().optional(),
   guarantorRelationship: z.string().optional(),
 
 }).superRefine((data, ctx) => {
-    // Conditionally require guarantor fields ONLY if customerType is "Private Individual"
+    // Only perform file validation in the browser
+    if (!isBrowser) return;
+
+    // --- Passport Photo Validation (always required) ---
+    if (!data.passportPhotoUrl || !(data.passportPhotoUrl instanceof File)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Passport photograph is required.", path: ["passportPhotoUrl"] });
+    } else {
+        if (data.passportPhotoUrl.size > MAX_FILE_SIZE) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Max file size is 5MB.`, path: ["passportPhotoUrl"] });
+        }
+        if (!ACCEPTED_PHOTO_TYPES.includes(data.passportPhotoUrl.type)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Only ${ACCEPTED_PHOTO_TYPES.join(', ')} formats are accepted.`, path: ["passportPhotoUrl"] });
+        }
+    }
+
+    // --- ID Document Validation (always required) ---
+    if (!data.idUrl || !(data.idUrl instanceof File)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A valid ID document is required.", path: ["idUrl"] });
+    } else {
+        if (data.idUrl.size > MAX_FILE_SIZE) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Max file size is 5MB.`, path: ["idUrl"] });
+        }
+        if (!ACCEPTED_ID_TYPES.includes(data.idUrl.type)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Only ${ACCEPTED_ID_TYPES.join(', ')} formats are accepted.`, path: ["idUrl"] });
+        }
+    }
+
+    // --- Conditional Guarantor Validation ---
     if (data.customerType === "Private Individual") {
         if (!data.guarantorFullName || data.guarantorFullName.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's full name is required.", path: ["guarantorFullName"] });
