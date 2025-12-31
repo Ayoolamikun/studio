@@ -59,21 +59,31 @@ export default function ApplyPage() {
     }
     
     try {
-      let passportPhotoUrl = '';
-      let idUrl = '';
-
-      // --- Handle Passport Photo Upload ---
-      if (data.passportPhotoUrl instanceof File) {
-        const passportRef = ref(storage, `passports/${Date.now()}_${data.passportPhotoUrl.name}`);
-        await uploadBytes(passportRef, data.passportPhotoUrl);
-        passportPhotoUrl = await getDownloadURL(passportRef);
-      }
+      // --- Start all upload promises in parallel ---
+      const uploadPromises: Promise<string | null>[] = [];
       
-      // --- Handle ID Upload ---
-      if (data.idUrl instanceof File) {
-         const idRef = ref(storage, `ids/${Date.now()}_${data.idUrl.name}`);
-         await uploadBytes(idRef, data.idUrl);
-         idUrl = await getDownloadURL(idRef);
+      const passportFile = data.passportPhotoUrl as File | undefined;
+      const idFile = data.idUrl as File | undefined;
+
+      if (passportFile) {
+        const passportRef = ref(storage, `passports/${Date.now()}_${passportFile.name}`);
+        uploadPromises.push(uploadBytes(passportRef, passportFile).then(snapshot => getDownloadURL(snapshot.ref)));
+      } else {
+        uploadPromises.push(Promise.resolve(null)); // Placeholder if no file
+      }
+
+      if (idFile) {
+        const idRef = ref(storage, `ids/${Date.now()}_${idFile.name}`);
+        uploadPromises.push(uploadBytes(idRef, idFile).then(snapshot => getDownloadURL(snapshot.ref)));
+      } else {
+        uploadPromises.push(Promise.resolve(null));
+      }
+
+      // --- Wait for all uploads to complete ---
+      const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
+
+      if (!passportPhotoUrl || !idUrl) {
+          throw new Error("Required file uploads failed. Please try again.");
       }
 
       // --- Create a clean data object for submission ---
