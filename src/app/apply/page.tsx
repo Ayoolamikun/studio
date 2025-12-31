@@ -65,16 +65,16 @@ export default function ApplyPage() {
       let guarantorIdUrl: string | undefined = undefined;
 
       // --- Handle Main Document Upload ---
-      if (data.uploadedDocumentUrl) {
-        const docFile = data.uploadedDocumentUrl as File;
+      const docFile = data.uploadedDocumentUrl;
+      if (docFile) {
         const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
         await uploadBytes(docRef, docFile);
         uploadedDocumentUrl = await getDownloadURL(docRef);
       }
       
       // --- Handle Guarantor ID Upload (if applicable) ---
-      if (data.employmentType === 'Private Individual' && data.guarantorIdUrl) {
-         const guarantorFile = data.guarantorIdUrl as File;
+      const guarantorFile = data.guarantorIdUrl;
+      if (data.employmentType === 'Private Individual' && guarantorFile) {
          const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
          await uploadBytes(guarantorIdRef, guarantorFile);
          guarantorIdUrl = await getDownloadURL(guarantorIdRef);
@@ -123,7 +123,7 @@ export default function ApplyPage() {
 
   const prevStep = () => {
      if (currentStep > 0) {
-        if (currentStep === steps.length) { // If on virtual final step for BYSG
+        if (currentStep === steps.length && employmentType === 'BYSG') { // If on virtual final step for BYSG
             setCurrentStep(1); // Go back to service details
         } else {
             setCurrentStep(currentStep - 1);
@@ -131,7 +131,7 @@ export default function ApplyPage() {
      }
   };
   
-  const isFinalStep = currentStep === steps.length || (currentStep === steps.length - 1 && employmentType === 'Private Individual');
+  const isFinalStep = currentStep === steps.length || (currentStep === 2 && employmentType === 'Private Individual');
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -300,5 +300,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
