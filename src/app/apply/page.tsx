@@ -3,7 +3,7 @@
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ref, uploadBytes, getDownloadURL, StorageReference } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +20,7 @@ import { Spinner } from '@/components/Spinner';
 import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 
 /**
  * A helper function to upload a single file to Firebase Storage.
@@ -54,8 +55,6 @@ export default function ApplyPage() {
       guarantorPhoneNumber: '',
       guarantorAddress: '',
       guarantorRelationship: '',
-      passportPhotoUrl: undefined,
-      idUrl: undefined,
     },
     mode: 'onChange',
   });
@@ -78,11 +77,15 @@ export default function ApplyPage() {
       const idFile = data.idUrl as File;
 
       // Start all required uploads in parallel
-      const uploadPromises: Promise<string>[] = [
-        uploadFile(passportFile, 'passports'),
-        uploadFile(idFile, 'ids'),
-      ];
+      const uploadPromises: Promise<string>[] = [];
 
+      if (passportFile) {
+        uploadPromises.push(uploadFile(passportFile, 'passports'));
+      }
+      if (idFile) {
+        uploadPromises.push(uploadFile(idFile, 'ids'));
+      }
+      
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
       // Create a clean data object for submission
@@ -199,15 +202,18 @@ export default function ApplyPage() {
                             <FormField
                               control={form.control}
                               name="passportPhotoUrl"
-                              render={({ field: { onChange, ...fieldProps } }) => (
+                              render={({ field: { value, onChange, ...rest } }) => (
                                 <FormItem>
                                   <FormLabel>Passport Photograph</FormLabel>
                                   <FormControl>
                                     <Input
-                                      {...fieldProps}
+                                      {...rest}
                                       type="file"
                                       accept="image/jpeg,image/png,image/webp"
-                                      onChange={(event) => onChange(event.target.files?.[0])}
+                                      onChange={(event) => {
+                                        const file = event.target.files?.[0];
+                                        onChange(file);
+                                      }}
                                     />
                                   </FormControl>
                                   <FormDescription>A clear, recent passport-style photo.</FormDescription>
@@ -218,15 +224,18 @@ export default function ApplyPage() {
                             <FormField
                               control={form.control}
                               name="idUrl"
-                              render={({ field: { onChange, ...fieldProps } }) => (
+                              render={({ field: { value, onChange, ...rest } }) => (
                                 <FormItem>
                                   <FormLabel>NIN or Valid ID</FormLabel>
                                   <FormControl>
                                     <Input
-                                      {...fieldProps}
+                                      {...rest}
                                       type="file"
                                       accept="image/jpeg,image/png,image/webp,application/pdf"
-                                      onChange={(event) => onChange(event.target.files?.[0])}
+                                      onChange={(event) => {
+                                        const file = event.target.files?.[0];
+                                        onChange(file);
+                                      }}
                                     />
                                   </FormControl>
                                   <FormDescription>Upload your National ID, Voter's Card, Driver's License, or Int'l Passport.</FormDescription>
