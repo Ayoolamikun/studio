@@ -67,6 +67,8 @@ export default function ApplyPage() {
         const passportRef = ref(storage, `passports/${Date.now()}_${data.passportPhotoUrl.name}`);
         await uploadBytes(passportRef, data.passportPhotoUrl);
         passportPhotoUrl = await getDownloadURL(passportRef);
+      } else {
+        throw new Error("Passport photo is required.");
       }
       
       // --- Handle ID Upload ---
@@ -74,13 +76,17 @@ export default function ApplyPage() {
          const idRef = ref(storage, `ids/${Date.now()}_${data.idUrl.name}`);
          await uploadBytes(idRef, data.idUrl);
          idUrl = await getDownloadURL(idRef);
+      } else {
+        throw new Error("ID document is required.");
       }
 
       // --- Create a clean data object for submission ---
+      // This removes the original File objects before sending to Firestore
+      const { passportPhotoUrl: _p, idUrl: _i, ...restOfData } = data;
       const submissionData = {
-        ...data,
-        passportPhotoUrl,
-        idUrl,
+        ...restOfData,
+        passportPhotoUrl, // the URL string
+        idUrl,            // the URL string
         submissionDate: serverTimestamp(),
         status: 'Processing',
       };
@@ -88,6 +94,7 @@ export default function ApplyPage() {
       // --- Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
+      // --- Redirect on Success ---
       router.push('/apply/thank-you');
 
     } catch (error: any) {
@@ -174,10 +181,7 @@ export default function ApplyPage() {
                                       {...fieldProps}
                                       type="file"
                                       accept="image/jpeg,image/png,image/webp"
-                                      onChange={(event) => {
-                                        const file = event.target.files?.[0];
-                                        onChange(file);
-                                      }}
+                                      onChange={(event) => onChange(event.target.files?.[0])}
                                     />
                                   </FormControl>
                                   <FormDescription>A clear, recent passport-style photo.</FormDescription>
@@ -196,10 +200,7 @@ export default function ApplyPage() {
                                       {...fieldProps}
                                       type="file"
                                       accept="image/jpeg,image/png,image/webp,application/pdf"
-                                      onChange={(event) => {
-                                        const file = event.target.files?.[0];
-                                        onChange(file);
-                                      }}
+                                      onChange={(event) => onChange(event.target.files?.[0])}
                                     />
                                   </FormControl>
                                   <FormDescription>Upload your National ID, Voter's Card, Driver's License, or Int'l Passport.</FormDescription>
@@ -211,7 +212,7 @@ export default function ApplyPage() {
                     </div>
 
                     {/* Guarantor Details (Conditional) */}
-                    <div className={cn(customerType === 'Private Individual' ? 'block' : 'hidden', "space-y-4")}>
+                    <div className={cn(customerType === 'Private Individual' ? 'block' : 'hidden', "space-y-4 transition-all duration-300")}>
                         <h3 className="text-lg font-semibold text-primary border-b pb-2">Guarantor Information</h3>
                          <p className="text-sm text-muted-foreground">A guarantor is required for private individuals.</p>
                          <div className="grid md:grid-cols-2 gap-4">

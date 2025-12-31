@@ -1,20 +1,23 @@
+
 import { z } from "zod";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-// Schema for a required file upload. It's robust for both client and server-side rendering.
-const fileSchema = (acceptedTypes: string[], typeName: string) => z.custom<File>((val) => {
-    // On the server, we cannot validate File objects, so we pass validation.
+// Helper function to create a file schema.
+// It's robust for both client and server-side rendering.
+const fileSchema = (acceptedTypes: string[], typeName: string) => 
+  z.custom<File>((val) => {
+    // On the server, we can't validate the File object, so we pass.
     if (typeof window === 'undefined') return true;
     return val instanceof File;
   }, {
-    message: `A valid ${typeName} file is required.`,
-  }).refine((file) => file?.size <= MAX_FILE_SIZE, {
+    message: `Please upload a valid ${typeName} file.`,
+  }).refine((file) => file.size <= MAX_FILE_SIZE, {
     message: `Max file size is 5MB.`,
-  }).refine((file) => acceptedTypes.includes(file?.type), {
-    message: `Please select a valid file type for the ${typeName}.`,
+  }).refine((file) => acceptedTypes.includes(file.type), {
+    message: `Only ${acceptedTypes.join(', ')} formats are accepted for the ${typeName}.`,
   });
 
 
@@ -27,6 +30,7 @@ export const loanApplicationSchema = z.object({
   bvn: z.string().length(11, "BVN must be 11 digits."),
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
+  
   passportPhotoUrl: fileSchema(ACCEPTED_PHOTO_TYPES, "Passport Photo"),
   idUrl: fileSchema(ACCEPTED_ID_TYPES, "ID Document"),
 
@@ -37,12 +41,12 @@ export const loanApplicationSchema = z.object({
   guarantorRelationship: z.string().optional(),
 
 }).superRefine((data, ctx) => {
-    // Conditionally require guarantor fields if customerType is "Private Individual"
+    // Conditionally require guarantor fields ONLY if customerType is "Private Individual"
     if (data.customerType === "Private Individual") {
         if (!data.guarantorFullName || data.guarantorFullName.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's full name is required.", path: ["guarantorFullName"] });
         }
-        if (!data.guarantorPhoneNumber || data.guarantorPhoneNumber.trim().length < 10) {
+        if (!data.guarantorPhoneNumber || !/^\d{10,}$/.test(data.guarantorPhoneNumber.trim())) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A valid guarantor phone number is required.", path: ["guarantorPhoneNumber"] });
         }
         if (!data.guarantorAddress || data.guarantorAddress.trim().length < 5) {
