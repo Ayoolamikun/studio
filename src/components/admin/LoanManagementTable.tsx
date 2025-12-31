@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import {
@@ -22,9 +21,9 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
-import { MoreHorizontal, Hourglass, ShieldCheck, ShieldX, CreditCard } from 'lucide-react';
+import { MoreHorizontal, Hourglass, ShieldCheck, ShieldX, CreditCard, CheckCircle, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -44,8 +43,7 @@ type Loan = {
   totalRepayment?: number;
   amountPaid: number;
   balance: number;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'paid' | 'overdue';
-  notes?: string;
+  status: 'Processing' | 'Approved' | 'Disbursed' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
   createdAt: string;
 };
 
@@ -57,21 +55,24 @@ type Customer = {
 
 type CombinedLoanData = WithId<Loan> & { customer?: WithId<Customer> };
 
-const getStatusConfig = (status: string) => {
+const getStatusConfig = (status: Loan['status']) => {
   switch (status) {
-    case 'approved':
-      return { variant: 'default', icon: ShieldCheck, label: 'Approved', className: 'bg-blue-500 hover:bg-blue-600' };
-    case 'active':
-      return { variant: 'default', icon: CreditCard, label: 'Active', className: 'bg-green-500 hover:bg-green-600' };
-    case 'paid':
-      return { variant: 'default', icon: ShieldCheck, label: 'Paid', className: "bg-primary" };
-    case 'overdue':
+    case 'Processing':
+      return { variant: 'secondary', icon: Hourglass, label: 'Processing', className: 'bg-yellow-500/20 text-yellow-600' };
+    case 'Approved':
+      return { variant: 'default', icon: CheckCircle, label: 'Approved', className: 'bg-blue-500/20 text-blue-600' };
+    case 'Disbursed':
+        return { variant: 'default', icon: Truck, label: 'Disbursed', className: 'bg-indigo-500/20 text-indigo-600' };
+    case 'Active':
+      return { variant: 'default', icon: CreditCard, label: 'Active', className: 'bg-green-500/20 text-green-600' };
+    case 'Completed':
+      return { variant: 'default', icon: ShieldCheck, label: 'Completed', className: "bg-primary/20 text-primary" };
+    case 'Overdue':
       return { variant: 'destructive', icon: ShieldX, label: 'Overdue' };
-    case 'rejected':
+    case 'Rejected':
       return { variant: 'destructive', icon: ShieldX, label: 'Rejected' };
-    case 'pending':
     default:
-      return { variant: 'secondary', icon: Hourglass, label: 'Pending' };
+      return { variant: 'secondary', icon: Hourglass, label: 'Unknown' };
   }
 }
 
@@ -85,8 +86,11 @@ export function LoanManagementTable() {
     if (!firestore) return null;
     let q = query(collection(firestore, 'Loans'), orderBy('createdAt', 'desc'));
     
-    if (statusFilter !== 'all') {
+    if (statusFilter !== 'all' && statusFilter !== 'completed') {
         q = query(q, where('status', '==', statusFilter));
+    }
+     if (statusFilter === 'completed') {
+        q = query(q, where('status', '==', 'Completed'));
     }
     
     return q;
@@ -116,7 +120,12 @@ export function LoanManagementTable() {
   const filteredData = useMemo(() => {
     if (!combinedData) return [];
     
-    return combinedData.filter(item => {
+    const activeLoans = combinedData.filter(item => item.status !== 'Completed');
+    const completedLoans = combinedData.filter(item => item.status === 'Completed');
+
+    const sourceData = statusFilter === 'completed' ? completedLoans : activeLoans;
+
+    return sourceData.filter(item => {
       const customer = item.customer;
       const searchTermLower = searchTerm.toLowerCase();
       
@@ -127,16 +136,31 @@ export function LoanManagementTable() {
 
       return searchTerm.trim() === '' || nameMatch || emailMatch || phoneMatch || idMatch;
     });
-  }, [combinedData, searchTerm]);
+  }, [combinedData, searchTerm, statusFilter]);
 
   
   const handleStatusChange = (id: string, status: Loan['status']) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'Loans', id);
-    updateDocumentNonBlocking(docRef, { status });
+    const payload: { status: Loan['status'], updatedAt: any, disbursedAt?: any } = { status, updatedAt: serverTimestamp() };
+    if (status === 'Disbursed') {
+        payload.disbursedAt = serverTimestamp();
+        payload.status = 'Active'; // Immediately move to active upon disbursal
+    }
+    updateDocumentNonBlocking(docRef, payload);
   };
   
   const isLoading = loansLoading || customersLoading;
+  
+  const statusFilters: {value: string, label: string}[] = [
+    { value: 'all', label: 'All Active' },
+    { value: 'Processing', label: 'Processing' },
+    { value: 'Approved', label: 'Approved' },
+    { value: 'Active', label: 'Active' },
+    { value: 'Overdue', label: 'Overdue' },
+    { value: 'Rejected', label: 'Rejected' },
+    { value: 'completed', label: 'Completed' },
+  ];
 
   return (
       <Card>
@@ -153,18 +177,14 @@ export function LoanManagementTable() {
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={isLoading} className="w-full md:w-auto">Filter: <span className="capitalize ml-2 font-bold">{statusFilter}</span></Button>
+                  <Button variant="outline" disabled={isLoading} className="w-full md:w-auto">Filter: <span className="capitalize ml-2 font-bold">{statusFilters.find(f=>f.value === statusFilter)?.label}</span></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setStatusFilter('all')}>All</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter('pending')}>Pending</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter('approved')}>Approved</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter('active')}>Active</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter('rejected')}>Rejected</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter('paid')}>Paid</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter('overdue')}>Overdue</DropdownMenuItem>
+                  {statusFilters.map(filter => (
+                    <DropdownMenuItem key={filter.value} onClick={() => setStatusFilter(filter.value)}>{filter.label}</DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
           </div>
@@ -214,10 +234,12 @@ export function LoanManagementTable() {
                               <DropdownMenuContent>
                                 <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'active')}>Set to Active</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'paid')}>Set to Paid</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'overdue')}>Set to Overdue</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-500" onClick={() => handleStatusChange(item.id, 'rejected')}>Reject</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Disbursed')}>Mark as Disbursed</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Active')}>Set to Active</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Overdue')}>Set to Overdue</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Completed')}>Mark as Completed</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-500" onClick={() => handleStatusChange(item.id, 'Rejected')}>Reject Loan</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

@@ -5,82 +5,36 @@
       "type": "object",
       "description": "Represents a loan application submitted by a user.",
       "properties": {
-        "fullName": {
-          "type": "string",
-          "description": "The full name of the applicant."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the applicant.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The phone number of the applicant."
-        },
-        "typeOfService": {
-          "type": "string",
-          "description": "The type of service requested (Loan, Investment, Membership)."
-        },
-        "amountRequested": {
-          "type": "number",
-          "description": "The amount requested for the loan."
-        },
-        "employmentType": {
-          "type": "string",
-          "description": "The employment type of the applicant.",
-          "enum": [
-            "BYSG",
-            "Private Individual"
-          ]
-        },
-        "uploadedDocumentUrl": {
-          "type": "string",
-          "description": "URL of the uploaded user document (Payslip, ID, Collateral)."
-        },
-        "preferredContactMethod": {
-          "type": "string",
-          "description": "The preferred contact method of the applicant (Phone/Email)."
-        },
-        "submissionDate": {
-          "type": "string",
-          "description": "Date and time when the loan application was submitted.",
-          "format": "date-time"
-        },
-        "guarantorFullName": {
-          "type": "string",
-          "description": "Full name of the guarantor."
-        },
-        "guarantorPhoneNumber": {
-          "type": "string",
-          "description": "Phone number of the guarantor."
-        },
-        "guarantorAddress": {
-          "type": "string",
-          "description": "Address of the guarantor."
-        },
-        "guarantorEmploymentPlace": {
-          "type": "string",
-          "description": "Place of employment of the guarantor."
-        },
-        "guarantorRelationship": {
-          "type": "string",
-          "description": "Relationship of the guarantor to the borrower."
-        },
-        "guarantorIdUrl": {
-          "type": "string",
-          "description": "URL of the uploaded guarantor ID."
-        }
+        "fullName": { "type": "string", "description": "The full name of the applicant." },
+        "email": { "type": "string", "description": "The email address of the applicant.", "format": "email" },
+        "phoneNumber": { "type": "string", "description": "The phone number of the applicant." },
+        "placeOfEmployment": { "type": "string", "description": "The applicant's place of employment." },
+        "customerType": { "type": "string", "description": "The type of customer.", "enum": ["BYSG", "Private Individual"] },
+        "bvn": { "type": "string", "description": "The applicant's Bank Verification Number." },
+        "passportPhotoUrl": { "type": "string", "description": "URL of the uploaded passport photograph." },
+        "idUrl": { "type": "string", "description": "URL of the uploaded NIN or valid ID." },
+        "loanAmount": { "type": "number", "description": "The amount requested for the loan." },
+        "loanDuration": { "type": "number", "description": "The duration of the loan in months." },
+        "submissionDate": { "type": "string", "description": "Date and time the application was submitted.", "format": "date-time" },
+        "status": { "type": "string", "description": "The current status of the application.", "enum": ["Processing", "Approved", "Rejected"] },
+        "guarantorFullName": { "type": "string", "description": "Full name of the guarantor." },
+        "guarantorPhoneNumber": { "type": "string", "description": "Phone number of the guarantor." },
+        "guarantorAddress": { "type": "string", "description": "Address of the guarantor." },
+        "guarantorRelationship": { "type": "string", "description": "Relationship of the guarantor to the borrower." }
       },
       "required": [
         "fullName",
         "email",
         "phoneNumber",
-        "typeOfService",
-        "amountRequested",
-        "employmentType",
-        "preferredContactMethod",
-        "submissionDate"
+        "placeOfEmployment",
+        "customerType",
+        "bvn",
+        "passportPhotoUrl",
+        "idUrl",
+        "loanAmount",
+        "loanDuration",
+        "submissionDate",
+        "status"
       ]
     },
     "Customer": {
@@ -88,53 +42,52 @@
       "description": "Represents a customer or borrower in the system.",
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "The full name of the customer."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the customer.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The phone number of the customer."
-        },
-        "bvn": {
-          "type": "string",
-          "description": "The Bank Verification Number of the customer."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "The date the customer was created.",
-          "format": "date-time"
-        }
+        "name": { "type": "string", "description": "The full name of the customer." },
+        "email": { "type": "string", "description": "The email address of the customer.", "format": "email" },
+        "phone": { "type": "string", "description": "The phone number of the customer." },
+        "bvn": { "type": "string", "description": "The Bank Verification Number of the customer." },
+        "createdAt": { "type": "string", "description": "The date the customer was created.", "format": "date-time" }
       },
-      "required": [
-        "name",
-        "email",
-        "createdAt"
-      ]
+      "required": ["name", "email", "createdAt"]
+    },
+    "Loan": {
+        "title": "Loan",
+        "description": "Represents a loan record for a customer.",
+        "type": "object",
+        "properties": {
+            "borrowerId": { "type": "string", "description": "The ID of the customer who borrowed the loan." },
+            "loanAmount": { "type": "number", "description": "The principal amount of the loan." },
+            "interestRate": { "type": "number", "description": "The flat interest rate for the loan." },
+            "duration": { "type": "number", "description": "The duration of the loan in months." },
+            "totalInterest": { "type": "number", "description": "Total interest amount." },
+            "totalRepayment": { "type": "number", "description": "Total amount to be repaid (principal + interest)." },
+            "monthlyRepayment": { "type": "number", "description": "The fixed monthly repayment amount." },
+            "amountPaid": { "type": "number", "description": "The total amount paid so far." },
+            "outstandingBalance": { "type": "number", "description": "The remaining balance to be paid." },
+            "status": { "type": "string", "enum": ["Processing", "Approved", "Disbursed", "Active", "Completed", "Overdue", "Rejected"] },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" },
+            "disbursedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the loan was marked as disbursed." },
+            "applicationId": { "type": "string", "description": "The ID of the original loan application."}
+        },
+        "required": ["borrowerId", "loanAmount", "status", "createdAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password"
-    ]
+    "providers": ["password"]
   },
   "firestore": {
     "/loanApplications/{loanApplicationId}": {
-      "schema": {
-        "$ref": "#/entities/LoanApplication"
-      },
+      "schema": { "$ref": "#/entities/LoanApplication" },
       "description": "Stores all loan applications submitted through the public form."
     },
     "/Customers/{customerId}": {
-      "schema": {
-        "$ref": "#/entities/Customer"
-      },
+      "schema": { "$ref": "#/entities/Customer" },
       "description": "Stores all customer records."
+    },
+    "/Loans/{loanId}": {
+      "schema": { "$ref": "#/entities/Loan" },
+      "description": "Stores all loan records for customers."
     }
   }
 }

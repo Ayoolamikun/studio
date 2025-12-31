@@ -1,72 +1,44 @@
-
 import { z } from "zod";
 
-const MAX_FILE_SIZE = 5000000; // 5MB
-const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-
-// This schema validates a file upload. It uses z.any() to avoid server-side errors,
-// as File objects are not available in the Node.js environment.
-// Validation is then performed on the client side.
-const fileSchema = z
-  .any()
-  .refine((file) => {
-    // On the server, we skip validation. On the client, we check for a File object.
+// Schema for a required file upload. It's robust for both client and server-side rendering.
+const fileSchema = (acceptedTypes: string[], typeName: string) => z.custom<File>((val) => {
+    // On the server, we cannot validate File objects, so we pass validation.
     if (typeof window === 'undefined') return true;
-    return file instanceof File;
-  }, "A file is required.")
-  .refine((file) => {
-    if (typeof window === 'undefined' || !(file instanceof File)) return true;
-    return file.size <= MAX_FILE_SIZE;
-  }, `Max file size is 5MB.`)
-  .refine(
-    (file) => {
-      if (typeof window === 'undefined' || !(file instanceof File)) return true;
-      return ACCEPTED_FILE_TYPES.includes(file.type);
-    },
-    ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
-  );
-
-// Schema for an optional file upload.
-const optionalFileSchema = z
-  .any()
-  .optional()
-  .refine((file) => {
-    // If no file is provided, it's valid.
-    if (!file) return true;
-    // On the server, we skip validation.
-    if (typeof window === 'undefined') return true;
-    // On the client, if a file exists, validate it.
-    return file instanceof File && file.size <= MAX_FILE_SIZE;
-  }, `Max file size is 5MB.`)
-  .refine(
-    (file) => {
-      if (!file) return true;
-      if (typeof window === 'undefined') return true;
-      return file instanceof File && ACCEPTED_FILE_TYPES.includes(file.type);
-    },
-    ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
-  );
+    return val instanceof File;
+  }, {
+    message: `A valid ${typeName} file is required.`,
+  }).refine((file) => file?.size <= MAX_FILE_SIZE, {
+    message: `Max file size is 5MB.`,
+  }).refine((file) => acceptedTypes.includes(file?.type), {
+    message: `Please select a valid file type for the ${typeName}.`,
+  });
 
 
 export const loanApplicationSchema = z.object({
-  fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number." }),
-  typeOfService: z.enum(["Loan", "Investment"]),
-  amountRequested: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive({ message: "Amount requested must be greater than zero." }),
-  employmentType: z.enum(["BYSG", "Private Individual"], { required_error: "Please select a customer type." }),
-  uploadedDocumentUrl: fileSchema,
-  preferredContactMethod: z.enum(["Phone", "Email"]),
-  // Guarantor fields
+  fullName: z.string().min(2, "Full name must be at least 2 characters."),
+  email: z.string().email("Please enter a valid email address."),
+  phoneNumber: z.string().min(10, "Please enter a valid phone number."),
+  placeOfEmployment: z.string().min(2, "Place of employment is required."),
+  customerType: z.enum(["BYSG", "Private Individual"], { required_error: "Please select a customer type." }),
+  bvn: z.string().length(11, "BVN must be 11 digits."),
+  loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
+  loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
+  passportPhotoUrl: fileSchema(ACCEPTED_PHOTO_TYPES, "Passport Photo"),
+  idUrl: fileSchema(ACCEPTED_ID_TYPES, "ID Document"),
+
+  // Guarantor fields are optional at the top level
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
   guarantorAddress: z.string().optional(),
-  guarantorEmploymentPlace: z.string().optional(),
   guarantorRelationship: z.string().optional(),
-  guarantorIdUrl: optionalFileSchema,
+
 }).superRefine((data, ctx) => {
-    if (data.employmentType === "Private Individual") {
+    // Conditionally require guarantor fields if customerType is "Private Individual"
+    if (data.customerType === "Private Individual") {
         if (!data.guarantorFullName || data.guarantorFullName.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's full name is required.", path: ["guarantorFullName"] });
         }
@@ -76,18 +48,8 @@ export const loanApplicationSchema = z.object({
         if (!data.guarantorAddress || data.guarantorAddress.trim().length < 5) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's address is required.", path: ["guarantorAddress"] });
         }
-        if (!data.guarantorEmploymentPlace || data.guarantorEmploymentPlace.trim().length < 2) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's place of employment is required.", path: ["guarantorEmploymentPlace"] });
-        }
         if (!data.guarantorRelationship || data.guarantorRelationship.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Relationship to guarantor is required.", path: ["guarantorRelationship"] });
-        }
-        
-        // Only require and validate the guarantor ID if the user is a Private Individual.
-        const fileResult = fileSchema.safeParse(data.guarantorIdUrl);
-        if (!fileResult.success) {
-             const errorMessage = fileResult.error.issues[0]?.message || "Guarantor's ID card is required and must be a valid file.";
-             ctx.addIssue({ code: z.ZodIssueCode.custom, message: errorMessage, path: ["guarantorIdUrl"] });
         }
     }
 });

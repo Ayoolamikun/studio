@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,19 +15,16 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/Spinner';
 import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
-import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
 export default function ApplyPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
 
   const form = useForm<LoanApplicationValues>({
     resolver: zodResolver(loanApplicationSchema),
@@ -36,21 +32,21 @@ export default function ApplyPage() {
       fullName: '',
       email: '',
       phoneNumber: '',
-      typeOfService: 'Loan',
-      amountRequested: 50000,
-      employmentType: 'BYSG',
-      preferredContactMethod: 'Email',
+      placeOfEmployment: '',
+      bvn: '',
+      loanAmount: 10000,
+      loanDuration: 1,
+      customerType: 'BYSG',
       guarantorFullName: '',
       guarantorPhoneNumber: '',
       guarantorAddress: '',
-      guarantorEmploymentPlace: '',
       guarantorRelationship: '',
     },
     mode: 'onChange',
   });
 
   const { formState: { isSubmitting }, watch } = form;
-  const employmentType = watch('employmentType');
+  const customerType = watch('customerType');
 
   const processForm: SubmitHandler<LoanApplicationValues> = async (data) => {
     if (!firestore || !storage) {
@@ -61,80 +57,49 @@ export default function ApplyPage() {
         });
         return;
     }
+    
     try {
-      let uploadedDocumentUrl: string | undefined = undefined;
-      let guarantorIdUrl: string | undefined = undefined;
+      let passportPhotoUrl = '';
+      let idUrl = '';
 
-      // --- Handle Main Document Upload ---
-      const docFile = data.uploadedDocumentUrl;
-      if (docFile instanceof File) {
-        const docRef = ref(storage, `loan-documents/${Date.now()}_${docFile.name}`);
-        await uploadBytes(docRef, docFile);
-        uploadedDocumentUrl = await getDownloadURL(docRef);
+      // --- Handle Passport Photo Upload ---
+      if (data.passportPhotoUrl instanceof File) {
+        const passportRef = ref(storage, `passports/${Date.now()}_${data.passportPhotoUrl.name}`);
+        await uploadBytes(passportRef, data.passportPhotoUrl);
+        passportPhotoUrl = await getDownloadURL(passportRef);
       }
       
-      // --- Handle Guarantor ID Upload (if applicable) ---
-      const guarantorFile = data.guarantorIdUrl;
-      if (data.employmentType === 'Private Individual' && guarantorFile instanceof File) {
-         const guarantorIdRef = ref(storage, `guarantor-ids/${Date.now()}_${guarantorFile.name}`);
-         await uploadBytes(guarantorIdRef, guarantorFile);
-         guarantorIdUrl = await getDownloadURL(guarantorIdRef);
+      // --- Handle ID Upload ---
+      if (data.idUrl instanceof File) {
+         const idRef = ref(storage, `ids/${Date.now()}_${data.idUrl.name}`);
+         await uploadBytes(idRef, data.idUrl);
+         idUrl = await getDownloadURL(idRef);
       }
 
-      // Create a clean data object for submission
+      // --- Create a clean data object for submission ---
       const submissionData = {
         ...data,
+        passportPhotoUrl,
+        idUrl,
         submissionDate: serverTimestamp(),
-        status: 'pending',
-        uploadedDocumentUrl,
-        guarantorIdUrl,
+        status: 'Processing',
       };
 
       // --- Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
       router.push('/apply/thank-you');
+
     } catch (error: any) {
       console.error('Submission Error:', error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: error.message || 'An unexpected error occurred. Please check your inputs and try again.',
       });
     }
   };
-
-  const steps = [
-    { name: 'Personal', fields: ['fullName', 'email', 'phoneNumber', 'preferredContactMethod'] },
-    { name: 'Service', fields: ['typeOfService', 'amountRequested', 'employmentType', 'uploadedDocumentUrl'] },
-    { name: 'Guarantor', fields: ['guarantorFullName', 'guarantorPhoneNumber', 'guarantorAddress', 'guarantorEmploymentPlace', 'guarantorRelationship', 'guarantorIdUrl'] }
-  ];
-
-  const nextStep = async () => {
-    const currentFields = steps[currentStep].fields as (keyof LoanApplicationValues)[];
-    const isValid = await form.trigger(currentFields);
-    
-    if (isValid) {
-        if (currentStep === 1 && employmentType === 'BYSG') {
-            setCurrentStep(steps.length); // Skip guarantor step
-        } else {
-            setCurrentStep(currentStep + 1);
-        }
-    }
-  };
-
-  const prevStep = () => {
-     if (currentStep > 0) {
-        // If coming back from the final review step for a BYSG user
-        if (currentStep === steps.length && employmentType === 'BYSG') {
-            setCurrentStep(1); // Go back to service details
-        } else {
-            setCurrentStep(currentStep - 1);
-        }
-     }
-  };
   
-  const isFinalStep = (currentStep === 2 && employmentType === 'Private Individual') || currentStep === steps.length;
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
@@ -143,156 +108,110 @@ export default function ApplyPage() {
         <div className="container">
           <Card className="mx-auto max-w-3xl shadow-lg">
             <CardHeader>
-              <CardTitle className="font-headline text-2xl md:text-3xl text-primary">Application Form</CardTitle>
+              <CardTitle className="font-headline text-2xl md:text-3xl text-primary">Loan Application Form</CardTitle>
               <CardDescription>
-                Complete the steps below to apply. Your information is secure with us.
+                Complete the form below to apply for a loan. Your information is secure with us.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(processForm)} className="space-y-8">
-                  {/* Step 1: Personal Information */}
-                  <div className={cn(currentStep === 0 ? 'block' : 'hidden')}>
-                    <h3 className="text-lg font-semibold mb-4 text-primary">Step 1: Personal Details</h3>
+                    {/* Personal & Loan Details */}
                     <div className="space-y-4">
-                      <FormField control={form.control} name="fullName" render={({ field }) => (
-                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={form.control} name="email" render={({ field }) => (
-                        <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={form.control} name="phoneNumber" render={({ field }) => (
-                        <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={form.control} name="preferredContactMethod" render={({ field }) => (
-                         <FormItem className="space-y-3"><FormLabel>How should we contact you?</FormLabel>
-                          <FormControl>
-                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl><RadioGroupItem value="Email" /></FormControl><FormLabel className="font-normal">Email</FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl><RadioGroupItem value="Phone" /></FormControl><FormLabel className="font-normal">Phone</FormLabel>
-                              </FormItem>
-                            </RadioGroup>
-                          </FormControl><FormMessage />
-                        </FormItem>
-                      )} />
+                        <h3 className="text-lg font-semibold text-primary border-b pb-2">Applicant & Loan Information</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="fullName" render={({ field }) => (
+                                <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="email" render={({ field }) => (
+                                <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="phoneNumber" render={({ field }) => (
+                                <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="placeOfEmployment" render={({ field }) => (
+                                <FormItem><FormLabel>Place of Employment</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="bvn" render={({ field }) => (
+                                <FormItem><FormLabel>Bank Verification Number (BVN)</FormLabel><FormControl><Input {...field} maxLength={11} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="customerType" render={({ field }) => (
+                                <FormItem><FormLabel>Customer Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                    <SelectItem value="BYSG">Civil Servant (BYSG)</SelectItem>
+                                    <SelectItem value="Private Individual">Private Individual</SelectItem>
+                                    </SelectContent>
+                                </Select><FormMessage />
+                                </FormItem>
+                            )} />
+                             <FormField control={form.control} name="loanAmount" render={({ field }) => (
+                                <FormItem><FormLabel>Loan Amount (NGN)</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="loanDuration" render={({ field }) => (
+                                <FormItem><FormLabel>Loan Duration (Months)</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage /></FormItem>
+                            )} />
+                        </div>
                     </div>
-                  </div>
 
-                  {/* Step 2: Service Details */}
-                  <div className={cn(currentStep === 1 ? 'block' : 'hidden')}>
-                     <h3 className="text-lg font-semibold mb-4 text-primary">Step 2: Service Details</h3>
-                     <div className="space-y-4">
-                        <FormField control={form.control} name="typeOfService" render={({ field }) => (
-                          <FormItem><FormLabel>Type of Service</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                              <SelectContent>
-                                <SelectItem value="Loan">Loan</SelectItem>
-                                <SelectItem value="Investment">Investment</SelectItem>
-                              </SelectContent>
-                            </Select><FormMessage />
-                          </FormItem>
-                        )} />
-                         <FormField control={form.control} name="amountRequested" render={({ field }) => (
-                            <FormItem><FormLabel>Amount Requested (NGN)</FormLabel>
-                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /></FormControl>
-                            <FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="employmentType" render={({ field }) => (
-                           <FormItem className="space-y-3"><FormLabel>Customer Type</FormLabel>
-                              <FormControl>
-                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
-                                  <FormItem className="flex items-center space-x-3 space-y-0">
-                                    <FormControl><RadioGroupItem value="BYSG" /></FormControl><FormLabel className="font-normal">Civil Servant (BYSG)</FormLabel>
-                                  </FormItem>
-                                  <FormItem className="flex items-center space-x-3 space-y-0">
-                                    <FormControl><RadioGroupItem value="Private Individual" /></FormControl><FormLabel className="font-normal">Private Individual</FormLabel>
-                                  </FormItem>
-                                </RadioGroup>
-                              </FormControl>
-                              <FormDescription>BYSG: Bayelsa State Government Employee</FormDescription>
-                              <FormMessage />
-                          </FormItem>
-                        )} />
-                         <FormField control={form.control} name="uploadedDocumentUrl" render={({ field: { onChange, ...fieldProps } }) => (
-                           <FormItem><FormLabel>{`Required Document (Payslip, ID, etc.)`}</FormLabel>
-                            <FormControl>
-                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
-                            </FormControl>
-                           <FormDescription>Please upload your most recent payslip or a valid ID.</FormDescription>
-                           <FormMessage /></FormItem>
-                        )} />
-                     </div>
-                  </div>
-
-                  {/* Step 3: Guarantor Details */}
-                   <div className={cn(currentStep === 2 ? 'block' : 'hidden')}>
-                     <h3 className="text-lg font-semibold mb-4 text-primary">Step 3: Guarantor Details</h3>
-                     <p className="text-sm text-muted-foreground mb-4">This section is required for private individuals.</p>
-                     <div className="space-y-4">
-                        <FormField control={form.control} name="guarantorFullName" render={({ field }) => (
-                            <FormItem><FormLabel>Guarantor's Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                         <FormField control={form.control} name="guarantorPhoneNumber" render={({ field }) => (
-                            <FormItem><FormLabel>Guarantor's Phone Number</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                         <FormField control={form.control} name="guarantorAddress" render={({ field }) => (
-                            <FormItem><FormLabel>Guarantor's Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="guarantorEmploymentPlace" render={({ field }) => (
-                            <FormItem><FormLabel>Guarantor's Place of Employment</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
-                            <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="guarantorIdUrl" render={({ field: { onChange, ...fieldProps } }) => (
-                           <FormItem><FormLabel>Guarantor's Valid ID Card</FormLabel>
-                            <FormControl>
-                               <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} />
-                            </FormControl>
-                           <FormMessage /></FormItem>
-                        )} />
-                     </div>
-                  </div>
-                  
-                  {isFinalStep && (
-                     <div>
-                       <h3 className="text-lg font-semibold mb-4 text-primary">Final Step: Review & Submit</h3>
-                       <p className="text-muted-foreground">You're all set! Please review your information before submitting. Click the "Submit Application" button below.</p>
+                    {/* Document Uploads */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-primary border-b pb-2">Document Uploads</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="passportPhotoUrl" render={({ field: { onChange, ...fieldProps } }) => (
+                                <FormItem><FormLabel>Passport Photograph</FormLabel>
+                                <FormControl>
+                                    <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} accept="image/jpeg,image/png,image/webp" />
+                                </FormControl>
+                                <FormDescription>A clear, recent passport-style photo.</FormDescription>
+                                <FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="idUrl" render={({ field: { onChange, ...fieldProps } }) => (
+                                <FormItem><FormLabel>NIN or Valid ID</FormLabel>
+                                <FormControl>
+                                    <Input type="file" {...fieldProps} onChange={(e) => onChange(e.target.files?.[0])} accept="image/jpeg,image/png,image/webp,application/pdf" />
+                                </FormControl>
+                                <FormDescription>Upload your National ID, Voter's Card, Driver's License, or Int'l Passport.</FormDescription>
+                                <FormMessage /></FormItem>
+                            )} />
+                        </div>
                     </div>
-                  )}
 
-                  {/* Navigation and Submission */}
-                  <Separator className="my-8" />
-                  <div className="flex justify-between items-center">
-                    <div>
-                      {currentStep > 0 && (
-                        <Button type="button" variant="outline" onClick={prevStep} disabled={isSubmitting}>
-                          <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-                        </Button>
-                      )}
+                    {/* Guarantor Details (Conditional) */}
+                    <div className={cn(customerType === 'Private Individual' ? 'block' : 'hidden', "space-y-4")}>
+                        <h3 className="text-lg font-semibold text-primary border-b pb-2">Guarantor Information</h3>
+                         <p className="text-sm text-muted-foreground">A guarantor is required for private individuals.</p>
+                         <div className="grid md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="guarantorFullName" render={({ field }) => (
+                                <FormItem><FormLabel>Guarantor's Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="guarantorPhoneNumber" render={({ field }) => (
+                                <FormItem><FormLabel>Guarantor's Phone Number</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="guarantorAddress" render={({ field }) => (
+                                <FormItem><FormLabel>Guarantor's Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
+                                <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
                     </div>
-                    <div className="flex gap-4">
-                      {!isFinalStep && (
-                        <Button type="button" onClick={nextStep}>
-                          Next <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      {isFinalStep && (
-                        <Button type="submit" disabled={isSubmitting}>
+
+                    {/* Submission Button */}
+                    <div className="flex justify-end pt-4">
+                        <Button type="submit" disabled={isSubmitting} size="lg">
                           {isSubmitting ? (
                             <><Spinner size="small" /> Submitting...</>
                           ) : (
                             <><Send className="mr-2 h-4 w-4" /> Submit Application</>
                           )}
                         </Button>
-                      )}
                     </div>
-                  </div>
                 </form>
               </Form>
             </CardContent>

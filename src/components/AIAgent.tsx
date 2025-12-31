@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef, useEffect, useActionState } from 'react';
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, X, Bot, User, Send, Loader } from "lucide-react";
+import { X, Bot, User, Send, Loader } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { chat } from "@/ai/flows/chat-flow";
 import { useFormStatus } from 'react-dom';
@@ -55,7 +54,7 @@ export default function AIAgent() {
         return newMessages;
     });
 
-    return null; // No state to return for this simple case
+    return null; 
   }
 
   const [state, formAction] = useActionState(handleAction, null);
@@ -80,10 +79,10 @@ export default function AIAgent() {
       <div className="fixed bottom-6 right-6 z-50">
         <Button
           size="icon"
-          className="rounded-full w-16 h-16 shadow-2xl transition-transform hover:scale-110 bg-primary text-primary-foreground hover:bg-primary/90"
+          className="rounded-full w-14 h-14 shadow-2xl transition-transform hover:scale-110 bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => setIsOpen(!isOpen)}
         >
-          {isOpen ? <X className="h-8 w-8" /> : <Bot className="h-8 w-8" />}
+          {isOpen ? <X className="h-7 w-7" /> : <Bot className="h-7 w-7" />}
         </Button>
       </div>
       

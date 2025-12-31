@@ -23,23 +23,15 @@ cloudinary.config({
   api_secret: functions.config().cloudinary.api_secret,
 });
 
-// These functions are self-contained within the cloud function environment.
-function getInterestRate(amount: number): number {
-  if (amount >= 10000 && amount <= 50000) {
-    return 0.15; // 15%
-  } else if (amount > 50000 && amount <= 150000) {
-    return 0.10; // 10%
-  } else if (amount > 150000) {
-    return 0.07; // 7%
-  }
-  return 0.20; 
+
+// This function is now the single source of truth for flat interest calculations.
+function calculateLoanDetails(principal: number, duration: number, interestRate: number) {
+    const totalInterest = principal * interestRate * duration;
+    const totalRepayment = principal + totalInterest;
+    const monthlyRepayment = totalRepayment / duration;
+    return { totalInterest, totalRepayment, monthlyRepayment };
 }
 
-function calculateTotalRepayment(principal: number): number {
-  const interestRate = getInterestRate(principal);
-  const total = principal + (principal * interestRate);
-  return total;
-}
 
 /**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.
@@ -58,24 +50,22 @@ export const processExcelUpload = functions.storage
     if (!contentType ||
        (!contentType.includes("spreadsheet") && !contentType.includes("csv"))
     ) {
-      console.log(`File ${filePath} is not an Excel file. Content type is ${contentType}. Exiting.`);
+      console.log(`File ${filePath} is not an Excel file. Content-Type: ${contentType}. Exiting.`);
       return null;
     }
 
     console.log(`Processing file: ${filePath}`);
-
     const fileUrl = `gs://${object.bucket}/${filePath}`;
-    const excelFileQuery = await db.collection("ExcelFiles")
-        .where("fileUrl", "==", fileUrl).limit(1).get();
+    const excelFileQuery = await db.collection("ExcelFiles").where("fileUrl", "==", fileUrl).limit(1).get();
 
     if (excelFileQuery.empty) {
         console.error(`No Firestore entry found for uploaded file: ${fileUrl}`);
-    }
-
-    const excelFileDoc = excelFileQuery.docs[0];
-    if (excelFileDoc?.data().processed) {
-        console.log(`File ${filePath} has already been processed. Exiting.`);
-        return null;
+    } else {
+       const excelFileDoc = excelFileQuery.docs[0];
+       if (excelFileDoc?.data().processed) {
+           console.log(`File ${filePath} has already been processed. Exiting.`);
+           return null;
+       }
     }
 
     try {
@@ -101,106 +91,82 @@ export const processExcelUpload = functions.storage
             if (key.includes("name")) obj.name = val;
             else if (key.includes("phone")) obj.phone = String(val);
             else if (key.includes("bvn")) obj.bvn = String(val);
-            else if (key.includes("amount granted")) obj.amountRequested = val;
-            else if (key.includes("new loan amount")) obj.amountRequested = val;
-            else if (key.includes("amount paid")) obj.amountPaid = val;
-            else if (key.includes("balance")) obj.balance = val;
-            else if (key.includes("due date")) obj.dueDate = val;
-            else if (key.includes("end date")) obj.dueDate = val;
-            else if (key.includes("period")) obj.tenure = val;
-            else if (key.includes("tenure")) obj.tenure = val;
-            else if (key.includes("interest")) obj.interest = val;
+            else if (key.includes("loan amount")) obj.loanAmount = Number(val);
+            else if (key.includes("amount paid")) obj.amountPaid = Number(val);
+            else if (key.includes("balance")) obj.outstandingBalance = Number(val);
             else if (key.includes("status")) obj.status = String(val).toLowerCase();
             else obj[key] = val;
           }
           return obj;
         }, {} as any);
 
-
         let customerDoc: admin.firestore.DocumentSnapshot | undefined;
-        let customerRef: admin.firestore.DocumentReference | undefined;
-
+        // Match by BVN first, then Phone + Name
         if (rowData.bvn) {
-            customerRef = db.collection("Customers").doc(rowData.bvn);
+            const customerRef = db.collection("Customers").doc(rowData.bvn);
             customerDoc = await customerRef.get();
-        } else if (rowData.phone) {
-             const querySnapshot = await db.collection("Customers").where("phone", "==", rowData.phone).limit(1).get();
-             if(!querySnapshot.empty) {
-                customerDoc = querySnapshot.docs[0];
-                customerRef = customerDoc.ref;
-             }
-        } else if (rowData.name) {
-             const querySnapshot = await db.collection("Customers").where("name", "==", rowData.name).limit(1).get();
-             if(!querySnapshot.empty) {
-                customerDoc = querySnapshot.docs[0];
-                customerRef = customerDoc.ref;
-             }
+        } else if (rowData.phone && rowData.name) {
+             const querySnapshot = await db.collection("Customers")
+                .where("phone", "==", rowData.phone)
+                .where("name", "==", rowData.name)
+                .limit(1)
+                .get();
+             if(!querySnapshot.empty) customerDoc = querySnapshot.docs[0];
         } else {
-            console.warn("Skipping row, no identifiable info (bvn, phone, or name):", rowData);
+            console.warn("Skipping row, not enough info (bvn, or phone+name):", rowData);
             continue;
         }
 
-        const customerId = (customerDoc && customerDoc.exists) ? customerDoc.id : rowData.bvn || rowData.phone || `new_${Date.now()}`;
-
-        if ((!customerDoc || !customerDoc.exists) && customerRef) {
-            const newCustomerData = {
-                name: rowData.name || "N/A",
-                phone: rowData.phone || "N/A",
-                bvn: rowData.bvn || "N/A",
-                email: rowData.email || "N/A",
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            };
-            batch.set(customerRef, newCustomerData, {merge: true});
-            console.log(`Creating new customer: ${customerId}`);
+        if (!customerDoc || !customerDoc.exists) {
+            console.warn(`Customer not found for row, skipping:`, rowData);
+            continue;
         }
 
+        const customerId = customerDoc.id;
         const loansQuery = await db.collection("Loans")
             .where("borrowerId", "==", customerId)
+            .where("status", "in", ["Active", "Overdue"])
             .orderBy("createdAt", "desc")
             .limit(1)
             .get();
         
+        if (loansQuery.empty) {
+            console.warn(`No active loan found for customer ${customerId}, skipping update.`);
+            continue;
+        }
+
         const existingLoanDoc = loansQuery.docs[0];
-        const loanRef = existingLoanDoc ?
-            existingLoanDoc.ref :
-            db.collection("Loans").doc();
+        const loanRef = existingLoanDoc.ref;
+        
+        const currentLoanData = existingLoanDoc.data();
+        const amountPaid = rowData.amountPaid ?? currentLoanData.amountPaid ?? 0;
+        const outstandingBalance = rowData.outstandingBalance ?? currentLoanData.outstandingBalance ?? currentLoanData.totalRepayment;
 
-        const amountRequested = rowData.amountRequested || existingLoanDoc?.data().amountRequested || 0;
-        const totalRepayment = rowData.interest ? amountRequested + rowData.interest : calculateTotalRepayment(amountRequested);
-        const amountPaid = rowData.amountPaid || 0;
-        const balance = totalRepayment - amountPaid;
+        const newStatus = outstandingBalance <= 0 ? 'Completed' : 'Active';
 
-        const loanData = {
-            borrowerId: customerId,
-            amountRequested,
-            totalRepayment,
-            interest: rowData.interest || amountRequested * getInterestRate(amountRequested),
-            interestRate: getInterestRate(amountRequested),
+        const loanUpdateData = {
             amountPaid,
-            balance,
-            duration: rowData.tenure,
-            status: rowData.status || existingLoanDoc?.data().status || "active",
-            excelImported: true,
+            outstandingBalance,
+            status: newStatus,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...(!existingLoanDoc && {createdAt: admin.firestore.FieldValue.serverTimestamp()}),
         };
 
-        batch.set(loanRef, loanData, {merge: true});
-        console.log(`${existingLoanDoc ? "Updating" : "Creating"} loan for customer ${customerId}`);
+        batch.update(loanRef, loanUpdateData);
+        console.log(`Updating loan ${loanRef.id} for customer ${customerId}. New balance: ${outstandingBalance}, Status: ${newStatus}`);
       }
 
-      if(excelFileDoc) {
-          batch.update(excelFileDoc.ref, {processed: true});
+      if(!excelFileQuery.empty) {
+          batch.update(excelFileQuery.docs[0].ref, {processed: true});
       }
 
       await batch.commit();
-
       console.log(`Successfully processed ${rows.length} rows from ${filePath}.`);
       return null;
+
     } catch (error) {
       console.error("Error processing Excel file:", error);
-       if(excelFileDoc) {
-          await excelFileDoc.ref.update({processed: true, error: (error as Error).message});
+       if(!excelFileQuery.empty) {
+          await excelFileQuery.docs[0].ref.update({processed: true, error: (error as Error).message});
       }
       return null;
     }
@@ -208,224 +174,97 @@ export const processExcelUpload = functions.storage
 
 
 /**
- * Uploads a file to Cloudinary and saves metadata to Firestore.
+ * Uploads a file to Cloudinary and returns metadata. Does not save to Firestore.
  */
-export const uploadFile = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be logged in to upload files.",
-    );
-  }
-
-  const {file, fileName, folder} = data;
-  const userId = context.auth.uid;
-
-  if (!file) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "File data is required.",
-    );
-  }
-
-  try {
-    const result = await cloudinary.uploader.upload(file, {
-      folder: folder || `users/${userId}`,
-      resource_type: "auto",
-      public_id: fileName ? fileName.split(".")[0] : undefined,
-    });
-
-    const fileDoc = await admin.firestore().collection("userFiles").add({
-      userId: userId,
-      fileUrl: result.secure_url,
-      publicId: result.public_id,
-      fileName: fileName || result.original_filename,
-      fileType: result.resource_type,
-      format: result.format,
-      size: result.bytes,
-      width: result.width,
-      height: result.height,
-      uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return {
-      success: true,
-      fileId: fileDoc.id,
-      url: result.secure_url,
-      publicId: result.public_id,
-    };
-  } catch (error: any) {
-    console.error("Upload error:", error);
-    throw new functions.https.HttpsError("internal", error.message);
-  }
-});
+const uploadToCloudinary = async (file: string, folder: string, fileName: string) => {
+    try {
+        const result = await cloudinary.uploader.upload(file, {
+            folder: folder,
+            resource_type: "auto",
+            public_id: fileName ? fileName.split(".")[0] : undefined,
+        });
+        return result;
+    } catch (error: any) {
+        console.error("Cloudinary Upload error:", error);
+        throw new functions.https.HttpsError("internal", `Cloudinary upload failed: ${error.message}`);
+    }
+};
 
 /**
- * Deletes a file from Cloudinary and Firestore.
- */
-export const deleteFile = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be logged in.",
-    );
-  }
-
-  const {fileId, publicId} = data;
-  const userId = context.auth.uid;
-
-  try {
-    const fileDoc = await admin.firestore().collection("userFiles")
-      .doc(fileId).get();
-
-    if (!fileDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "File not found");
-    }
-
-    if (fileDoc.data()?.userId !== userId) {
-      // Check if user is admin - only for deletion
-      const userRecord = await admin.auth().getUser(userId);
-      if (!userRecord.customClaims || !userRecord.customClaims.admin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "You do not have permission to delete this file.",
-        );
-      }
-    }
-
-    await cloudinary.uploader.destroy(publicId);
-    await admin.firestore().collection("userFiles").doc(fileId).delete();
-
-    return {success: true, message: "File deleted successfully"};
-  } catch (error: any) {
-    console.error("Delete error:", error);
-    throw new functions.https.HttpsError("internal", error.message);
-  }
-});
-
-/**
- * Approves a loan application, creating a Borrower and a Loan document.
+ * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    // 1. Check for admin privileges.
     if (!context.auth || context.auth.token.admin !== true) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Only admins can approve applications.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
 
     const { applicationId } = data;
     if (!applicationId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "The function must be called with an 'applicationId'.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "The function must be called with an 'applicationId'.");
     }
     
     const applicationRef = db.collection("loanApplications").doc(applicationId);
     
     try {
-        const batch = db.batch();
         const applicationDoc = await applicationRef.get();
-
         if (!applicationDoc.exists) {
             throw new functions.https.HttpsError("not-found", "Loan application not found.");
         }
-
         const appData = applicationDoc.data()!;
 
-        if (appData.status === "approved") {
+        if (appData.status === "Approved") {
             throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
         }
 
-        // 2. Find or create the Customer.
-        let customerId: string;
-        const customersRef = db.collection("Customers");
-        const existingCustomerQuery = await customersRef.where("email", "==", appData.email).limit(1).get();
+        const batch = db.batch();
 
-        if (!existingCustomerQuery.empty) {
-            customerId = existingCustomerQuery.docs[0].id;
-        } else {
-            // Create a new customer if one doesn't exist.
-            const newCustomerRef = customersRef.doc(); // Auto-generate ID
-            customerId = newCustomerRef.id;
-            batch.set(newCustomerRef, {
+        let customerId: string;
+        // Use BVN as the Customer document ID for uniqueness
+        const customerRef = db.collection("Customers").doc(appData.bvn);
+        const customerDoc = await customerRef.get();
+
+        if (!customerDoc.exists) {
+             customerId = customerRef.id;
+             batch.set(customerRef, {
                 name: appData.fullName,
                 email: appData.email,
                 phone: appData.phoneNumber,
+                bvn: appData.bvn,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
+        } else {
+            customerId = customerDoc.id;
         }
         
-        // 3. Create the new Loan document.
-        if (appData.typeOfService === 'Loan') {
-            const amount = appData.amountRequested;
-            const totalRepayment = calculateTotalRepayment(amount);
+        // Calculate loan terms. Assuming a flat monthly interest rate for simplicity.
+        // THIS IS A PLACEHOLDER. Replace with your actual interest logic.
+        const interestRate = 0.05; // 5% flat monthly interest
+        const { totalInterest, totalRepayment, monthlyRepayment } = calculateLoanDetails(appData.loanAmount, appData.loanDuration, interestRate);
 
-            const loanRef = db.collection("Loans").doc(); // Auto-generate ID
-            batch.set(loanRef, {
-                borrowerId: customerId,
-                amountRequested: amount,
-                interestRate: getInterestRate(amount),
-                totalRepayment: totalRepayment,
-                amountPaid: 0,
-                balance: totalRepayment,
-                status: "approved", // Initial status for a new loan.
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                applicationId: applicationId, // Link back to the original application.
-            });
-        }
+        const loanRef = db.collection("Loans").doc();
+        batch.set(loanRef, {
+            borrowerId: customerId,
+            applicationId: applicationId,
+            loanAmount: appData.loanAmount,
+            duration: appData.loanDuration,
+            interestRate: interestRate, // Store the rate used
+            totalInterest: totalInterest,
+            totalRepayment: totalRepayment,
+            monthlyRepayment: monthlyRepayment,
+            amountPaid: 0,
+            outstandingBalance: totalRepayment,
+            status: "Approved", // Initial status for a new loan.
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
         
-        // 4. Update the original application status.
-        batch.update(applicationRef, { status: "approved" });
+        batch.update(applicationRef, { status: "Approved" });
 
-        // 5. Commit all writes as a single transaction.
         await batch.commit();
-
         return { success: true, message: "Application approved successfully!" };
+
     } catch (error: any) {
         console.error("Approval Error:", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
     }
-});
-
-
-/**
- * Retrieves all files for the authenticated user.
- */
-export const getUserFiles = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be logged in.",
-    );
-  }
-
-  const userId = context.auth.uid;
-
-  try {
-    const snapshot = await admin
-      .firestore()
-      .collection("userFiles")
-      .where("userId", "==", userId)
-      .orderBy("uploadedAt", "desc")
-      .get();
-
-    const files = snapshot.docs.map((doc) => {
-      const docData = doc.data();
-      return {
-        id: doc.id,
-        ...docData,
-        uploadedAt: (docData.uploadedAt as admin.firestore.Timestamp)
-          ?.toDate().toISOString(),
-      };
-    });
-
-    return {success: true, files};
-  } catch (error: any) {
-    console.error("Get files error:", error);
-    throw new functions.https.HttpsError("internal", error.message);
-  }
 });

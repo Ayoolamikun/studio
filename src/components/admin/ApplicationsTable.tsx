@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -28,18 +27,15 @@ import { formatCurrency } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// From docs/backend.json -> LoanApplication entity
 type LoanApplication = {
   fullName: string;
   email: string;
   phoneNumber: string;
-  typeOfService: 'Loan' | 'Investment';
-  amountRequested: number;
-  employmentType: 'Civil Servant' | 'SME' | 'Individual';
-  uploadedDocumentUrl?: string;
-  preferredContactMethod: 'Phone' | 'Email';
+  loanAmount: number;
+  customerType: 'BYSG' | 'Private Individual';
+  passportPhotoUrl?: string;
   submissionDate: string;
-  status?: 'approved' | 'rejected' | 'pending';
+  status?: 'Approved' | 'Rejected' | 'Processing';
 };
 
 
@@ -53,7 +49,7 @@ export function ApplicationsTable() {
   const applicationsQuery = useMemoFirebase(
     () => firestore ? query(
         collection(firestore, 'loanApplications'), 
-        where('status', '==', 'pending'),
+        where('status', '==', 'Processing'),
         orderBy('submissionDate', 'desc')
     ) : null,
     [firestore]
@@ -94,7 +90,7 @@ export function ApplicationsTable() {
       setProcessingId(applicationId);
       const docRef = doc(firestore, 'loanApplications', applicationId);
       try {
-        updateDocumentNonBlocking(docRef, { status: 'rejected' });
+        updateDocumentNonBlocking(docRef, { status: 'Rejected' });
         toast({
             title: 'Application Rejected',
             description: 'The application has been marked as rejected.'
@@ -113,8 +109,8 @@ export function ApplicationsTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New Loan & Service Applications</CardTitle>
-        <CardDescription>Review all submissions from the public website form. Approving an application will create a new Loan and Borrower record.</CardDescription>
+        <CardTitle>New Loan Applications</CardTitle>
+        <CardDescription>Review all submissions. Approving an application will create a new Loan and Customer record.</CardDescription>
       </CardHeader>
       <CardContent>
         {applicationsLoading ? (
@@ -127,7 +123,7 @@ export function ApplicationsTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[200px]">Applicant</TableHead>
-                  <TableHead>Service Type</TableHead>
+                  <TableHead>Customer Type</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead className="text-right min-w-[200px]">Actions</TableHead>
@@ -142,9 +138,9 @@ export function ApplicationsTable() {
                           <div className="text-sm text-muted-foreground">{item.email}</div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{item.typeOfService}</Badge>
+                          <Badge variant="secondary">{item.customerType}</Badge>
                         </TableCell>
-                        <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
+                        <TableCell>{formatCurrency(item.loanAmount)}</TableCell>
                         <TableCell>{format(new Date(item.submissionDate), 'PPP')}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">

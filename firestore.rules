@@ -25,47 +25,26 @@ service cloud.firestore {
     match /loanApplications/{applicationId} {
       // Allow anyone to create a loan application.
       allow create: if true;
-      
       // Only an admin can read/update/delete applications.
       allow read, update, delete: if isAdmin();
     }
 
     match /Customers/{customerId} {
       // Only admins can manage customer records
-      allow read, write, delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
     
     match /Loans/{loanId} {
-      // Admins can write any loan document
-      allow write: if isAdmin();
-       // Admins can read any loan document. Users can only read their own.
-      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+      // Admins can manage all loan documents
+      allow read, write: if isAdmin();
 
-      // Allow user to create a loan for themselves
-      allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
-
-      // Allow admin to list all loans, or user to list their own loans.
-      allow list: if isAdmin() || (isSignedIn() && request.query.where.borrowerId == request.auth.uid);
+      // Allow users to read their own loans and list only their own loans
+      allow read, list: if isSignedIn() && get(/databases/$(database)/documents/Loans/$(loanId)).data.borrowerId == request.auth.uid;
     }
 
     match /ExcelFiles/{excelId} {
         // Only admins can manage excel import records
         allow read, write, delete: if isAdmin();
-    }
-
-    match /contactFormSubmissions/{contactFormSubmissionId} {
-      // Allow anyone to create a contact form submission.
-      allow create: if true;
-      // Only an admin can read/update/delete submissions.
-      allow read, update, delete: if isAdmin();
-    }
-
-     match /userFiles/{fileId} {
-      // Users can only read their own files
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      
-      // Writes are blocked from the client to enforce creation via Cloud Functions.
-      allow write: if false;
     }
   }
 }
