@@ -2,12 +2,14 @@
 import { z } from "zod";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+export const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+export const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
 // Check if running in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
+// This schema focuses on validating the standard input fields.
+// File validation will be handled directly in the form submission logic for more robust error handling.
 export const loanApplicationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
   email: z.string().email("Please enter a valid email address."),
@@ -18,22 +20,18 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  passportPhotoUrl: z.any()
-    .refine((file) => !isBrowser || (file instanceof File), "Passport photograph is required.")
-    .refine((file) => !isBrowser || (file && file.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
-    .refine((file) => !isBrowser || (file && ACCEPTED_PHOTO_TYPES.includes(file.type)), "Only .jpg, .jpeg, .png and .webp formats are supported."),
-  
-  idUrl: z.any()
-    .refine((file) => !isBrowser || (file instanceof File), "A valid ID document is required.")
-    .refine((file) => !isBrowser || (file && file.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
-    .refine((file) => !isBrowser || (file && ACCEPTED_ID_TYPES.includes(file.type)), "Only images and PDFs are accepted."),
+  // File inputs are defined as `any` here. Validation is moved to the form handler.
+  passportPhotoUrl: z.any(),
+  idUrl: z.any(),
 
+  // Guarantor fields are optional and will be validated conditionally in the form handler.
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
   guarantorAddress: z.string().optional(),
   guarantorRelationship: z.string().optional(),
 
 }).superRefine((data, ctx) => {
+    // Conditional validation for guarantor fields based on customerType.
     if (data.customerType === "Private Individual") {
         if (!data.guarantorFullName || data.guarantorFullName.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's full name is required.", path: ["guarantorFullName"] });

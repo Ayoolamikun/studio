@@ -17,10 +17,12 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/Spinner';
-import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
+import { loanApplicationSchema, type LoanApplicationValues, ACCEPTED_ID_TYPES, ACCEPTED_PHOTO_TYPES } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**
  * A helper function to upload a single file to Firebase Storage.
@@ -29,11 +31,27 @@ import { cn } from '@/lib/utils';
  * @returns The download URL of the uploaded file.
  */
 const uploadFile = async (file: File, path: string): Promise<string> => {
+  if (!storage) throw new Error("Firebase Storage is not initialized.");
   if (!file) throw new Error(`Invalid file provided for path: ${path}`);
+  
   const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
   const snapshot = await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(snapshot.ref);
   return downloadURL;
+};
+
+// A helper function to validate a single file.
+const validateFile = (file: any, acceptedTypes: string[], fieldName: string): string | null => {
+    if (!(file instanceof File)) {
+        return `${fieldName} is required.`;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+        return `${fieldName} is too large. Max size is 5MB.`;
+    }
+    if (!acceptedTypes.includes(file.type)) {
+        return `Invalid file type for ${fieldName}. Please upload one of: ${acceptedTypes.join(', ')}.`;
+    }
+    return null;
 };
 
 
@@ -56,6 +74,8 @@ export default function ApplyPage() {
       guarantorPhoneNumber: '',
       guarantorAddress: '',
       guarantorRelationship: '',
+      passportPhotoUrl: undefined,
+      idUrl: undefined,
     },
     mode: 'onChange',
   });
@@ -72,24 +92,32 @@ export default function ApplyPage() {
         });
         return;
     }
+
+    // --- 1. Manual File Validation ---
+    const passportFile = data.passportPhotoUrl as File;
+    const idFile = data.idUrl as File;
+
+    const passportError = validateFile(passportFile, ACCEPTED_PHOTO_TYPES, 'Passport photograph');
+    if (passportError) {
+        toast({ variant: 'destructive', title: 'Validation Error', description: passportError });
+        return;
+    }
+    const idError = validateFile(idFile, ACCEPTED_ID_TYPES, 'Valid ID');
+    if (idError) {
+        toast({ variant: 'destructive', title: 'Validation Error', description: idError });
+        return;
+    }
     
     try {
-      // --- 1. File Uploads in Parallel ---
-      const passportFile = data.passportPhotoUrl as File;
-      const idFile = data.idUrl as File;
-      
-      const uploadPromises: Promise<string>[] = [];
-
-      if (passportFile) {
-        uploadPromises.push(uploadFile(passportFile, 'passports'));
-      }
-      if (idFile) {
-        uploadPromises.push(uploadFile(idFile, 'ids'));
-      }
+      // --- 2. File Uploads in Parallel ---
+      const uploadPromises: Promise<string>[] = [
+          uploadFile(passportFile, 'passports'),
+          uploadFile(idFile, 'ids')
+      ];
       
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
-      // --- 2. Create Submission Data ---
+      // --- 3. Create Submission Data ---
       const submissionData: any = {
         fullName: data.fullName,
         email: data.email,
@@ -113,10 +141,10 @@ export default function ApplyPage() {
           submissionData.guarantorRelationship = data.guarantorRelationship;
       }
 
-      // --- 3. Save to Firestore ---
+      // --- 4. Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
-      // --- 4. Redirect on Success ---
+      // --- 5. Redirect on Success ---
       toast({
         title: 'Success!',
         description: 'Your application has been submitted.',
@@ -127,7 +155,7 @@ export default function ApplyPage() {
       console.error('Submission Error:', error);
       let description = 'An unexpected error occurred. Please check your inputs and try again.';
       if (error.code === 'storage/unauthorized') {
-          description = "Permission denied. Please ensure you have the correct storage rules configured."
+          description = "Permission denied. Please check Firebase Storage rules."
       } else if (error.code === 'storage/retry-limit-exceeded') {
           description = 'Upload failed due to a network error. Please check your internet connection and try again.'
       } else if (error.message) {
