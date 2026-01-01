@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
  * @returns The download URL of the uploaded file.
  */
 const uploadFile = async (file: File, path: string): Promise<string> => {
+  if (!file) throw new Error(`Invalid file provided for path: ${path}`);
   const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
   const snapshot = await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(snapshot.ref);
@@ -73,22 +74,19 @@ export default function ApplyPage() {
     }
     
     try {
+      // --- 1. File Uploads ---
       const passportFile = data.passportPhotoUrl as File;
       const idFile = data.idUrl as File;
 
       // Start all required uploads in parallel
-      const uploadPromises: Promise<string>[] = [];
-
-      if (passportFile) {
-        uploadPromises.push(uploadFile(passportFile, 'passports'));
-      }
-      if (idFile) {
-        uploadPromises.push(uploadFile(idFile, 'ids'));
-      }
+      const uploadPromises: Promise<string>[] = [
+        uploadFile(passportFile, 'passports'),
+        uploadFile(idFile, 'ids'),
+      ];
       
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
-      // Create a clean data object for submission
+      // --- 2. Create Submission Data ---
       const submissionData: any = {
         fullName: data.fullName,
         email: data.email,
@@ -112,10 +110,14 @@ export default function ApplyPage() {
           submissionData.guarantorRelationship = data.guarantorRelationship;
       }
 
-      // --- Save to Firestore ---
+      // --- 3. Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
-      // --- Redirect on Success ---
+      // --- 4. Redirect on Success ---
+      toast({
+        title: 'Success!',
+        description: 'Your application has been submitted.',
+      });
       router.push('/apply/thank-you');
 
     } catch (error: any) {
