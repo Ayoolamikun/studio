@@ -20,13 +20,13 @@ export const loanApplicationSchema = z.object({
   
   passportPhotoUrl: z.any()
     .refine((file) => !isBrowser || (file instanceof File), "Passport photograph is required.")
-    .refine((file) => !isBrowser || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine((file) => !isBrowser || ACCEPTED_PHOTO_TYPES.includes(file.type), "Only .jpg, .jpeg, .png and .webp formats are supported."),
+    .refine((file) => !isBrowser || (file && file.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
+    .refine((file) => !isBrowser || (file && ACCEPTED_PHOTO_TYPES.includes(file.type)), "Only .jpg, .jpeg, .png and .webp formats are supported."),
   
   idUrl: z.any()
     .refine((file) => !isBrowser || (file instanceof File), "A valid ID document is required.")
-    .refine((file) => !isBrowser || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine((file) => !isBrowser || ACCEPTED_ID_TYPES.includes(file.type), "Only images and PDFs are accepted."),
+    .refine((file) => !isBrowser || (file && file.size <= MAX_FILE_SIZE), `Max file size is 5MB.`)
+    .refine((file) => !isBrowser || (file && ACCEPTED_ID_TYPES.includes(file.type)), "Only images and PDFs are accepted."),
 
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
