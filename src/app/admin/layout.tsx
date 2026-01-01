@@ -1,7 +1,7 @@
 
 'use client';
 
-import { LogOut, Files, LayoutDashboard, HandCoins, UserCheck, Users, BarChart, Settings } from 'lucide-react';
+import { LogOut, Files, LayoutDashboard, HandCoins, UserCheck, Users, BarChart, Settings, BookUser } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -78,6 +78,7 @@ export default function AdminLayout({
     { href: '/admin/customers', label: 'Customers', icon: Users },
     { href: '/admin/reports', label: 'Reports', icon: BarChart },
     { href: '/admin/excel', label: 'Excel Import', icon: Files },
+    { href: '/admin/guide', label: 'Admin Guide', icon: BookUser },
   ];
 
   if (isUserLoading || !user || user.uid !== ADMIN_UID) {
