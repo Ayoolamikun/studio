@@ -17,12 +17,10 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/Spinner';
-import { loanApplicationSchema, type LoanApplicationValues, ACCEPTED_ID_TYPES, ACCEPTED_PHOTO_TYPES } from '@/lib/schemas';
+import { loanApplicationSchema, type LoanApplicationValues, ACCEPTED_ID_TYPES, ACCEPTED_PHOTO_TYPES, MAX_FILE_SIZE } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**
  * A helper function to upload a single file to Firebase Storage.
@@ -42,7 +40,7 @@ const uploadFile = async (file: File, path: string): Promise<string> => {
 
 // A helper function to validate a single file.
 const validateFile = (file: any, acceptedTypes: string[], fieldName: string): string | null => {
-    if (!(file instanceof File)) {
+    if (!file || !(file instanceof File)) {
         return `${fieldName} is required.`;
     }
     if (file.size > MAX_FILE_SIZE) {

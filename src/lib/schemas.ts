@@ -1,15 +1,12 @@
 
 import { z } from "zod";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 export const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-// Check if running in a browser environment
-const isBrowser = typeof window !== 'undefined';
-
 // This schema focuses on validating the standard input fields.
-// File validation will be handled directly in the form submission logic for more robust error handling.
+// File validation is now handled directly in the form submission logic for more robust error handling.
 export const loanApplicationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
   email: z.string().email("Please enter a valid email address."),
@@ -20,11 +17,11 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  // File inputs are defined as `any` here. Validation is moved to the form handler.
-  passportPhotoUrl: z.any(),
-  idUrl: z.any(),
+  // File inputs are marked as optional in Zod. They will be manually validated in the form handler.
+  passportPhotoUrl: z.any().optional(),
+  idUrl: z.any().optional(),
 
-  // Guarantor fields are optional and will be validated conditionally in the form handler.
+  // Guarantor fields are optional and will be validated conditionally.
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
   guarantorAddress: z.string().optional(),
