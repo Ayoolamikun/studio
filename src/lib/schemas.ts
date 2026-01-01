@@ -5,8 +5,8 @@ export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 export const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-// This schema focuses on validating the standard input fields.
-// File validation is now handled directly in the form submission logic for more robust error handling.
+// Schema is now simplified to only handle non-file inputs.
+// File validation will be done manually in the form handler for more control and clearer errors.
 export const loanApplicationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
   email: z.string().email("Please enter a valid email address."),
@@ -17,18 +17,19 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  // File inputs are marked as optional in Zod. They will be manually validated in the form handler.
+  // File inputs are set to z.any() and are now truly optional at the schema level.
+  // This prevents Zod from blocking submission due to file issues.
   passportPhotoUrl: z.any().optional(),
   idUrl: z.any().optional(),
 
-  // Guarantor fields are optional and will be validated conditionally.
+  // Guarantor fields
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
   guarantorAddress: z.string().optional(),
   guarantorRelationship: z.string().optional(),
 
 }).superRefine((data, ctx) => {
-    // Conditional validation for guarantor fields based on customerType.
+    // Conditional validation for guarantor text fields remains.
     if (data.customerType === "Private Individual") {
         if (!data.guarantorFullName || data.guarantorFullName.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's full name is required.", path: ["guarantorFullName"] });

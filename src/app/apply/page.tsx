@@ -21,7 +21,6 @@ import { loanApplicationSchema, type LoanApplicationValues, ACCEPTED_ID_TYPES, A
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-
 /**
  * A helper function to upload a single file to Firebase Storage.
  * @param file The file to upload.
@@ -38,7 +37,7 @@ const uploadFile = async (file: File, path: string): Promise<string> => {
   return downloadURL;
 };
 
-// A helper function to validate a single file.
+// A helper function to validate a single file. Returns an error message string or null if valid.
 const validateFile = (file: any, acceptedTypes: string[], fieldName: string): string | null => {
     if (!file || !(file instanceof File)) {
         return `${fieldName} is required.`;
@@ -91,22 +90,22 @@ export default function ApplyPage() {
         return;
     }
 
-    // --- 1. Manual File Validation ---
-    const passportFile = data.passportPhotoUrl as File;
-    const idFile = data.idUrl as File;
-
-    const passportError = validateFile(passportFile, ACCEPTED_PHOTO_TYPES, 'Passport photograph');
-    if (passportError) {
-        toast({ variant: 'destructive', title: 'Validation Error', description: passportError });
-        return;
-    }
-    const idError = validateFile(idFile, ACCEPTED_ID_TYPES, 'Valid ID');
-    if (idError) {
-        toast({ variant: 'destructive', title: 'Validation Error', description: idError });
-        return;
-    }
-    
     try {
+      // --- 1. Manual File Validation ---
+      const passportFile = data.passportPhotoUrl as File;
+      const idFile = data.idUrl as File;
+
+      const passportError = validateFile(passportFile, ACCEPTED_PHOTO_TYPES, 'Passport photograph');
+      if (passportError) {
+          toast({ variant: 'destructive', title: 'Validation Error', description: passportError });
+          return; // Stop submission
+      }
+      const idError = validateFile(idFile, ACCEPTED_ID_TYPES, 'Valid ID');
+      if (idError) {
+          toast({ variant: 'destructive', title: 'Validation Error', description: idError });
+          return; // Stop submission
+      }
+      
       // --- 2. File Uploads in Parallel ---
       const uploadPromises: Promise<string>[] = [
           uploadFile(passportFile, 'passports'),
@@ -247,7 +246,7 @@ export default function ApplyPage() {
                                       }}
                                     />
                                   </FormControl>
-                                  <FormDescription>A clear, recent passport-style photo.</FormDescription>
+                                  <FormDescription>A clear, recent passport-style photo. (Max 5MB)</FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -269,7 +268,7 @@ export default function ApplyPage() {
                                       }}
                                     />
                                   </FormControl>
-                                  <FormDescription>Upload your National ID, Voter's Card, Driver's License, or Int'l Passport.</FormDescription>
+                                  <FormDescription>Upload your National ID, Voter's Card, etc. (Max 5MB)</FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
