@@ -74,15 +74,18 @@ export default function ApplyPage() {
     }
     
     try {
-      // --- 1. File Uploads ---
+      // --- 1. File Uploads in Parallel ---
       const passportFile = data.passportPhotoUrl as File;
       const idFile = data.idUrl as File;
+      
+      const uploadPromises: Promise<string>[] = [];
 
-      // Start all required uploads in parallel
-      const uploadPromises: Promise<string>[] = [
-        uploadFile(passportFile, 'passports'),
-        uploadFile(idFile, 'ids'),
-      ];
+      if (passportFile) {
+        uploadPromises.push(uploadFile(passportFile, 'passports'));
+      }
+      if (idFile) {
+        uploadPromises.push(uploadFile(idFile, 'ids'));
+      }
       
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
