@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Logo from './Logo';
 import { useUser } from '@/firebase';
 
@@ -41,13 +41,12 @@ export default function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+              <SheetHeader className='text-left'>
+                  <SheetTitle className="mb-4">
+                    <Logo />
+                  </SheetTitle>
+              </SheetHeader>
               <div className="p-4">
-              <div className="mb-8 flex justify-between items-center">
-                 <Logo />
-                 <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(false)}>
-                    <X className="h-6 w-6" />
-                 </Button>
-              </div>
                 <nav className="flex flex-col items-start gap-6">
                   {navLinks.map((link) => (
                     <NavLink key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)}>
