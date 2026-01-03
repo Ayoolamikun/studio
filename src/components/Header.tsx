@@ -24,7 +24,7 @@ const NavLink = ({ href, children, onClick }: { href: string; children: React.Re
 );
 
 export default function Header() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isUserLoading } = useUser();
 
   return (
@@ -32,31 +32,10 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
-        <nav className="hidden items-center gap-6 md:flex">
-          {navLinks.map((link) => (
-            <NavLink key={link.name} href={link.href}>
-              {link.name}
-            </NavLink>
-          ))}
-        </nav>
-
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-4">
-            {!isUserLoading && !user && (
-              <Button asChild className="rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-                <Link href="/login">Apply Now</Link>
-              </Button>
-            )}
-            {!isUserLoading && user && (
-              <Button asChild variant="secondary">
-                <Link href="/dashboard">My Dashboard</Link>
-              </Button>
-            )}
-          </div>
-          
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+          <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
+              <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
               </Button>
@@ -65,13 +44,13 @@ export default function Header() {
               <div className="p-4">
               <div className="mb-8 flex justify-between items-center">
                  <Logo />
-                 <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+                 <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(false)}>
                     <X className="h-6 w-6" />
                  </Button>
               </div>
                 <nav className="flex flex-col items-start gap-6">
                   {navLinks.map((link) => (
-                    <NavLink key={link.name} href={link.href} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)}>
                       {link.name}
                     </NavLink>
                   ))}
@@ -79,12 +58,12 @@ export default function Header() {
                   <div className="pt-4 w-full">
                     {!isUserLoading && user && (
                        <Button asChild variant="secondary" className="w-full">
-                         <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>My Dashboard</Link>
+                         <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
                        </Button>
                     )}
                     {!isUserLoading && !user && (
                       <Button asChild size="lg" className="w-full rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Apply Now</Link>
+                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>Apply Now</Link>
                       </Button>
                     )}
                   </div>
