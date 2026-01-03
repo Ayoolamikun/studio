@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Table,
@@ -20,20 +21,20 @@ import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 
 type Loan = {
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'paid' | 'overdue';
-  amountRequested: number;
-  createdAt: string;
+  status: 'Processing' | 'Approved' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
+  loanAmount: number;
+  createdAt: any;
 };
 
-const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'default';
-      case 'rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
+const getStatusConfig = (status: Loan['status']) => {
+  switch (status) {
+    case 'Completed':
+      return { variant: 'default', className: 'bg-primary/20 text-primary', label: 'Completed' };
+    case 'Rejected':
+      return { variant: 'destructive', className: '', label: 'Rejected' };
+    default:
+      return { variant: 'secondary', className: '', label: status };
+  }
 }
 
 export function LoanHistory({ loans }: { loans: WithId<Loan>[] }) {
@@ -41,7 +42,7 @@ export function LoanHistory({ loans }: { loans: WithId<Loan>[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Loan History</CardTitle>
-        <CardDescription>Your past loan applications and payments.</CardDescription>
+        <CardDescription>Your past loan applications and their outcomes.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -49,33 +50,26 @@ export function LoanHistory({ loans }: { loans: WithId<Loan>[] }) {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead className="text-right">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loans.map(loan => (
-              <TableRow key={loan.id}>
-                <TableCell>{format(new Date(loan.createdAt), 'PPP')}</TableCell>
-                <TableCell>{formatCurrency(loan.amountRequested)}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusVariant(loan.status)} className="capitalize">{loan.status}</Badge>
-                </TableCell>
-                <TableCell>
-                  Loan Application
-                </TableCell>
-              </TableRow>
-            ))}
-             <TableRow>
-                <TableCell>{format(new Date(), 'PPP')}</TableCell>
-                <TableCell>{formatCurrency(34242)}</TableCell>
-                <TableCell>
-                  <Badge className="capitalize bg-green-600">Paid</Badge>
-                </TableCell>
-                <TableCell>
-                  Monthly Repayment
-                </TableCell>
-              </TableRow>
+            {loans.length > 0 ? loans.map(loan => {
+                const statusConfig = getStatusConfig(loan.status);
+                return (
+                  <TableRow key={loan.id}>
+                    <TableCell>{loan.createdAt?.toDate ? format(loan.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
+                    <TableCell>{formatCurrency(loan.loanAmount)}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant={statusConfig.variant} className={`${statusConfig.className} capitalize`}>{statusConfig.label}</Badge>
+                    </TableCell>
+                  </TableRow>
+                )
+            }) : (
+                <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24">No past loans found.</TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

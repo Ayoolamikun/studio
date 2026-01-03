@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,35 +7,37 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { WithId } from '@/firebase';
 
-// Assuming Loan entity from backend.json
 type Loan = {
-  amountRequested: number;
+  loanAmount: number;
   duration: number;
   interestRate: number;
   totalRepayment: number;
   amountPaid: number;
-  balance: number;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'paid' | 'overdue';
-  createdAt: string;
+  outstandingBalance: number;
+  status: 'Processing' | 'Approved' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
 };
 
-const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'paid':
-        return 'default';
-      case 'approved':
-        return 'default';
-      case 'overdue':
-      case 'rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
+const getStatusConfig = (status: Loan['status']) => {
+  switch (status) {
+    case 'Active':
+      return { variant: 'default', className: 'bg-green-500/20 text-green-600', label: 'Active' };
+    case 'Completed':
+      return { variant: 'default', className: 'bg-primary/20 text-primary', label: 'Completed' };
+    case 'Approved':
+      return { variant: 'default', className: 'bg-blue-500/20 text-blue-600', label: 'Approved' };
+    case 'Processing':
+        return { variant: 'secondary', className: 'bg-yellow-500/20 text-yellow-600', label: 'Processing' };
+    case 'Overdue':
+    case 'Rejected':
+      return { variant: 'destructive', className: '', label: status };
+    default:
+      return { variant: 'secondary', className: '', label: status };
+  }
 }
 
 export function LoanDetails({ loan }: { loan: WithId<Loan> }) {
-  const repaymentProgress = (loan.amountPaid / loan.totalRepayment) * 100;
+  const repaymentProgress = loan.totalRepayment > 0 ? (loan.amountPaid / loan.totalRepayment) * 100 : 0;
+  const statusConfig = getStatusConfig(loan.status);
 
   return (
     <Card className="shadow-lg">
@@ -44,7 +47,7 @@ export function LoanDetails({ loan }: { loan: WithId<Loan> }) {
                 <CardTitle className="text-2xl text-primary">Your Active Loan</CardTitle>
                 <CardDescription>Overview of your current loan status.</CardDescription>
             </div>
-            <Badge variant={getStatusVariant(loan.status)} className="capitalize text-lg">{loan.status}</Badge>
+            <Badge variant={statusConfig.variant} className={`${statusConfig.className} capitalize text-base`}>{statusConfig.label}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -59,11 +62,11 @@ export function LoanDetails({ loan }: { loan: WithId<Loan> }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="bg-secondary p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">Remaining Balance</p>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(loan.balance)}</p>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(loan.outstandingBalance)}</p>
             </div>
              <div className="bg-secondary p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">Amount Borrowed</p>
-                <p className="text-2xl font-bold">{formatCurrency(loan.amountRequested)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(loan.loanAmount)}</p>
             </div>
              <div className="bg-secondary p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">Interest Rate</p>

@@ -16,14 +16,15 @@ import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type Loan = {
-  amountRequested: number;
+  loanAmount: number;
   duration: number;
   interestRate: number;
   totalRepayment: number;
   amountPaid: number;
-  balance: number;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'paid' | 'overdue';
+  outstandingBalance: number;
+  status: 'Processing' | 'Approved' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
   createdAt: any;
+  disbursedAt?: any;
 };
 
 
@@ -38,7 +39,7 @@ export default function DashboardPage() {
     return query(
       collection(firestore, 'Loans'),
       where('borrowerId', '==', user.uid),
-      where('status', 'in', ['active', 'overdue', 'pending', 'approved']),
+      where('status', 'in', ['Active', 'Overdue', 'Approved', 'Processing']),
       limit(1)
     );
   }, [firestore, user?.uid]);
@@ -48,7 +49,7 @@ export default function DashboardPage() {
     return query(
       collection(firestore, 'Loans'),
       where('borrowerId', '==', user.uid),
-      where('status', 'in', ['paid', 'rejected'])
+      where('status', 'in', ['Completed', 'Rejected'])
     );
   }, [firestore, user?.uid]);
 
@@ -80,7 +81,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-secondary/50">
+    <div className="flex min-h-screen flex-col">
       <main className="flex-1 container py-8 md:py-12">
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -96,7 +97,7 @@ export default function DashboardPage() {
             </div>
 
             {activeLoan ? (
-              <Tabs defaultValue="details">
+              <Tabs defaultValue="details" className="w-full">
                   <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="details">Loan Details</TabsTrigger>
                       <TabsTrigger value="schedule">Repayment Schedule</TabsTrigger>
@@ -124,11 +125,11 @@ export default function DashboardPage() {
                 <Card className="text-center py-16 shadow-md">
                   <CardHeader>
                     <CardTitle className="text-2xl font-semibold text-primary">No Active Loans</CardTitle>
-                    <CardDescription className="mt-2">You do not have any pending or active loans.</CardDescription>
+                    <CardDescription className="mt-2 text-muted-foreground">You do not have any pending or active loans at this time.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button asChild className="mt-6">
-                        <a href="/apply">Apply for a new loan</a>
+                    <Button asChild size="lg" className="mt-6 bg-accent text-accent-foreground hover:bg-accent/90">
+                        <a href="/apply">Apply for a New Loan</a>
                     </Button>
                   </CardContent>
                 </Card>
