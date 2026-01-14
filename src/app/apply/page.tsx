@@ -43,7 +43,7 @@ const validateFile = (file: any, acceptedTypes: string[], fieldName: string): st
         return `${fieldName} is required.`;
     }
     if (file.size > MAX_FILE_SIZE) {
-        return `${fieldName} is too large. Max size is 5MB.`;
+        return `${fieldName} is too large. Max size is 2MB.`;
     }
     if (!acceptedTypes.includes(file.type)) {
         return `Invalid file type for ${fieldName}. Please upload one of: ${acceptedTypes.join(', ')}.`;
@@ -246,7 +246,7 @@ export default function ApplyPage() {
                                       }}
                                     />
                                   </FormControl>
-                                  <FormDescription>A clear, recent passport-style photo. (Max 5MB)</FormDescription>
+                                  <FormDescription>A clear, recent passport-style photo. (Max 2MB)</FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -268,7 +268,7 @@ export default function ApplyPage() {
                                       }}
                                     />
                                   </FormControl>
-                                  <FormDescription>Upload your National ID, Voter's Card, etc. (Max 5MB)</FormDescription>
+                                  <FormDescription>Upload your National ID, Voter's Card, etc. (Max 2MB)</FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -291,7 +291,7 @@ export default function ApplyPage() {
                                 <FormItem><FormLabel>Guarantor's Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
-                                <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage />
                             )} />
                         </div>
                     </div>
