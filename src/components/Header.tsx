@@ -32,9 +32,32 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <NavLink key={link.name} href={link.href}>
+              {link.name}
+            </NavLink>
+          ))}
+        </nav>
+        
         <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-4">
+             {!isUserLoading && user && (
+               <Button asChild variant="secondary">
+                 <Link href="/dashboard">My Dashboard</Link>
+               </Button>
+            )}
+             {!isUserLoading && !user && (
+              <Button asChild size="lg" className="rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
+                <Link href="/apply">Apply Now</Link>
+              </Button>
+            )}
+          </div>
+
+          {/* Mobile Navigation Trigger */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild>
+            <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
