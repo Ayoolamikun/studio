@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -32,32 +31,11 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <NavLink key={link.name} href={link.href}>
-              {link.name}
-            </NavLink>
-          ))}
-        </nav>
-        
+        {/* This div wrapper ensures the trigger is always on the right */}
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-4">
-             {!isUserLoading && user && (
-               <Button asChild variant="secondary">
-                 <Link href="/dashboard">My Dashboard</Link>
-               </Button>
-            )}
-             {!isUserLoading && !user && (
-              <Button asChild size="lg" className="rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-                <Link href="/apply">Apply Now</Link>
-              </Button>
-            )}
-          </div>
-
-          {/* Mobile Navigation Trigger */}
+          {/* Mobile Navigation Trigger - now for all screen sizes */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
@@ -65,7 +43,7 @@ export default function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <SheetHeader className='text-left'>
-                  <SheetTitle className="mb-4">
+                  <SheetTitle>
                     <Logo />
                   </SheetTitle>
               </SheetHeader>
@@ -77,7 +55,7 @@ export default function Header() {
                     </NavLink>
                   ))}
 
-                  <div className="pt-4 w-full">
+                  <div className="pt-4 w-full space-y-4">
                     {!isUserLoading && user && (
                        <Button asChild variant="secondary" className="w-full">
                          <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
@@ -85,7 +63,7 @@ export default function Header() {
                     )}
                     {!isUserLoading && !user && (
                       <Button asChild size="lg" className="w-full rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>Apply Now</Link>
+                        <Link href="/apply" onClick={() => setIsMenuOpen(false)}>Apply Now</Link>
                       </Button>
                     )}
                   </div>
