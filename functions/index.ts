@@ -194,7 +194,12 @@ const uploadToCloudinary = async (file: string, folder: string, fileName: string
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    if (!context.auth || context.auth.token.admin !== true) {
+    // This function will be updated to check for admin via a hardcoded UID list in a future step.
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to approve applications.");
+    }
+    const adminUids = ["1EW8TCRo2LOdJEHrWrrVOTvJZJE2"]; // Hardcoded Admin UID
+    if (!adminUids.includes(context.auth.uid)) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
 
@@ -266,5 +271,99 @@ export const approveApplication = functions.https.onCall(async (data, context) =
     } catch (error: any) {
         console.error("Approval Error:", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
+    }
+});
+
+
+/**
+ * Saves file metadata to Firestore after a successful Cloudinary upload.
+ * This function is callable by an authenticated user.
+ */
+export const saveFileMetadata = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const { fileUrl, publicId, fileName, fileType, size } = data;
+  if (!fileUrl || !publicId || !fileName || !fileType || !size) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing required file metadata.");
+  }
+  await db.collection("userFiles").add({
+    userId: context.auth.uid,
+    fileUrl,
+    publicId,
+    fileName,
+    fileType,
+    size,
+    uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { success: true };
+});
+
+/**
+ * Retrieves all files for the currently authenticated user.
+ */
+export const getUserFiles = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const snapshot = await db.collection("userFiles").where("userId", "==", context.auth.uid).orderBy("uploadedAt", "desc").get();
+  const files = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    uploadedAt: doc.data().uploadedAt.toDate().toISOString(),
+  }));
+  return { success: true, files };
+});
+
+/**
+ * Deletes a file from Cloudinary and its corresponding metadata from Firestore.
+ */
+export const deleteFile = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
+  }
+  const { fileId, publicId } = data;
+  if (!fileId || !publicId) {
+    throw new functions.https.HttpsError("invalid-argument", "fileId and publicId are required.");
+  }
+  const fileRef = db.collection("userFiles").doc(fileId);
+  const doc = await fileRef.get();
+  if (!doc.exists || doc.data()?.userId !== context.auth.uid) {
+    throw new functions.https.HttpsError("permission-denied", "You do not have permission to delete this file.");
+  }
+  await cloudinary.uploader.destroy(publicId, { resource_type: doc.data()?.fileType === "raw" ? "raw" : "image" });
+  await fileRef.delete();
+  return { success: true };
+});
+
+/**
+ * Handles file uploads from the client, sends to Cloudinary, and saves metadata.
+ */
+export const uploadFile = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be authenticated.");
+    }
+    const { file, fileName, folder } = data;
+    if (!file || !fileName) {
+        throw new functions.https.HttpsError("invalid-argument", "File and fileName are required.");
+    }
+
+    try {
+        const result = await uploadToCloudinary(file, `${folder}/${context.auth.uid}`, fileName);
+        
+        await db.collection("userFiles").add({
+            userId: context.auth.uid,
+            fileUrl: result.secure_url,
+            publicId: result.public_id,
+            fileName: fileName,
+            fileType: result.resource_type,
+            size: result.bytes,
+            uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return { success: true, url: result.secure_url };
+    } catch (error: any) {
+        console.error("Upload failed", error);
+        throw new functions.https.HttpsError("internal", error.message || "An unexpected error occurred during upload.");
     }
 });

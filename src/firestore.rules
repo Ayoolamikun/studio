@@ -43,19 +43,11 @@ service cloud.firestore {
     /**
      * @description Loan records.
      * Admins have full read/write access.
-     * Borrowers can create loans for themselves, read their own loans, 
-     * and list ONLY their own loans.
+     * Borrowers can only read their own loans and list ONLY their own loans.
      */
     match /Loans/{loanId} {
-      // Admins can do anything.
       allow write: if isAdmin();
-      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
-      
-      // Any signed-in user can create a loan for themselves.
-      allow create: if isSignedIn() && request.resource.data.borrowerId == request.auth.uid;
-      
-      // A user can LIST loans only if they are querying for their own borrowerId OR if the user is an admin.
-      allow list: if (isSignedIn() && request.query.where.borrowerId == request.auth.uid) || isAdmin();
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
     }
     
     /**
@@ -87,9 +79,9 @@ service cloud.firestore {
      * Writes are blocked from the client to enforce creation via Cloud Functions.
      */
     match /userFiles/{fileId} {
-      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       // Writes are handled by the backend function, so client-side writes are disallowed.
-      allow write: if false; 
+      allow create, update: if false; 
     }
   }
 }

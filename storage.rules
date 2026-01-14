@@ -27,8 +27,11 @@ service firebase.storage {
 
     // --- Authenticated User Folder ---
     // Users can read and write files only within their own designated folder.
+    // This is no longer used for direct client uploads, but the rule is kept for clarity.
     match /user-uploads/{userId}/{allPaths=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Writes are now handled by Cloud Functions, so direct client writes are denied.
+      allow write: if false;
     }
 
     // --- Admin-Only Excel Import Folder ---
@@ -39,5 +42,3 @@ service firebase.storage {
     }
   }
 }
-
-    

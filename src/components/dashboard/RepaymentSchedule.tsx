@@ -24,6 +24,7 @@ type Loan = {
   monthlyRepayment: number;
   duration: number;
   disbursedAt?: any; // Can be a string or a Firestore Timestamp
+  status: 'Processing' | 'Approved' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
 };
 
 export function RepaymentSchedule({ loan }: { loan: WithId<Loan> }) {

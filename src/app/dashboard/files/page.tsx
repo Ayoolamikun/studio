@@ -151,7 +151,7 @@ export default function FileUploadPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold">My Files</CardTitle>
-          <CardDescription>Upload and manage your personal documents.</CardDescription>
+          <CardDescription>Upload and manage your personal documents, including proof of payment.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-8">
