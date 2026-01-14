@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -54,6 +55,12 @@ export default function Header() {
                       {link.name}
                     </NavLink>
                   ))}
+                  
+                  {!isUserLoading && !user && (
+                     <NavLink href="/login" onClick={() => setIsMenuOpen(false)}>
+                      Login
+                    </NavLink>
+                  )}
 
                   <div className="pt-4 w-full space-y-4">
                     {!isUserLoading && user && (
