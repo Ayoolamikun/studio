@@ -291,7 +291,7 @@ export default function ApplyPage() {
                                 <FormItem><FormLabel>Guarantor's Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="guarantorRelationship" render={({ field }) => (
-                                <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage />
+                                <FormItem><FormLabel>Relationship to Guarantor</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
                     </div>
