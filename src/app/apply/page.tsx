@@ -70,28 +70,32 @@ export default function ApplyPage() {
         const storage = getStorage(app);
         const submissionId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-        // Helper function to upload a file and get its URL
         const uploadFile = async (file: File, path: string): Promise<string> => {
             const fileRef = ref(storage, path);
             await uploadBytes(fileRef, file);
             return getDownloadURL(fileRef);
         };
 
-        // --- 1. Upload files sequentially for better reliability on slow networks ---
         const passportPhotoUrl = await uploadFile(data.passportPhotoUrl, `application-uploads/${submissionId}/${data.passportPhotoUrl.name}`);
         const idUrl = await uploadFile(data.idUrl, `application-uploads/${submissionId}/${data.idUrl.name}`);
 
-
-        // --- 2. Call the Cloud Function with file URLs ---
         const functions = getFunctions(app);
         const submitApplication = httpsCallable(functions, 'submitApplicationAndCreateUser');
         
+        // **FIX:** Explicitly remove non-serializable File objects and other unneeded fields
+        // before sending the payload to the Cloud Function.
+        const { 
+            passportPhotoUrl: originalPassport, 
+            idUrl: originalId, 
+            confirmPassword, 
+            ...restOfData 
+        } = data;
+
         const payload = { 
-            ...data, 
+            ...restOfData,
             passportPhotoUrl, // Send the URL string
             idUrl, // Send the URL string
         };
-        delete (payload as any).confirmPassword; // Don't send this to the backend
 
         const result = await submitApplication(payload);
         const resultData = result.data as { success: boolean; message: string };
@@ -100,10 +104,8 @@ export default function ApplyPage() {
             throw new Error(resultData.message);
         }
 
-        // --- 3. Auto-login the user ---
         await signInWithEmailAndPassword(auth, data.email, data.password);
 
-        // --- 4. Redirect on Success ---
         toast({
             title: 'Success!',
             description: 'Account created and application submitted.',
@@ -112,20 +114,14 @@ export default function ApplyPage() {
 
     } catch (error: any) {
         console.error('Submission Error:', error);
-        let description = 'An unexpected error occurred. Please check your inputs and try again.';
         
-        if (error.code === 'storage/retry-limit-exceeded') {
-            description = 'The file upload timed out. Please check your internet connection and try again with smaller files if possible.';
-        } else if (error.code && error.message) { // Handle other Firebase errors
-            description = error.message;
-        } else if (error.message) { // Handle generic errors
-            description = error.message;
-        }
+        // **FIX:** Simplified and more robust error handling to ensure a toast is always shown.
+        const errorMessage = error.message || String(error);
         
         toast({
             variant: 'destructive',
             title: 'Submission Failed',
-            description: description,
+            description: `An unexpected error occurred: ${errorMessage}`,
         });
     }
   };
