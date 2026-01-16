@@ -24,9 +24,6 @@ import { cn } from '@/lib/utils';
 
 /**
  * A helper function to upload a single file to Firebase Storage.
- * @param file The file to upload.
- * @param path The storage path (e.g., 'passports').
- * @returns The download URL of the uploaded file.
  */
 const uploadFile = async (file: File, path: string): Promise<string> => {
   if (!storage) throw new Error("Firebase Storage is not initialized.");
@@ -74,24 +71,23 @@ export default function ApplyPage() {
         toast({
             variant: 'destructive',
             title: 'Submission Failed',
-            description: 'Firebase is not initialized. Please try again later.',
+            description: 'Services are not initialized. Please try again later.',
         });
         return;
     }
 
     try {
-      // --- 1. Create User Account ---
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      const user = userCredential.user;
-      
-      // --- 2. File Uploads in Parallel ---
-      // Zod has already validated the files, so we can upload them directly.
+      // --- 1. File Uploads in Parallel (First Step) ---
+      // This is more robust. If uploads fail, we don't create a user.
       const uploadPromises: Promise<string>[] = [
           uploadFile(data.passportPhotoUrl, 'passports'),
           uploadFile(data.idUrl, 'ids')
       ];
-      
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
+
+      // --- 2. Create User Account ---
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
 
       // --- 3. Create Submission Data ---
       const submissionData: any = {
@@ -131,12 +127,21 @@ export default function ApplyPage() {
     } catch (error: any) {
       console.error('Submission Error:', error);
       let description = 'An unexpected error occurred. Please check your inputs and try again.';
-      if (error.code === 'auth/email-already-in-use') {
-          description = 'This email address is already in use. Please log in or use a different email.';
-      } else if (error.code === 'storage/unauthorized') {
-          description = "Permission denied. Please check Firebase Storage rules."
-      } else if (error.code === 'storage/retry-limit-exceeded') {
-          description = 'Upload failed due to a network error. Please check your internet connection and try again.'
+      if (error.code) { // Firebase errors have a 'code' property
+          switch(error.code) {
+              case 'auth/email-already-in-use':
+                  description = 'This email address is already in use. Please log in or use a different email.';
+                  break;
+              case 'storage/unauthorized':
+                  description = "Permission denied to upload files. Please contact support.";
+                  break;
+              case 'storage/retry-limit-exceeded':
+                  description = 'Upload failed due to a network error. Please check your internet connection and try again.';
+                  break;
+              default:
+                  description = `An error occurred: ${error.message}`;
+                  break;
+          }
       } else if (error.message) {
           description = error.message;
       }
@@ -304,3 +309,5 @@ export default function ApplyPage() {
     </div>
   );
 }
+
+    
