@@ -5,9 +5,10 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
-import { firestore, storage } from '@/firebase';
+import { firestore, storage, auth } from '@/firebase';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,8 @@ export default function ApplyPage() {
     defaultValues: {
       fullName: '',
       email: '',
+      password: '',
+      confirmPassword: '',
       phoneNumber: '',
       placeOfEmployment: '',
       bvn: '',
@@ -81,7 +84,7 @@ export default function ApplyPage() {
   const customerType = watch('customerType');
 
   const processForm: SubmitHandler<LoanApplicationValues> = async (data) => {
-    if (!firestore || !storage) {
+    if (!firestore || !storage || !auth) {
         toast({
             variant: 'destructive',
             title: 'Submission Failed',
@@ -91,7 +94,11 @@ export default function ApplyPage() {
     }
 
     try {
-      // --- 1. Manual File Validation ---
+      // --- 1. Create User Account ---
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      // --- 2. Manual File Validation ---
       const passportFile = data.passportPhotoUrl as File;
       const idFile = data.idUrl as File;
 
@@ -106,7 +113,7 @@ export default function ApplyPage() {
           return; // Stop submission
       }
       
-      // --- 2. File Uploads in Parallel ---
+      // --- 3. File Uploads in Parallel ---
       const uploadPromises: Promise<string>[] = [
           uploadFile(passportFile, 'passports'),
           uploadFile(idFile, 'ids')
@@ -114,8 +121,9 @@ export default function ApplyPage() {
       
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
-      // --- 3. Create Submission Data ---
+      // --- 4. Create Submission Data ---
       const submissionData: any = {
+        userId: user.uid,
         fullName: data.fullName,
         email: data.email,
         phoneNumber: data.phoneNumber,
@@ -138,20 +146,22 @@ export default function ApplyPage() {
           submissionData.guarantorRelationship = data.guarantorRelationship;
       }
 
-      // --- 4. Save to Firestore ---
+      // --- 5. Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
-      // --- 5. Redirect on Success ---
+      // --- 6. Redirect on Success ---
       toast({
         title: 'Success!',
-        description: 'Your application has been submitted.',
+        description: 'Account created and application submitted. Redirecting to your dashboard...',
       });
-      router.push('/apply/thank-you');
+      router.push('/dashboard');
 
     } catch (error: any) {
       console.error('Submission Error:', error);
       let description = 'An unexpected error occurred. Please check your inputs and try again.';
-      if (error.code === 'storage/unauthorized') {
+      if (error.code === 'auth/email-already-in-use') {
+          description = 'This email address is already in use. Please log in or use a different email.';
+      } else if (error.code === 'storage/unauthorized') {
           description = "Permission denied. Please check Firebase Storage rules."
       } else if (error.code === 'storage/retry-limit-exceeded') {
           description = 'Upload failed due to a network error. Please check your internet connection and try again.'
@@ -174,9 +184,9 @@ export default function ApplyPage() {
         <div className="container">
           <Card className="mx-auto max-w-3xl shadow-lg">
             <CardHeader>
-              <CardTitle className="font-headline text-2xl md:text-3xl text-primary">Loan Application Form</CardTitle>
+              <CardTitle className="font-headline text-2xl md:text-3xl text-primary">Loan Application & Account Setup</CardTitle>
               <CardDescription>
-                Complete the form below to apply for a loan. Your information is secure with us.
+                Complete the form below to apply for a loan. An account will be created for you to track your application status.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -191,6 +201,12 @@ export default function ApplyPage() {
                             )} />
                             <FormField control={form.control} name="email" render={({ field }) => (
                                 <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="password" render={({ field }) => (
+                                <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="confirmPassword" render={({ field }) => (
+                                <FormItem><FormLabel>Confirm Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                                 <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>

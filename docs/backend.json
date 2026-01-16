@@ -6,6 +6,7 @@
       "type": "object",
       "description": "Represents a loan application submitted by a user.",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who submitted the application." },
         "fullName": { "type": "string", "description": "The full name of the applicant." },
         "email": { "type": "string", "description": "The email address of the applicant.", "format": "email" },
         "phoneNumber": { "type": "string", "description": "The phone number of the applicant." },
@@ -24,6 +25,7 @@
         "guarantorRelationship": { "type": "string", "description": "Relationship of the guarantor to the borrower." }
       },
       "required": [
+        "userId",
         "fullName",
         "email",
         "phoneNumber",

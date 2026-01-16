@@ -5,11 +5,11 @@ export const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 export const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 export const ACCEPTED_ID_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
-// Schema is now simplified to only handle non-file inputs.
-// File validation will be done manually in the form handler for more control and clearer errors.
 export const loanApplicationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
   email: z.string().email("Please enter a valid email address."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Password must be at least 6 characters."),
   phoneNumber: z.string().min(10, "Please enter a valid phone number."),
   placeOfEmployment: z.string().min(2, "Place of employment is required."),
   customerType: z.enum(["BYSG", "Private Individual"], { required_error: "Please select a customer type." }),
@@ -17,19 +17,23 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  // File inputs are set to z.any() and are now truly optional at the schema level.
-  // This prevents Zod from blocking submission due to file issues.
   passportPhotoUrl: z.any().optional(),
   idUrl: z.any().optional(),
 
-  // Guarantor fields
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),
   guarantorAddress: z.string().optional(),
   guarantorRelationship: z.string().optional(),
 
 }).superRefine((data, ctx) => {
-    // Conditional validation for guarantor text fields remains.
+    if (data.password !== data.confirmPassword) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Passwords do not match.",
+            path: ["confirmPassword"],
+        });
+    }
+
     if (data.customerType === "Private Individual") {
         if (!data.guarantorFullName || data.guarantorFullName.trim().length < 2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Guarantor's full name is required.", path: ["guarantorFullName"] });
