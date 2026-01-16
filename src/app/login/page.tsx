@@ -33,7 +33,7 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+const ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
 
 export default function LoginPage() {
   const auth = useAuth();

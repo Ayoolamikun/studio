@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Spinner } from '@/components/Spinner';
 
-// The admin UID must match the one in your security rules and layout
-const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+// The admin UID for 'corporatemagnatecoop@outlook.com' should be pasted here.
+const ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
 
 export default function AdminRootPage() {
   const router = useRouter();

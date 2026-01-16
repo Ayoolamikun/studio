@@ -8,7 +8,8 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+    // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
+    let ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE"; 
 
     function isAdmin() {
       return isSignedIn() && request.auth.uid == ADMIN_UID;

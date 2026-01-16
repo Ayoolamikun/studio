@@ -194,7 +194,8 @@ const uploadToCloudinary = async (file: string, folder: string, fileName: string
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+    // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
+    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
@@ -274,7 +275,8 @@ export const approveApplication = functions.https.onCall(async (data, context) =
  * Updates the status of a loan. Admin-only.
  */
 export const updateLoanStatus = functions.https.onCall(async (data, context) => {
-    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+    // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
+    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
     }
