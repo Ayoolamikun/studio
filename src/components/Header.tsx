@@ -31,7 +31,8 @@ export default function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
-  const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+  // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
+  const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -45,10 +46,47 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <NavLink key={link.name} href={link.href}>
+              {link.name}
+            </NavLink>
+          ))}
+        </nav>
+        
         <div className="flex items-center gap-2">
+           {/* Desktop Auth Buttons */}
+           <div className="hidden md:flex items-center gap-2">
+             {isUserLoading ? (
+                <div className="flex items-center gap-2">
+                    <Skeleton className="h-10 w-20" />
+                    <Skeleton className="h-10 w-24" />
+                </div>
+             ) : !user ? (
+                <>
+                    <Button asChild variant="ghost">
+                        <Link href="/login">Login</Link>
+                    </Button>
+                    <Button asChild>
+                        <Link href="/apply">Sign Up</Link>
+                    </Button>
+                </>
+             ) : (
+                <>
+                    <Button asChild variant="secondary">
+                        <Link href={user.uid === adminUid ? '/admin' : '/dashboard'}>My Dashboard</Link>
+                    </Button>
+                    <Button onClick={handleLogout} variant="ghost">
+                        Logout
+                    </Button>
+                </>
+             )}
+           </div>
+
           {/* Mobile Menu */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild>
+            <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
@@ -77,12 +115,12 @@ export default function Header() {
                     </div>
                   ) : !user ? (
                     <>
-                      <NavLink href="/login" onClick={() => setIsMenuOpen(false)} className="text-lg">
-                        Login
-                      </NavLink>
-                      <NavLink href="/apply" onClick={() => setIsMenuOpen(false)} className="text-lg">
-                        Sign Up
-                      </NavLink>
+                      <Button asChild variant='ghost' className="w-full justify-start text-lg h-12 p-2">
+                        <Link href="/login" onClick={() => setIsMenuOpen(false)}>Login</Link>
+                      </Button>
+                      <Button asChild className="w-full text-lg h-12">
+                        <Link href="/apply" onClick={() => setIsMenuOpen(false)}>Sign Up</Link>
+                      </Button>
                     </>
                   ) : (
                     <>
