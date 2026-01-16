@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, SubmitHandler } from 'react-hook-form';
@@ -6,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Logo from '@/components/Logo';
 import { Spinner } from '@/components/Spinner';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
@@ -30,6 +40,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -49,7 +61,6 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
-
   const processLogin: SubmitHandler<LoginValues> = async (data) => {
     if (!auth) {
         toast({ variant: 'destructive', title: 'Login Failed', description: 'Authentication service is not available.'});
@@ -60,7 +71,6 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({ title: 'Login Successful', description: 'Redirecting...' });
       
-      // Redirect based on UID
       const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
       router.replace(targetPath);
 
@@ -85,6 +95,44 @@ export default function LoginPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!auth) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Authentication service not available.' });
+      return;
+    }
+    if (!resetEmail) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter your email address.' });
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast({
+        title: 'Password Reset Email Sent',
+        description: `If an account exists for ${resetEmail}, you will receive a password reset link. Please check your inbox (and spam folder).`,
+      });
+      setIsResetDialogOpen(false);
+      setResetEmail('');
+    } catch (error: any) {
+      // For security, even if the user is not found, we show a success message.
+      // This prevents attackers from checking which emails are registered.
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+         toast({
+            title: 'Password Reset Email Sent',
+            description: `If an account exists for ${resetEmail}, you will receive a password reset link. Please check your inbox (and spam folder).`,
+        });
+      } else {
+         toast({
+            variant: 'destructive',
+            title: 'Failed to Send Reset Email',
+            description: 'An unexpected error occurred. Please try again later.',
+        });
+      }
+      setIsResetDialogOpen(false);
+      setResetEmail('');
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     if (!auth) {
         toast({ variant: 'destructive', title: 'Login Failed', description: 'Authentication service is not available.' });
@@ -95,7 +143,6 @@ export default function LoginPage() {
         const userCredential = await signInWithPopup(auth, new GoogleAuthProvider());
         toast({ title: 'Login Successful', description: 'Redirecting...' });
 
-        // Redirect based on UID
         const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
         router.replace(targetPath);
 
@@ -136,7 +183,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(processLogin)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(processLogin)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="email"
@@ -155,7 +202,45 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Password</FormLabel>
+                      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="link" type="button" className="px-0 text-sm h-auto py-1 font-normal">
+                                Forgot Password?
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Reset Your Password</DialogTitle>
+                                <DialogDescription>
+                                    Enter your email address below and we'll send you a link to reset your password.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="reset-email" className="text-right">
+                                        Email
+                                    </Label>
+                                    <Input
+                                        id="reset-email"
+                                        type="email"
+                                        value={resetEmail}
+                                        onChange={(e) => setResetEmail(e.target.value)}
+                                        className="col-span-3"
+                                        placeholder="you@example.com"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button variant="outline" type="button">Cancel</Button>
+                                </DialogClose>
+                                <Button onClick={handlePasswordReset} type="button">Send Reset Link</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
@@ -163,7 +248,7 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full !mt-6" disabled={isSubmitting}>
                 {isSubmitting ? <><Spinner size="small" /> Signing In...</> : 'Sign In'}
               </Button>
             </form>
