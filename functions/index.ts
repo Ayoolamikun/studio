@@ -395,7 +395,7 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
 
 /**
  * Handles the entire loan application submission process from the public form.
- * This version uses a single try-catch block for robust error handling and rollback.
+ * This version uses a single transactional try-catch block for robust error handling and rollback.
  */
 export const submitApplicationAndCreateUser = functions.https.onCall(async (data, context) => {
     const { 
@@ -408,39 +408,24 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
         throw new functions.https.HttpsError("invalid-argument", "Missing required fields for application submission.");
     }
 
-    let userRecord;
+    let userId: string | null = null;
+
     try {
-        // STEP 1: Create the user account first.
-        userRecord = await admin.auth().createUser({
+        // STEP 1: Create the user account.
+        const userRecord = await admin.auth().createUser({
             email: email,
             password: password,
             displayName: fullName,
             phoneNumber: phoneNumber,
             emailVerified: false,
         });
-    } catch (error: any) {
-        // If user creation fails (e.g., email exists), throw an error immediately.
-        if (error.code === 'auth/email-already-exists') {
-            throw new functions.https.HttpsError('already-exists', 'An account with this email address already exists. Please log in.');
-        }
-        console.error("Auth creation error:", error);
-        // For other auth errors, return a clear message.
-        throw new functions.https.HttpsError('internal', `Failed to create user account: ${error.message}`);
-    }
+        userId = userRecord.uid; // Assign userId immediately after creation
 
-    const userId = userRecord.uid;
-
-    // This is the main processing block. If anything fails here, we roll back user creation.
-    try {
         // STEP 2: Upload passport photo.
-        console.log(`Starting passport photo upload for user: ${userId}`);
         const passportUploadResult = await uploadBase64ToStorage(passportPhoto.dataUrl, `application-files/${userId}/passport-${Date.now()}`);
-        console.log(`Passport photo upload successful for user: ${userId}`);
 
         // STEP 3: Upload ID file.
-        console.log(`Starting ID file upload for user: ${userId}`);
         const idUploadResult = await uploadBase64ToStorage(idFile.dataUrl, `application-files/${userId}/id-${Date.now()}`);
-        console.log(`ID file upload successful for user: ${userId}`);
 
         // STEP 4: Prepare data for Firestore.
         const submissionData: any = {
@@ -467,29 +452,32 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
         }
 
         // STEP 5: Write the application to Firestore.
-        console.log(`Writing application to Firestore for user: ${userId}`);
         await db.collection("loanApplications").add(submissionData);
-        console.log(`Firestore write successful for user: ${userId}`);
 
         // If all steps succeed, return success.
         return { success: true, message: "Application submitted successfully!" };
 
     } catch (error: any) {
-        // This single catch block handles failures from any of the steps inside the 'try'.
-        console.error(`Error during application processing for user ${userId}. The original error was:`, error);
+        console.error("Error during application submission:", error);
+
+        // If a user account was created before the error occurred, attempt to roll it back.
+        if (userId) {
+            try {
+                await admin.auth().deleteUser(userId);
+                console.log(`Successfully rolled back user creation for UID: ${userId}`);
+            } catch (rollbackError) {
+                console.error(`CRITICAL: Failed to roll back user creation for UID: ${userId}. Manual cleanup required. Rollback error:`, rollbackError);
+                // We still want to throw the original error, so we don't re-throw here.
+            }
+        }
         
-        // Attempt to roll back the user creation since the rest of the application failed.
-        try {
-            console.log(`Attempting to roll back user creation for UID: ${userId}`);
-            await admin.auth().deleteUser(userId);
-            console.log(`Successfully rolled back user creation for UID: ${userId}`);
-        } catch (rollbackError) {
-            // This is a critical failure state. The user exists but their application doesn't.
-            console.error(`CRITICAL: Failed to roll back user creation for UID: ${userId}. Manual cleanup required. Rollback error:`, rollbackError);
+        // Check for a specific auth error code that we want to handle gracefully.
+        if (error.code === 'auth/email-already-exists') {
+            throw new functions.https.HttpsError('already-exists', 'An account with this email address already exists. Please log in.');
         }
 
-        // Always throw a specific, useful error message back to the client.
-        const errorMessage = (error as Error).message || "An unexpected server error occurred during processing.";
-        throw new functions.https.HttpsError("internal", errorMessage);
+        // For all other errors (from auth, storage, or firestore), throw a properly formatted HttpsError.
+        const errorMessage = error.message || "An unexpected server error occurred during submission.";
+        throw new functions.https.HttpsError("internal", `Submission failed: ${errorMessage}`);
     }
 });
