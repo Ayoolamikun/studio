@@ -27,6 +27,7 @@ function calculateLoanDetails(principal: number, duration: number, interestRate:
 /**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.
  * This function downloads the Excel file, parses it, and updates Firestore.
+ * This optimized version fetches all loans first to reduce DB reads inside the loop.
  */
 export const processExcelUpload = functions.storage
   .object()
@@ -60,6 +61,7 @@ export const processExcelUpload = functions.storage
     }
 
     try {
+      // 1. Download and parse the Excel file
       const response = await axios.get(object.mediaLink, {responseType: "arraybuffer"});
       const fileBuffer = Buffer.from(response.data);
 
@@ -73,8 +75,25 @@ export const processExcelUpload = functions.storage
 
       console.log(`Found ${rows.length} rows to process.`);
 
+      // 2. OPTIMIZATION: Fetch all active/overdue loans and customers beforehand
+      const loansQuery = await db.collection("Loans")
+        .where("status", "in", ["Active", "Overdue"])
+        .orderBy("createdAt", "desc")
+        .get();
+
+      // Create a map of the latest loan for each borrower for quick access
+      const loansByBorrowerId = new Map<string, admin.firestore.QueryDocumentSnapshot>();
+      for (const doc of loansQuery.docs) {
+          const loanData = doc.data();
+          if (!loansByBorrowerId.has(loanData.borrowerId)) {
+              loansByBorrowerId.set(loanData.borrowerId, doc);
+          }
+      }
+      console.log(`Cached ${loansByBorrowerId.size} active loans in memory.`);
+
       const batch = db.batch();
 
+      // 3. Process rows with data cached in memory
       for (const row of rows) {
         const rowData = (row as any[]).reduce((obj, val, index) => {
           const key = headers[index];
@@ -92,7 +111,7 @@ export const processExcelUpload = functions.storage
         }, {} as any);
 
         let customerDoc: admin.firestore.DocumentSnapshot | undefined;
-        // Match by BVN first, then Phone + Name
+        // This part still queries per row, but it's a fast lookup.
         if (rowData.bvn) {
             const customerRef = db.collection("Customers").doc(rowData.bvn);
             customerDoc = await customerRef.get();
@@ -112,27 +131,20 @@ export const processExcelUpload = functions.storage
             console.warn(`Customer not found for row, skipping:`, rowData);
             continue;
         }
-
-        const customerId = customerDoc.id;
-        const loansQuery = await db.collection("Loans")
-            .where("borrowerId", "==", customerId)
-            .where("status", "in", ["Active", "Overdue"])
-            .orderBy("createdAt", "desc")
-            .limit(1)
-            .get();
         
-        if (loansQuery.empty) {
-            console.warn(`No active loan found for customer ${customerId}, skipping update.`);
+        // OPTIMIZATION: Use the in-memory map instead of querying for the loan
+        const customerId = customerDoc.id;
+        const existingLoanDoc = loansByBorrowerId.get(customerId);
+        
+        if (!existingLoanDoc) {
+            console.warn(`No active loan found in cache for customer ${customerId}, skipping update.`);
             continue;
         }
 
-        const existingLoanDoc = loansQuery.docs[0];
         const loanRef = existingLoanDoc.ref;
-        
         const currentLoanData = existingLoanDoc.data();
         const amountPaid = rowData.amountPaid ?? currentLoanData.amountPaid ?? 0;
         const outstandingBalance = rowData.outstandingBalance ?? currentLoanData.outstandingBalance ?? currentLoanData.totalRepayment;
-
         const newStatus = outstandingBalance <= 0 ? 'Completed' : 'Active';
 
         const loanUpdateData = {
@@ -143,21 +155,22 @@ export const processExcelUpload = functions.storage
         };
 
         batch.update(loanRef, loanUpdateData);
-        console.log(`Updating loan ${loanRef.id} for customer ${customerId}. New balance: ${outstandingBalance}, Status: ${newStatus}`);
+        console.log(`Preparing update for loan ${loanRef.id} for customer ${customerId}.`);
       }
 
+      // 4. Commit all updates at once
       if(!excelFileQuery.empty) {
-          batch.update(excelFileQuery.docs[0].ref, {processed: true});
+          batch.update(excelFileQuery.docs[0].ref, {processed: true, status: 'processed'});
       }
 
       await batch.commit();
-      console.log(`Successfully processed ${rows.length} rows from ${filePath}.`);
+      console.log(`Successfully processed and committed updates for ${rows.length} rows from ${filePath}.`);
       return null;
 
     } catch (error) {
       console.error("Error processing Excel file:", error);
        if(!excelFileQuery.empty) {
-          await excelFileQuery.docs[0].ref.update({processed: true, error: (error as Error).message});
+          await excelFileQuery.docs[0].ref.update({processed: true, status: 'error', error: (error as Error).message});
       }
       return null;
     }
@@ -167,7 +180,8 @@ export const processExcelUpload = functions.storage
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
+    // This is the UID for the user: corporatemagnatecoop@outlook.com
+    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
@@ -244,7 +258,8 @@ export const approveApplication = functions.https.onCall(async (data, context) =
  * Updates the status of a loan. Admin-only.
  */
 export const updateLoanStatus = functions.https.onCall(async (data, context) => {
-    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
+    // This is the UID for the user: corporatemagnatecoop@outlook.com
+    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
     }
@@ -351,19 +366,24 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
         const buffer = Buffer.from(matches[2], 'base64');
         
         await bucketFile.save(buffer, { metadata: { contentType } });
-        const [metadata] = await bucketFile.getMetadata();
+        
+        // Make the file public
+        await bucketFile.makePublic();
+
+        // Get the public URL
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
 
         await db.collection("userFiles").add({
             userId: context.auth.uid,
-            fileUrl: bucketFile.publicUrl(),
+            fileUrl: publicUrl,
             filePath: destination,
             fileName: fileName,
-            fileType: metadata.contentType,
-            size: metadata.size,
+            fileType: contentType,
+            size: buffer.length,
             uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        return { success: true, url: bucketFile.publicUrl() };
+        return { success: true, url: publicUrl };
     } catch (error: any) {
         console.error("Upload failed", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected error occurred during upload.");
