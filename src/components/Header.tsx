@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Logo from './Logo';
@@ -18,7 +17,7 @@ const navLinks = [
 ];
 
 const NavLink = ({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) => (
-  <Link href={href} onClick={onClick} className="font-medium text-foreground/80 transition-colors hover:text-primary">
+  <Link href={href} onClick={onClick} className="font-medium text-foreground/80 transition-colors hover:text-primary text-lg">
     {children}
   </Link>
 );
@@ -32,9 +31,7 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
-        {/* This div wrapper ensures the trigger is always on the right */}
         <div className="flex items-center gap-4">
-          {/* Mobile Navigation Trigger - now for all screen sizes */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -48,7 +45,7 @@ export default function Header() {
                     <Logo />
                   </SheetTitle>
               </SheetHeader>
-              <div className="p-4">
+              <div className="p-4 mt-8">
                 <nav className="flex flex-col items-start gap-6">
                   {navLinks.map((link) => (
                     <NavLink key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)}>
@@ -56,24 +53,24 @@ export default function Header() {
                     </NavLink>
                   ))}
                   
+                  <hr className='w-full border-border'/>
+
                   {!isUserLoading && !user && (
-                     <NavLink href="/login" onClick={() => setIsMenuOpen(false)}>
-                      Login
-                    </NavLink>
+                    <>
+                      <NavLink href="/login" onClick={() => setIsMenuOpen(false)}>
+                        Login
+                      </NavLink>
+                      <NavLink href="/apply" onClick={() => setIsMenuOpen(false)}>
+                        Sign Up
+                      </NavLink>
+                    </>
                   )}
 
-                  <div className="pt-4 w-full space-y-4">
-                    {!isUserLoading && user && (
-                       <Button asChild variant="secondary" className="w-full">
-                         <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
-                       </Button>
-                    )}
-                    {!isUserLoading && !user && (
-                      <Button asChild size="lg" className="w-full rounded-full font-bold shadow-lg transition-transform hover:scale-105 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Link href="/apply" onClick={() => setIsMenuOpen(false)}>Apply Now</Link>
-                      </Button>
-                    )}
-                  </div>
+                  {!isUserLoading && user && (
+                    <Button asChild variant="secondary" className="w-full text-lg h-12">
+                      <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
+                    </Button>
+                  )}
                 </nav>
               </div>
             </SheetContent>
