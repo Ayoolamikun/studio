@@ -6,8 +6,11 @@ import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Logo from './Logo';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { cn } from '@/lib/utils';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const navLinks = [
   { name: 'Home', href: '/' },
@@ -26,7 +29,16 @@ const NavLink = ({ href, children, onClick, className }: { href: string; childre
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
   const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+
+  const handleLogout = async () => {
+    if (!auth) return;
+    await signOut(auth);
+    setIsMenuOpen(false); // Close the menu
+    router.push('/'); // Redirect to homepage after logout
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -58,7 +70,12 @@ export default function Header() {
                   
                   <hr className='w-full border-border'/>
 
-                  {!isUserLoading && !user && (
+                  {isUserLoading ? (
+                    <div className="space-y-4 w-full">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : !user ? (
                     <>
                       <NavLink href="/login" onClick={() => setIsMenuOpen(false)} className="text-lg">
                         Login
@@ -67,12 +84,15 @@ export default function Header() {
                         Sign Up
                       </NavLink>
                     </>
-                  )}
-
-                  {!isUserLoading && user && (
-                    <Button asChild variant="secondary" className="w-full text-lg h-12">
-                      <Link href={user.uid === adminUid ? '/admin' : '/dashboard'} onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
-                    </Button>
+                  ) : (
+                    <>
+                      <Button asChild variant="secondary" className="w-full text-lg h-12">
+                        <Link href={user.uid === adminUid ? '/admin' : '/dashboard'} onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
+                      </Button>
+                      <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-lg h-12 p-2">
+                        Logout
+                      </Button>
+                    </>
                   )}
                 </nav>
               </div>
