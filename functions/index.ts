@@ -469,3 +469,5 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
         throw new functions.https.HttpsError("internal", `Submission failed: ${errorMessage}`);
     }
 });
+
+    
