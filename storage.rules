@@ -27,12 +27,14 @@ service firebase.storage {
     }
 
     // --- Authenticated User Folder ---
-    // This rule allows authenticated users to manage their own files via the 'My Files' page.
-    // Writes are handled securely by a dedicated Cloud Function.
+    // The `uploadFile` backend function makes these files public.
+    // This rule allows public read access so the generated URLs work.
     match /user-uploads/{userId}/{allPaths=**} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if true;
       // Direct client writes are denied; all uploads must go through the 'uploadFile' function.
       allow write: if false;
+      // Deletes are handled by the `deleteFile` backend function.
+      allow delete: if false;
     }
 
     // --- Admin-Only Excel Import Folder ---
