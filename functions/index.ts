@@ -201,7 +201,7 @@ const uploadBase64ToStorage = async (base64: string, destination: string) => {
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
@@ -278,7 +278,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
  * Updates the status of a loan. Admin-only.
  */
 export const updateLoanStatus = functions.https.onCall(async (data, context) => {
-    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
     }
@@ -464,8 +464,19 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
         return { success: true, message: "Application submitted successfully!" };
 
     } catch (error: any) {
-        console.error("Error during application processing, rolling back user creation.", error);
-        await admin.auth().deleteUser(userId);
+        // This is the critical error handling block.
+        console.error("Error during application processing. The original error was:", error);
+        
+        // Attempt to roll back the user creation.
+        try {
+            await admin.auth().deleteUser(userId);
+            console.log(`Successfully rolled back user creation for UID: ${userId}`);
+        } catch (rollbackError) {
+            // If the rollback fails, log it, but don't let it crash the function.
+            console.error(`CRITICAL: Failed to roll back user creation for UID: ${userId}. Manual cleanup required. Rollback error:`, rollbackError);
+        }
+
+        // Always throw a clear, catchable error back to the client.
         throw new functions.https.HttpsError("internal", "A server error occurred while processing your application. Your user account was not created. Please try again.");
     }
 });
