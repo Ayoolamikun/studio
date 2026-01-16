@@ -67,48 +67,49 @@ export default function ApplyPage() {
     }
 
     try {
-      // --- 1. Upload Files directly to Firebase Storage ---
-      const storage = getStorage(app);
-      const submissionId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const storage = getStorage(app);
+        const submissionId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-      // Upload Passport Photo
-      const passportPhotoRef = ref(storage, `application-uploads/${submissionId}/${data.passportPhotoUrl.name}`);
-      await uploadBytes(passportPhotoRef, data.passportPhotoUrl);
-      const passportPhotoUrl = await getDownloadURL(passportPhotoRef);
+        // Helper function to upload a file and get its URL
+        const uploadFile = async (file: File, path: string): Promise<string> => {
+            const fileRef = ref(storage, path);
+            await uploadBytes(fileRef, file);
+            return getDownloadURL(fileRef);
+        };
 
-      // Upload ID File
-      const idFileRef = ref(storage, `application-uploads/${submissionId}/${data.idUrl.name}`);
-      await uploadBytes(idFileRef, data.idUrl);
-      const idUrl = await getDownloadURL(idFileRef);
+        // --- 1. Upload files in parallel for significant speed improvement ---
+        const [passportPhotoUrl, idUrl] = await Promise.all([
+            uploadFile(data.passportPhotoUrl, `application-uploads/${submissionId}/${data.passportPhotoUrl.name}`),
+            uploadFile(data.idUrl, `application-uploads/${submissionId}/${data.idUrl.name}`)
+        ]);
 
-      // --- 2. Call the Cloud Function with file URLs ---
-      const functions = getFunctions(app);
-      const submitApplication = httpsCallable(functions, 'submitApplicationAndCreateUser');
-      
-      const payload = { 
-        ...data, 
-        passportPhotoUrl, // Send the URL string
-        idUrl, // Send the URL string
-      };
-      // Remove unnecessary fields before sending
-      delete (payload as any).confirmPassword;
+        // --- 2. Call the Cloud Function with file URLs ---
+        const functions = getFunctions(app);
+        const submitApplication = httpsCallable(functions, 'submitApplicationAndCreateUser');
+        
+        const payload = { 
+            ...data, 
+            passportPhotoUrl, // Send the URL string
+            idUrl, // Send the URL string
+        };
+        delete (payload as any).confirmPassword; // Don't send this to the backend
 
-      const result = await submitApplication(payload);
-      const resultData = result.data as { success: boolean; message: string };
+        const result = await submitApplication(payload);
+        const resultData = result.data as { success: boolean; message: string };
 
-      if (!resultData.success) {
-          throw new Error(resultData.message);
-      }
+        if (!resultData.success) {
+            throw new Error(resultData.message);
+        }
 
-      // --- 3. Auto-login the user ---
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+        // --- 3. Auto-login the user ---
+        await signInWithEmailAndPassword(auth, data.email, data.password);
 
-      // --- 4. Redirect on Success ---
-      toast({
-          title: 'Success!',
-          description: 'Account created and application submitted.',
-      });
-      router.push('/apply/thank-you');
+        // --- 4. Redirect on Success ---
+        toast({
+            title: 'Success!',
+            description: 'Account created and application submitted.',
+        });
+        router.push('/apply/thank-you');
 
     } catch (error: any) {
         console.error('Submission Error:', error);
@@ -284,5 +285,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
