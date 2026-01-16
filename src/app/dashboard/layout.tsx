@@ -21,12 +21,12 @@ export default function DashboardLayout({
 
     if (!user) {
       router.push('/login');
-    } else if (user.uid === 'DISABLED_ADMIN_UID') {
+    } else if (user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
       router.push('/admin');
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user || user.uid === 'DISABLED_ADMIN_UID') {
+  if (isUserLoading || !user || user.uid === '1EW8TCRo2LOdJEHrWrrVOTvJZJE2') {
     // Show a loading spinner while checking auth or redirecting
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">

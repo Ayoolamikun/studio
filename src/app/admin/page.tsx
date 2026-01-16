@@ -5,7 +5,7 @@ import { useUser } from '@/firebase';
 import { Spinner } from '@/components/Spinner';
 
 // The admin UID must match the one in your security rules and layout
-const ADMIN_UID = "DISABLED_ADMIN_UID";
+const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
 export default function AdminRootPage() {
   const router = useRouter();

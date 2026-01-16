@@ -6,7 +6,7 @@ service cloud.firestore {
     // --- Start of Admin UID Configuration ---
     // IMPORTANT: This UID has been set to grant admin access.
     // This is the UID for the user: corporatemagnate@outlook.com
-    let ADMIN_UID = "DISABLED_ADMIN_UID"; 
+    let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
     // --- End of Admin UID Configuration ---
 
     function isSignedIn() {

@@ -198,7 +198,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "You must be logged in to approve applications.");
     }
-    const adminUids = ["DISABLED_ADMIN_UID"]; // Hardcoded Admin UID
+    const adminUids = ["1EW8TCRo2LOdJEHrWrrVOTvJZJE2"]; // Hardcoded Admin UID
     if (!adminUids.includes(context.auth.uid)) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
