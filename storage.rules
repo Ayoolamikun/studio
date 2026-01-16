@@ -16,10 +16,10 @@ service firebase.storage {
     }
 
     // --- Application Files Folder ---
-    // These files are uploaded via the secure `submitApplicationAndCreateUser` function.
-    // Client-side writes are disallowed. Admins can read the files.
+    // These files are uploaded via a secure backend function and made public.
+    // Client-side writes are disallowed for security.
     match /application-files/{userId}/{allPaths=**} {
-      allow read: if isAdmin();
+      allow read: if true;
       allow write: if false;
     }
 

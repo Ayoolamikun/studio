@@ -68,8 +68,8 @@ service cloud.firestore {
      * @description Publicly submitted loan applications. Admin-readable.
      */
     match /loanApplications/{applicationId} {
-      // Only authenticated users can create applications (now handled by backend function).
-      allow create: if isSignedIn();
+       // Writes are handled by the backend function. Client writes are disallowed for security.
+      allow create: if false;
       allow read, update, delete: if isAdmin();
     }
 

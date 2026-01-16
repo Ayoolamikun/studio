@@ -165,7 +165,7 @@ export const processExcelUpload = functions.storage
 
 
 /**
- * Uploads a base64 encoded file to Firebase Storage and returns metadata.
+ * Uploads a base64 encoded file to Firebase Storage, makes it public, and returns metadata.
  */
 const uploadBase64ToStorage = async (base64: string, destination: string) => {
     const bucket = admin.storage().bucket();
@@ -178,15 +178,14 @@ const uploadBase64ToStorage = async (base64: string, destination: string) => {
     const contentType = matches[1];
     const buffer = Buffer.from(matches[2], 'base64');
 
+    // Save the file and make it publicly readable.
     await file.save(buffer, {
         metadata: { contentType },
+        public: true
     });
 
-    // Generate a long-lived signed URL for file access.
-    const [url] = await file.getSignedUrl({
-        action: 'read',
-        expires: '03-09-2491', // Far-future expiration date
-    });
+    // Construct the public URL.
+    const url = `https://storage.googleapis.com/${bucket.name}/${destination}`;
     
     const [metadata] = await file.getMetadata();
 
