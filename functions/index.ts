@@ -194,12 +194,8 @@ const uploadToCloudinary = async (file: string, folder: string, fileName: string
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    // This function will be updated to check for admin via a hardcoded UID list in a future step.
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to approve applications.");
-    }
-    const adminUids = ["1EW8TCRo2LOdJEHrWrrVOTvJZJE2"]; // Hardcoded Admin UID
-    if (!adminUids.includes(context.auth.uid)) {
+    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+    if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
 
@@ -271,6 +267,48 @@ export const approveApplication = functions.https.onCall(async (data, context) =
     } catch (error: any) {
         console.error("Approval Error:", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
+    }
+});
+
+/**
+ * Updates the status of a loan. Admin-only.
+ */
+export const updateLoanStatus = functions.https.onCall(async (data, context) => {
+    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+    if (!context.auth || context.auth.uid !== adminUid) {
+        throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
+    }
+
+    const { loanId, status } = data;
+    if (!loanId || !status) {
+        throw new functions.https.HttpsError("invalid-argument", "The function must be called with 'loanId' and 'status'.");
+    }
+
+    const validStatuses = ["Disbursed", "Active", "Overdue", "Completed", "Rejected"];
+    if (!validStatuses.includes(status)) {
+        throw new functions.https.HttpsError("invalid-argument", `Invalid status provided. Must be one of: ${validStatuses.join(", ")}`);
+    }
+
+    const loanRef = db.collection("Loans").doc(loanId);
+
+    try {
+        const payload: { status: string; updatedAt: admin.firestore.FieldValue; disbursedAt?: admin.firestore.FieldValue } = {
+            status: status,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        // If marking as disbursed, set the disbursed date and immediately move to Active
+        if (status === "Disbursed") {
+            payload.disbursedAt = admin.firestore.FieldValue.serverTimestamp();
+            payload.status = "Active"; // Automatically transition to Active
+        }
+
+        await loanRef.update(payload);
+
+        return { success: true, message: `Loan status successfully updated to ${payload.status}.` };
+    } catch (error: any) {
+        console.error("Update Loan Status Error:", error);
+        throw new functions.https.HttpsError("internal", error.message || "Failed to update loan status.");
     }
 });
 

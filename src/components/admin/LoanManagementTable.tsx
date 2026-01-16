@@ -1,5 +1,7 @@
+
 'use client';
 import { useState, useMemo } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   Table,
   TableBody,
@@ -8,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,8 +21,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
-import { useCollection, useMemoFirebase, updateDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, useAuth, WithId } from '@/firebase';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { MoreHorizontal, Hourglass, ShieldCheck, ShieldX, CreditCard, CheckCircle, Truck } from 'lucide-react';
 import { format } from 'date-fns';
@@ -34,15 +35,16 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 type Loan = {
   borrowerId: string;
-  amountRequested: number;
+  loanAmount: number;
   duration?: number;
   interestRate?: number;
   totalRepayment?: number;
   amountPaid: number;
-  balance: number;
+  outstandingBalance: number;
   status: 'Processing' | 'Approved' | 'Disbursed' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
   createdAt: string;
 };
@@ -61,8 +63,8 @@ const getStatusConfig = (status: Loan['status']) => {
       return { variant: 'secondary', icon: Hourglass, label: 'Processing', className: 'bg-yellow-500/20 text-yellow-600' };
     case 'Approved':
       return { variant: 'default', icon: CheckCircle, label: 'Approved', className: 'bg-blue-500/20 text-blue-600' };
-    case 'Disbursed':
-        return { variant: 'default', icon: Truck, label: 'Disbursed', className: 'bg-indigo-500/20 text-indigo-600' };
+    case 'Disbursed': // This status is transient, UI now shows Active
+      return { variant: 'default', icon: Truck, label: 'Active', className: 'bg-indigo-500/20 text-indigo-600' };
     case 'Active':
       return { variant: 'default', icon: CreditCard, label: 'Active', className: 'bg-green-500/20 text-green-600' };
     case 'Completed':
@@ -79,8 +81,13 @@ const getStatusConfig = (status: Loan['status']) => {
 
 export function LoanManagementTable() {
   const firestore = useFirestore();
+  const auth = useAuth();
+  const functions = auth ? getFunctions(auth.app) : null;
+  const { toast } = useToast();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loansQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -120,10 +127,10 @@ export function LoanManagementTable() {
   const filteredData = useMemo(() => {
     if (!combinedData) return [];
     
-    const activeLoans = combinedData.filter(item => item.status !== 'Completed');
+    const activeOrPendingLoans = combinedData.filter(item => item.status !== 'Completed');
     const completedLoans = combinedData.filter(item => item.status === 'Completed');
 
-    const sourceData = statusFilter === 'completed' ? completedLoans : activeLoans;
+    const sourceData = statusFilter === 'completed' ? completedLoans : activeOrPendingLoans;
 
     return sourceData.filter(item => {
       const customer = item.customer;
@@ -139,21 +146,38 @@ export function LoanManagementTable() {
   }, [combinedData, searchTerm, statusFilter]);
 
   
-  const handleStatusChange = (id: string, status: Loan['status']) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'Loans', id);
-    const payload: { status: Loan['status'], updatedAt: any, disbursedAt?: any } = { status, updatedAt: serverTimestamp() };
-    if (status === 'Disbursed') {
-        payload.disbursedAt = serverTimestamp();
-        payload.status = 'Active'; // Immediately move to active upon disbursal
+  const handleStatusChange = async (id: string, status: Loan['status']) => {
+    if (!functions) return;
+    setProcessingId(id);
+
+    try {
+        const updateLoanStatus = httpsCallable(functions, 'updateLoanStatus');
+        const result = await updateLoanStatus({ loanId: id, status });
+        const data = result.data as { success: boolean; message: string };
+
+        if (data.success) {
+            toast({
+                title: 'Success',
+                description: data.message,
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: error.message || "An unexpected error occurred.",
+        });
+    } finally {
+        setProcessingId(null);
     }
-    updateDocumentNonBlocking(docRef, payload);
   };
   
   const isLoading = loansLoading || customersLoading;
   
   const statusFilters: {value: string, label: string}[] = [
-    { value: 'all', label: 'All Active' },
+    { value: 'all', label: 'All Active/Pending' },
     { value: 'Processing', label: 'Processing' },
     { value: 'Approved', label: 'Approved' },
     { value: 'Active', label: 'Active' },
@@ -217,8 +241,8 @@ export function LoanManagementTable() {
                             <div className="font-medium">{item.customer?.name || 'N/A'}</div>
                             <div className="text-sm text-muted-foreground">{item.customer?.email || item.borrowerId}</div>
                           </TableCell>
-                          <TableCell>{formatCurrency(item.amountRequested)}</TableCell>
-                          <TableCell>{formatCurrency(item.balance)}</TableCell>
+                          <TableCell>{formatCurrency(item.loanAmount)}</TableCell>
+                          <TableCell>{formatCurrency(item.outstandingBalance)}</TableCell>
                           <TableCell>{item.createdAt ? format(new Date(item.createdAt), 'PPP') : 'N/A'}</TableCell>
                           <TableCell>
                             <Badge variant={statusConfig.variant} className={statusConfig.className}>
@@ -229,7 +253,9 @@ export function LoanManagementTable() {
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                                <Button variant="ghost" size="icon" disabled={processingId === item.id}>
+                                    {processingId === item.id ? <Spinner size="small"/> : <MoreHorizontal />}
+                                </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent>
                                 <DropdownMenuLabel>Change Status</DropdownMenuLabel>
@@ -239,7 +265,7 @@ export function LoanManagementTable() {
                                 <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Overdue')}>Set to Overdue</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Completed')}>Mark as Completed</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-500" onClick={() => handleStatusChange(item.id, 'Rejected')}>Reject Loan</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-500 focus:text-red-500 focus:bg-red-500/10" onClick={() => handleStatusChange(item.id, 'Rejected')}>Reject Loan</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -259,3 +285,4 @@ export function LoanManagementTable() {
       </Card>
   );
 }
+
