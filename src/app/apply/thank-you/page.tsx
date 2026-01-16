@@ -34,7 +34,7 @@ export default function ThankYouPage() {
         </CardContent>
         </Card>
         <div className="absolute bottom-8 text-center text-sm text-muted-foreground">
-             <p>&copy; {new Date().getFullYear()} Corporate Magnate Cooperative Society Ltd. All Rights Reserved.</p>
+             <p>&copy; 2024 Corporate Magnate Cooperative Society Ltd. All Rights Reserved.</p>
         </div>
     </div>
   );
