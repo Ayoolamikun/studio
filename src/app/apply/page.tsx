@@ -77,11 +77,10 @@ export default function ApplyPage() {
             return getDownloadURL(fileRef);
         };
 
-        // --- 1. Upload files in parallel for significant speed improvement ---
-        const [passportPhotoUrl, idUrl] = await Promise.all([
-            uploadFile(data.passportPhotoUrl, `application-uploads/${submissionId}/${data.passportPhotoUrl.name}`),
-            uploadFile(data.idUrl, `application-uploads/${submissionId}/${data.idUrl.name}`)
-        ]);
+        // --- 1. Upload files sequentially for better reliability on slow networks ---
+        const passportPhotoUrl = await uploadFile(data.passportPhotoUrl, `application-uploads/${submissionId}/${data.passportPhotoUrl.name}`);
+        const idUrl = await uploadFile(data.idUrl, `application-uploads/${submissionId}/${data.idUrl.name}`);
+
 
         // --- 2. Call the Cloud Function with file URLs ---
         const functions = getFunctions(app);
@@ -115,7 +114,9 @@ export default function ApplyPage() {
         console.error('Submission Error:', error);
         let description = 'An unexpected error occurred. Please check your inputs and try again.';
         
-        if (error.code && error.message) { // Handle Firebase errors (from storage or functions)
+        if (error.code === 'storage/retry-limit-exceeded') {
+            description = 'The file upload timed out. Please check your internet connection and try again with smaller files if possible.';
+        } else if (error.code && error.message) { // Handle other Firebase errors
             description = error.message;
         } else if (error.message) { // Handle generic errors
             description = error.message;
