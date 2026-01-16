@@ -46,8 +46,8 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
+        {/* Desktop Navigation (now hidden to enforce hamburger menu) */}
+        <nav className="hidden">
           {navLinks.map((link) => (
             <NavLink key={link.name} href={link.href}>
               {link.name}
@@ -56,8 +56,8 @@ export default function Header() {
         </nav>
         
         <div className="flex items-center gap-2">
-           {/* Desktop Auth Buttons */}
-           <div className="hidden md:flex items-center gap-2">
+           {/* Desktop Auth Buttons (now hidden to enforce hamburger menu) */}
+           <div className="hidden">
              {isUserLoading ? (
                 <div className="flex items-center gap-2">
                     <Skeleton className="h-10 w-20" />
@@ -84,9 +84,9 @@ export default function Header() {
              )}
            </div>
 
-          {/* Mobile Menu */}
+          {/* Site Menu (visible on all screen sizes) */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
