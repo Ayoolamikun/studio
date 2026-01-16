@@ -3,12 +3,11 @@
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
-import { useFirestore, useStorage, useAuth } from '@/firebase';
+import { useFirebaseApp, useAuth } from '@/firebase';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -21,18 +20,17 @@ import { Spinner } from '@/components/Spinner';
 import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Storage } from 'firebase/storage';
 
 /**
- * A helper function to upload a single file to Firebase Storage.
+ * Converts a File object to a base64 encoded data URL.
  */
-const uploadFile = async (storage: Storage, file: File, path: string): Promise<string> => {
-  if (!file) throw new Error(`Invalid file provided for path: ${path}`);
-  
-  const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
-  const snapshot = await uploadBytes(storageRef, file);
-  const downloadURL = await getDownloadURL(snapshot.ref);
-  return downloadURL;
+const fileToDataUrl = (file: File): Promise<{ dataUrl: string, name: string }> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve({ dataUrl: reader.result as string, name: file.name });
+    reader.onerror = error => reject(error);
+  });
 };
 
 
@@ -40,8 +38,7 @@ export default function ApplyPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const firestore = useFirestore();
-  const storage = useStorage();
+  const app = useFirebaseApp();
   const auth = useAuth();
 
   const form = useForm<LoanApplicationValues>({
@@ -71,7 +68,7 @@ export default function ApplyPage() {
   const customerType = watch('customerType');
 
   const processForm: SubmitHandler<LoanApplicationValues> = async (data) => {
-    if (!firestore || !storage || !auth) {
+    if (!app || !auth) {
         toast({
             variant: 'destructive',
             title: 'Submission Failed',
@@ -81,79 +78,55 @@ export default function ApplyPage() {
     }
 
     try {
-      // --- 1. File Uploads in Parallel (First Step) ---
-      // This is more robust. If uploads fail, we don't create a user.
-      const uploadPromises: Promise<string>[] = [
-          uploadFile(storage, data.passportPhotoUrl, 'passports'),
-          uploadFile(storage, data.idUrl, 'ids')
-      ];
-      const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
+      // --- 1. Convert files to Base64 ---
+      const [passportPhoto, idFile] = await Promise.all([
+          fileToDataUrl(data.passportPhotoUrl),
+          fileToDataUrl(data.idUrl)
+      ]);
 
-      // --- 2. Create User Account ---
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      const user = userCredential.user;
+      // --- 2. Call the Cloud Function ---
+      const functions = getFunctions(app);
+      const submitApplication = httpsCallable(functions, 'submitApplicationAndCreateUser');
+      
+      const payload: any = { ...data, passportPhoto, idFile };
+      // Remove file objects before sending to function as they are not serializable
+      delete payload.passportPhotoUrl;
+      delete payload.idUrl;
+      delete payload.confirmPassword;
 
-      // --- 3. Create Submission Data ---
-      const submissionData: any = {
-        userId: user.uid,
-        fullName: data.fullName,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
-        placeOfEmployment: data.placeOfEmployment,
-        bvn: data.bvn,
-        loanAmount: data.loanAmount,
-        loanDuration: data.loanDuration,
-        customerType: data.customerType,
-        passportPhotoUrl, 
-        idUrl,
-        submissionDate: serverTimestamp(),
-        status: 'Processing',
-      };
+      const result = await submitApplication(payload);
+      const resultData = result.data as { success: boolean; message: string };
 
-      // Add guarantor info if customer type is Private Individual
-      if (data.customerType === 'Private Individual') {
-          submissionData.guarantorFullName = data.guarantorFullName;
-          submissionData.guarantorPhoneNumber = data.guarantorPhoneNumber;
-          submissionData.guarantorAddress = data.guarantorAddress;
-          submissionData.guarantorRelationship = data.guarantorRelationship;
+      if (!resultData.success) {
+          throw new Error(resultData.message);
       }
 
-      // --- 4. Save to Firestore ---
-      await addDoc(collection(firestore, 'loanApplications'), submissionData);
+      // --- 3. Auto-login the user ---
+      await signInWithEmailAndPassword(auth, data.email, data.password);
 
-      // --- 5. Redirect on Success ---
+      // --- 4. Redirect on Success ---
       toast({
-        title: 'Success!',
-        description: 'Account created and application submitted.',
+          title: 'Success!',
+          description: 'Account created and application submitted.',
       });
       router.push('/apply/thank-you');
 
     } catch (error: any) {
-      console.error('Submission Error:', error);
-      let description = 'An unexpected error occurred. Please check your inputs and try again.';
-      if (error.code) { // Firebase errors have a 'code' property
-          switch(error.code) {
-              case 'auth/email-already-in-use':
-                  description = 'This email address is already in use. Please log in or use a different email.';
-                  break;
-              case 'storage/unauthorized':
-                  description = "Permission denied to upload files. Please contact support.";
-                  break;
-              case 'storage/retry-limit-exceeded':
-                  description = 'Upload failed due to a network error. Please check your internet connection and try again.';
-                  break;
-              default:
-                  description = `An error occurred: ${error.message}`;
-                  break;
-          }
-      } else if (error.message) {
-          description = error.message;
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Submission Failed',
-        description: description,
-      });
+        console.error('Submission Error:', error);
+        let description = 'An unexpected error occurred. Please check your inputs and try again.';
+        
+        // Handle specific Cloud Function errors
+        if (error.code && error.message) {
+            description = error.message;
+        } else if (error.message) {
+            description = error.message;
+        }
+        
+        toast({
+            variant: 'destructive',
+            title: 'Submission Failed',
+            description: description,
+        });
     }
   };
   

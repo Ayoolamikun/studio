@@ -15,20 +15,25 @@ service firebase.storage {
     }
 
     // --- Public Upload Folders ---
-    // Allow anyone to write to these specific folders for the application form.
-    // This is necessary because the user is not authenticated when they apply.
+    // Direct client writes are disallowed. All application file uploads
+    // are handled securely by the `submitApplicationAndCreateUser` Cloud Function.
     match /passports/{allPaths=**} {
-      allow read, write: if true;
+      allow read: if true; // URLs are unguessable, stored in admin-only documents.
+      allow write: if false;
     }
     
     match /ids/{allPaths=**} {
-      allow read, write: if true;
+      allow read: if isAdmin(); // Only admins should be able to view ID documents.
+      allow write: if false;
     }
 
     // --- Authenticated User Folder ---
-    // Users can read and write files only within their own designated folder.
+    // This rule allows authenticated users to manage their own files via the 'My Files' page.
+    // Writes are handled securely by a dedicated Cloud Function.
     match /user-uploads/{userId}/{allPaths=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Direct client writes are denied; all uploads must go through the 'uploadFile' function.
+      allow write: if false;
     }
 
     // --- Admin-Only Excel Import Folder ---
@@ -39,5 +44,3 @@ service firebase.storage {
     }
   }
 }
-
-    

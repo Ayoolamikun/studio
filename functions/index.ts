@@ -407,3 +407,89 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("internal", error.message || "An unexpected error occurred during upload.");
     }
 });
+
+
+/**
+ * Handles the entire loan application submission process from the public form.
+ * This is a callable function that creates a user, uploads files, and creates a Firestore document.
+ */
+export const submitApplicationAndCreateUser = functions.https.onCall(async (data, context) => {
+    // 1. Basic data validation
+    const { 
+        email, password, fullName, phoneNumber, placeOfEmployment, customerType, bvn,
+        loanAmount, loanDuration, passportPhoto, idFile,
+        guarantorFullName, guarantorPhoneNumber, guarantorAddress, guarantorRelationship 
+    } = data;
+    
+    if (!email || !password || !fullName || !passportPhoto?.dataUrl || !idFile?.dataUrl) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing required fields for application.");
+    }
+
+    let userRecord;
+    try {
+        // 2. Create the user account in Firebase Auth
+        userRecord = await admin.auth().createUser({
+            email: email,
+            password: password,
+            displayName: fullName,
+            phoneNumber: phoneNumber,
+            emailVerified: false,
+        });
+    } catch (error: any) {
+        if (error.code === 'auth/email-already-exists') {
+            throw new functions.https.HttpsError('already-exists', 'An account with this email address already exists. Please log in.');
+        }
+        console.error("Auth creation error:", error);
+        throw new functions.https.HttpsError('internal', `Failed to create user account: ${error.message}`);
+    }
+
+    const userId = userRecord.uid;
+
+    try {
+        // 3. Upload files to Cloudinary using the existing helper
+        const [passportUploadResult, idUploadResult] = await Promise.all([
+             uploadToCloudinary(passportPhoto.dataUrl, 'passports', `${userId}-passport-${Date.now()}`),
+             uploadToCloudinary(idFile.dataUrl, 'ids', `${userId}-id-${Date.now()}`)
+        ]);
+
+        if (!passportUploadResult?.secure_url || !idUploadResult?.secure_url) {
+            throw new Error("One or more file uploads to Cloudinary failed.");
+        }
+
+        // 4. Prepare the application data for Firestore
+        const submissionData: any = {
+            userId: userId,
+            fullName: fullName,
+            email: email,
+            phoneNumber: phoneNumber,
+            placeOfEmployment: placeOfEmployment,
+            customerType: customerType,
+            bvn: bvn,
+            loanAmount: loanAmount,
+            loanDuration: loanDuration,
+            passportPhotoUrl: passportUploadResult.secure_url,
+            idUrl: idUploadResult.secure_url,
+            submissionDate: admin.firestore.FieldValue.serverTimestamp(),
+            status: 'Processing',
+        };
+        
+        // Conditionally add guarantor info
+        if (customerType === 'Private Individual') {
+            submissionData.guarantorFullName = guarantorFullName;
+            submissionData.guarantorPhoneNumber = guarantorPhoneNumber;
+            submissionData.guarantorAddress = guarantorAddress;
+            submissionData.guarantorRelationship = guarantorRelationship;
+        }
+
+        // 5. Save the application document to Firestore
+        await db.collection("loanApplications").add(submissionData);
+
+        return { success: true, message: "Application submitted successfully!" };
+
+    } catch (error: any) {
+        // 6. Cleanup on failure: If any step after user creation fails, delete the created user to allow them to try again.
+        console.error("Error during application processing, rolling back user creation.", error);
+        await admin.auth().deleteUser(userId);
+        throw new functions.https.HttpsError("internal", "A server error occurred while processing your application. Your user account was not created. Please try again.");
+    }
+});
