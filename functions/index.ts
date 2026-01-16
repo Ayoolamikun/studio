@@ -9,19 +9,10 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as xlsx from "xlsx";
 import axios from "axios";
-import { v2 as cloudinary } from "cloudinary";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
-
-// Configure Cloudinary using Firebase function config
-// These values are set using the `firebase functions:config:set` command
-cloudinary.config({
-  cloud_name: functions.config().cloudinary.cloud_name,
-  api_key: functions.config().cloudinary.api_key,
-  api_secret: functions.config().cloudinary.api_secret,
-});
 
 
 // This function is now the single source of truth for flat interest calculations.
@@ -174,28 +165,44 @@ export const processExcelUpload = functions.storage
 
 
 /**
- * Uploads a file to Cloudinary and returns metadata. Does not save to Firestore.
+ * Uploads a base64 encoded file to Firebase Storage and returns metadata.
  */
-const uploadToCloudinary = async (file: string, folder: string, fileName: string) => {
-    try {
-        const result = await cloudinary.uploader.upload(file, {
-            folder: folder,
-            resource_type: "auto",
-            public_id: fileName ? fileName.split(".")[0] : undefined,
-        });
-        return result;
-    } catch (error: any) {
-        console.error("Cloudinary Upload error:", error);
-        throw new functions.https.HttpsError("internal", `Cloudinary upload failed: ${error.message}`);
+const uploadBase64ToStorage = async (base64: string, destination: string) => {
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(destination);
+
+    const matches = base64.match(/^data:(.+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid base64 string format.');
     }
+    const contentType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+
+    await file.save(buffer, {
+        metadata: { contentType },
+    });
+
+    // Generate a long-lived signed URL for file access.
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-09-2491', // Far-future expiration date
+    });
+    
+    const [metadata] = await file.getMetadata();
+
+    return {
+        url,
+        path: destination,
+        contentType: metadata.contentType,
+        size: metadata.size,
+    };
 };
 
 /**
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
-    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
+    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
@@ -221,7 +228,6 @@ export const approveApplication = functions.https.onCall(async (data, context) =
         const batch = db.batch();
 
         let customerId: string;
-        // Use BVN as the Customer document ID for uniqueness
         const customerRef = db.collection("Customers").doc(appData.bvn);
         const customerDoc = await customerRef.get();
 
@@ -238,8 +244,6 @@ export const approveApplication = functions.https.onCall(async (data, context) =
             customerId = customerDoc.id;
         }
         
-        // Calculate loan terms. Assuming a flat monthly interest rate for simplicity.
-        // THIS IS A PLACEHOLDER. Replace with your actual interest logic.
         const interestRate = 0.05; // 5% flat monthly interest
         const { totalInterest, totalRepayment, monthlyRepayment } = calculateLoanDetails(appData.loanAmount, appData.loanDuration, interestRate);
 
@@ -249,13 +253,13 @@ export const approveApplication = functions.https.onCall(async (data, context) =
             applicationId: applicationId,
             loanAmount: appData.loanAmount,
             duration: appData.loanDuration,
-            interestRate: interestRate, // Store the rate used
+            interestRate: interestRate,
             totalInterest: totalInterest,
             totalRepayment: totalRepayment,
             monthlyRepayment: monthlyRepayment,
             amountPaid: 0,
             outstandingBalance: totalRepayment,
-            status: "Approved", // Initial status for a new loan.
+            status: "Approved",
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -275,8 +279,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
  * Updates the status of a loan. Admin-only.
  */
 export const updateLoanStatus = functions.https.onCall(async (data, context) => {
-    // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
-    const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
+    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
     }
@@ -299,10 +302,9 @@ export const updateLoanStatus = functions.https.onCall(async (data, context) => 
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
-        // If marking as disbursed, set the disbursed date and immediately move to Active
         if (status === "Disbursed") {
             payload.disbursedAt = admin.firestore.FieldValue.serverTimestamp();
-            payload.status = "Active"; // Automatically transition to Active
+            payload.status = "Active";
         }
 
         await loanRef.update(payload);
@@ -312,31 +314,6 @@ export const updateLoanStatus = functions.https.onCall(async (data, context) => 
         console.error("Update Loan Status Error:", error);
         throw new functions.https.HttpsError("internal", error.message || "Failed to update loan status.");
     }
-});
-
-
-/**
- * Saves file metadata to Firestore after a successful Cloudinary upload.
- * This function is callable by an authenticated user.
- */
-export const saveFileMetadata = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
-  }
-  const { fileUrl, publicId, fileName, fileType, size } = data;
-  if (!fileUrl || !publicId || !fileName || !fileType || !size) {
-    throw new functions.https.HttpsError("invalid-argument", "Missing required file metadata.");
-  }
-  await db.collection("userFiles").add({
-    userId: context.auth.uid,
-    fileUrl,
-    publicId,
-    fileName,
-    fileType,
-    size,
-    uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-  return { success: true };
 });
 
 /**
@@ -356,52 +333,60 @@ export const getUserFiles = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * Deletes a file from Cloudinary and its corresponding metadata from Firestore.
+ * Deletes a file from Firebase Storage and its corresponding metadata from Firestore.
  */
 export const deleteFile = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
   }
-  const { fileId, publicId } = data;
-  if (!fileId || !publicId) {
-    throw new functions.https.HttpsError("invalid-argument", "fileId and publicId are required.");
+  const { fileId } = data;
+  if (!fileId) {
+    throw new functions.https.HttpsError("invalid-argument", "fileId is required.");
   }
+
   const fileRef = db.collection("userFiles").doc(fileId);
   const doc = await fileRef.get();
+
   if (!doc.exists || doc.data()?.userId !== context.auth.uid) {
     throw new functions.https.HttpsError("permission-denied", "You do not have permission to delete this file.");
   }
-  await cloudinary.uploader.destroy(publicId, { resource_type: doc.data()?.fileType === "raw" ? "raw" : "image" });
+
+  const filePath = doc.data()?.filePath;
+  if (filePath) {
+    await admin.storage().bucket().file(filePath).delete();
+  }
+  
   await fileRef.delete();
   return { success: true };
 });
 
 /**
- * Handles file uploads from the client, sends to Cloudinary, and saves metadata.
+ * Handles file uploads from the client, sends to Firebase Storage, and saves metadata.
  */
 export const uploadFile = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "You must be authenticated.");
     }
-    const { file, fileName, folder } = data;
+    const { file, fileName } = data;
     if (!file || !fileName) {
         throw new functions.https.HttpsError("invalid-argument", "File and fileName are required.");
     }
 
     try {
-        const result = await uploadToCloudinary(file, `${folder}/${context.auth.uid}`, fileName);
+        const destination = `user-uploads/${context.auth.uid}/${Date.now()}-${fileName}`;
+        const result = await uploadBase64ToStorage(file, destination);
         
         await db.collection("userFiles").add({
             userId: context.auth.uid,
-            fileUrl: result.secure_url,
-            publicId: result.public_id,
+            fileUrl: result.url,
+            filePath: result.path,
             fileName: fileName,
-            fileType: result.resource_type,
-            size: result.bytes,
+            fileType: result.contentType,
+            size: result.size,
             uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        return { success: true, url: result.secure_url };
+        return { success: true, url: result.url };
     } catch (error: any) {
         console.error("Upload failed", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected error occurred during upload.");
@@ -411,10 +396,8 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
 
 /**
  * Handles the entire loan application submission process from the public form.
- * This is a callable function that creates a user, uploads files, and creates a Firestore document.
  */
 export const submitApplicationAndCreateUser = functions.https.onCall(async (data, context) => {
-    // 1. Basic data validation
     const { 
         email, password, fullName, phoneNumber, placeOfEmployment, customerType, bvn,
         loanAmount, loanDuration, passportPhoto, idFile,
@@ -427,7 +410,6 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
 
     let userRecord;
     try {
-        // 2. Create the user account in Firebase Auth
         userRecord = await admin.auth().createUser({
             email: email,
             password: password,
@@ -446,17 +428,15 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
     const userId = userRecord.uid;
 
     try {
-        // 3. Upload files to Cloudinary using the existing helper
         const [passportUploadResult, idUploadResult] = await Promise.all([
-             uploadToCloudinary(passportPhoto.dataUrl, 'passports', `${userId}-passport-${Date.now()}`),
-             uploadToCloudinary(idFile.dataUrl, 'ids', `${userId}-id-${Date.now()}`)
+             uploadBase64ToStorage(passportPhoto.dataUrl, `application-files/${userId}/passport-${Date.now()}`),
+             uploadBase64ToStorage(idFile.dataUrl, `application-files/${userId}/id-${Date.now()}`)
         ]);
 
-        if (!passportUploadResult?.secure_url || !idUploadResult?.secure_url) {
-            throw new Error("One or more file uploads to Cloudinary failed.");
+        if (!passportUploadResult?.url || !idUploadResult?.url) {
+            throw new Error("One or more file uploads to Firebase Storage failed.");
         }
 
-        // 4. Prepare the application data for Firestore
         const submissionData: any = {
             userId: userId,
             fullName: fullName,
@@ -467,13 +447,12 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             bvn: bvn,
             loanAmount: loanAmount,
             loanDuration: loanDuration,
-            passportPhotoUrl: passportUploadResult.secure_url,
-            idUrl: idUploadResult.secure_url,
+            passportPhotoUrl: passportUploadResult.url,
+            idUrl: idUploadResult.url,
             submissionDate: admin.firestore.FieldValue.serverTimestamp(),
             status: 'Processing',
         };
         
-        // Conditionally add guarantor info
         if (customerType === 'Private Individual') {
             submissionData.guarantorFullName = guarantorFullName;
             submissionData.guarantorPhoneNumber = guarantorPhoneNumber;
@@ -481,13 +460,11 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             submissionData.guarantorRelationship = guarantorRelationship;
         }
 
-        // 5. Save the application document to Firestore
         await db.collection("loanApplications").add(submissionData);
 
         return { success: true, message: "Application submitted successfully!" };
 
     } catch (error: any) {
-        // 6. Cleanup on failure: If any step after user creation fails, delete the created user to allow them to try again.
         console.error("Error during application processing, rolling back user creation.", error);
         await admin.auth().deleteUser(userId);
         throw new functions.https.HttpsError("internal", "A server error occurred while processing your application. Your user account was not created. Please try again.");

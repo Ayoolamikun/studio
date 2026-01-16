@@ -16,9 +16,9 @@ import { format } from 'date-fns';
 type CloudFile = {
   id: string;
   fileUrl: string;
-  publicId: string;
+  filePath: string;
   fileName: string;
-  fileType: 'image' | 'video' | 'raw';
+  fileType: 'image' | 'video' | 'raw' | string; // Loosen type for other content-types
   size: number;
   uploadedAt: string;
 };
@@ -92,7 +92,6 @@ export default function FileUploadPage() {
       await uploadFile({
         file: base64File,
         fileName: file.name,
-        folder: 'user-uploads',
       });
 
       toast({
@@ -114,14 +113,14 @@ export default function FileUploadPage() {
   };
 
   // Delete file
-  const handleDelete = async (fileId: string, publicId: string) => {
+  const handleDelete = async (fileId: string) => {
     if (!functions || !window.confirm('Are you sure you want to delete this file?')) {
       return;
     }
 
     try {
       const deleteFile = httpsCallable(functions, 'deleteFile');
-      await deleteFile({ fileId, publicId });
+      await deleteFile({ fileId });
 
       toast({
         title: 'Success!',
@@ -138,12 +137,11 @@ export default function FileUploadPage() {
     }
   };
 
-  const getFileIcon = (fileType: string) => {
-      switch(fileType) {
-          case 'image': return <ImageIcon className="h-16 w-16 text-muted-foreground" />;
-          case 'video': return <Video className="h-16 w-16 text-muted-foreground" />;
-          default: return <FileIcon className="h-16 w-16 text-muted-foreground" />;
-      }
+  const getFileIcon = (fileType: string | undefined) => {
+      if (!fileType) return <FileIcon className="h-16 w-16 text-muted-foreground" />;
+      if (fileType.startsWith('image/')) return <ImageIcon className="h-16 w-16 text-muted-foreground" />;
+      if (fileType.startsWith('video/')) return <Video className="h-16 w-16 text-muted-foreground" />;
+      return <FileIcon className="h-16 w-16 text-muted-foreground" />;
   }
 
   return (
@@ -194,14 +192,14 @@ export default function FileUploadPage() {
                     <Card key={file.id} className="flex flex-col overflow-hidden">
                         <CardContent className="p-0">
                             <div className="relative aspect-video w-full bg-secondary flex items-center justify-center">
-                                {file.fileType === 'image' ? (
+                                {file.fileType.startsWith('image/') ? (
                                     <Image
                                         src={file.fileUrl}
                                         alt={file.fileName}
                                         fill
                                         className="object-cover"
                                     />
-                                ) : file.fileType === 'video' ? (
+                                ) : file.fileType.startsWith('video/') ? (
                                     <video
                                         src={file.fileUrl}
                                         controls
@@ -229,7 +227,7 @@ export default function FileUploadPage() {
                                 <Button
                                     size="sm"
                                     variant="destructive"
-                                    onClick={() => handleDelete(file.id, file.publicId)}
+                                    onClick={() => handleDelete(file.id)}
                                     className="flex-1"
                                 >
                                     <Trash2 className="mr-2 h-4 w-4" /> Delete
