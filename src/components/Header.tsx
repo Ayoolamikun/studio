@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Logo from './Logo';
 import { useUser } from '@/firebase';
+import { cn } from '@/lib/utils';
 
 const navLinks = [
   { name: 'Home', href: '/' },
@@ -16,8 +17,8 @@ const navLinks = [
   { name: 'Contact Us', href: '/#contact' },
 ];
 
-const NavLink = ({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) => (
-  <Link href={href} onClick={onClick} className="font-medium text-foreground/80 transition-colors hover:text-primary text-lg">
+const NavLink = ({ href, children, onClick, className }: { href: string; children: React.ReactNode; onClick?: () => void, className?: string }) => (
+  <Link href={href} onClick={onClick} className={cn("font-medium text-foreground/80 transition-colors hover:text-primary", className)}>
     {children}
   </Link>
 );
@@ -25,16 +26,46 @@ const NavLink = ({ href, children, onClick }: { href: string; children: React.Re
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isUserLoading } = useUser();
+  const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
-        <div className="flex items-center gap-4">
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6 text-sm">
+          {navLinks.map((link) => (
+            <NavLink key={link.name} href={link.href}>
+              {link.name}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
+           {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex items-center gap-2">
+            {!isUserLoading && !user && (
+              <>
+                <Button asChild variant="ghost">
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/apply">Sign Up</Link>
+                </Button>
+              </>
+            )}
+            {!isUserLoading && user && (
+              <Button asChild>
+                <Link href={user.uid === adminUid ? '/admin' : '/dashboard'}>My Dashboard</Link>
+              </Button>
+            )}
+          </div>
+
+          {/* Mobile Menu */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
               </Button>
@@ -48,7 +79,7 @@ export default function Header() {
               <div className="p-4 mt-8">
                 <nav className="flex flex-col items-start gap-6">
                   {navLinks.map((link) => (
-                    <NavLink key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)}>
+                    <NavLink key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)} className="text-lg">
                       {link.name}
                     </NavLink>
                   ))}
@@ -57,10 +88,10 @@ export default function Header() {
 
                   {!isUserLoading && !user && (
                     <>
-                      <NavLink href="/login" onClick={() => setIsMenuOpen(false)}>
+                      <NavLink href="/login" onClick={() => setIsMenuOpen(false)} className="text-lg">
                         Login
                       </NavLink>
-                      <NavLink href="/apply" onClick={() => setIsMenuOpen(false)}>
+                      <NavLink href="/apply" onClick={() => setIsMenuOpen(false)} className="text-lg">
                         Sign Up
                       </NavLink>
                     </>
@@ -68,7 +99,7 @@ export default function Header() {
 
                   {!isUserLoading && user && (
                     <Button asChild variant="secondary" className="w-full text-lg h-12">
-                      <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
+                      <Link href={user.uid === adminUid ? '/admin' : '/dashboard'} onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
                     </Button>
                   )}
                 </nav>
