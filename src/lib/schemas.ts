@@ -17,8 +17,21 @@ export const loanApplicationSchema = z.object({
   loanAmount: z.coerce.number({ invalid_type_error: "Please enter a valid amount." }).positive("Loan amount must be positive."),
   loanDuration: z.coerce.number({ invalid_type_error: "Please enter a valid duration." }).int().positive("Duration must be at least 1 month."),
   
-  passportPhotoUrl: z.any().optional(),
-  idUrl: z.any().optional(),
+  passportPhotoUrl: z.any()
+    .refine((file) => file, "Passport photograph is required.")
+    .refine((file) => file?.size <= MAX_FILE_SIZE, `Max image size is 2MB.`)
+    .refine(
+      (file) => ACCEPTED_PHOTO_TYPES.includes(file?.type),
+      "Only .jpg, .jpeg, .png and .webp formats are supported."
+    ),
+
+  idUrl: z.any()
+    .refine((file) => file, "Valid ID is required.")
+    .refine((file) => file?.size <= MAX_FILE_SIZE, `Max file size is 2MB.`)
+    .refine(
+      (file) => ACCEPTED_ID_TYPES.includes(file?.type),
+      "Only .jpg, .jpeg, .png, .webp, and .pdf formats are supported."
+    ),
 
   guarantorFullName: z.string().optional(),
   guarantorPhoneNumber: z.string().optional(),

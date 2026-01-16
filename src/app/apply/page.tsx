@@ -18,7 +18,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/Spinner';
-import { loanApplicationSchema, type LoanApplicationValues, ACCEPTED_ID_TYPES, ACCEPTED_PHOTO_TYPES, MAX_FILE_SIZE } from '@/lib/schemas';
+import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -36,20 +36,6 @@ const uploadFile = async (file: File, path: string): Promise<string> => {
   const snapshot = await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(snapshot.ref);
   return downloadURL;
-};
-
-// A helper function to validate a single file. Returns an error message string or null if valid.
-const validateFile = (file: any, acceptedTypes: string[], fieldName: string): string | null => {
-    if (!file || !(file instanceof File)) {
-        return `${fieldName} is required.`;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-        return `${fieldName} is too large. Max size is 2MB.`;
-    }
-    if (!acceptedTypes.includes(file.type)) {
-        return `Invalid file type for ${fieldName}. Please upload one of: ${acceptedTypes.join(', ')}.`;
-    }
-    return null;
 };
 
 
@@ -97,31 +83,17 @@ export default function ApplyPage() {
       // --- 1. Create User Account ---
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const user = userCredential.user;
-
-      // --- 2. Manual File Validation ---
-      const passportFile = data.passportPhotoUrl as File;
-      const idFile = data.idUrl as File;
-
-      const passportError = validateFile(passportFile, ACCEPTED_PHOTO_TYPES, 'Passport photograph');
-      if (passportError) {
-          toast({ variant: 'destructive', title: 'Validation Error', description: passportError });
-          return; // Stop submission
-      }
-      const idError = validateFile(idFile, ACCEPTED_ID_TYPES, 'Valid ID');
-      if (idError) {
-          toast({ variant: 'destructive', title: 'Validation Error', description: idError });
-          return; // Stop submission
-      }
       
-      // --- 3. File Uploads in Parallel ---
+      // --- 2. File Uploads in Parallel ---
+      // Zod has already validated the files, so we can upload them directly.
       const uploadPromises: Promise<string>[] = [
-          uploadFile(passportFile, 'passports'),
-          uploadFile(idFile, 'ids')
+          uploadFile(data.passportPhotoUrl, 'passports'),
+          uploadFile(data.idUrl, 'ids')
       ];
       
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
-      // --- 4. Create Submission Data ---
+      // --- 3. Create Submission Data ---
       const submissionData: any = {
         userId: user.uid,
         fullName: data.fullName,
@@ -146,10 +118,10 @@ export default function ApplyPage() {
           submissionData.guarantorRelationship = data.guarantorRelationship;
       }
 
-      // --- 5. Save to Firestore ---
+      // --- 4. Save to Firestore ---
       await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
-      // --- 6. Redirect on Success ---
+      // --- 5. Redirect on Success ---
       toast({
         title: 'Success!',
         description: 'Account created and application submitted. Redirecting to your dashboard...',
