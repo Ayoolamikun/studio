@@ -18,7 +18,7 @@ type CloudFile = {
   fileUrl: string;
   filePath: string;
   fileName: string;
-  fileType: 'image' | 'video' | 'raw' | string; // Loosen type for other content-types
+  fileType: string;
   size: number;
   uploadedAt: string;
 };
@@ -137,13 +137,6 @@ export default function FileUploadPage() {
     }
   };
 
-  const getFileIcon = (fileType: string | undefined) => {
-      if (!fileType) return <FileIcon className="h-16 w-16 text-muted-foreground" />;
-      if (fileType.startsWith('image/')) return <ImageIcon className="h-16 w-16 text-muted-foreground" />;
-      if (fileType.startsWith('video/')) return <Video className="h-16 w-16 text-muted-foreground" />;
-      return <FileIcon className="h-16 w-16 text-muted-foreground" />;
-  }
-
   return (
     <div className="container py-8 md:py-12">
       <Card>
@@ -192,22 +185,28 @@ export default function FileUploadPage() {
                     <Card key={file.id} className="flex flex-col overflow-hidden">
                         <CardContent className="p-0">
                             <div className="relative aspect-video w-full bg-secondary flex items-center justify-center">
-                                {file.fileType.startsWith('image/') ? (
-                                    <Image
+                               {(() => {
+                                  if (file.fileType.startsWith('image/')) {
+                                    return (
+                                      <Image
                                         src={file.fileUrl}
                                         alt={file.fileName}
                                         fill
                                         className="object-cover"
-                                    />
-                                ) : file.fileType.startsWith('video/') ? (
-                                    <video
+                                      />
+                                    );
+                                  } else if (file.fileType.startsWith('video/')) {
+                                    return (
+                                      <video
                                         src={file.fileUrl}
                                         controls
                                         className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    getFileIcon(file.fileType)
-                                )}
+                                      />
+                                    );
+                                  } else {
+                                    return <FileIcon className="h-16 w-16 text-muted-foreground" />;
+                                  }
+                                })()}
                             </div>
                         </CardContent>
                         <div className="p-4 flex flex-col flex-grow">
