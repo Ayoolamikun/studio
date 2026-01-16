@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { useFirebaseApp, useAuth } from '@/firebase';
 import Header from '@/components/Header';
@@ -20,18 +21,6 @@ import { Spinner } from '@/components/Spinner';
 import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-/**
- * Converts a File object to a base64 encoded data URL.
- */
-const fileToDataUrl = (file: File): Promise<{ dataUrl: string, name: string }> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve({ dataUrl: reader.result as string, name: file.name });
-    reader.onerror = error => reject(error);
-  });
-};
 
 
 export default function ApplyPage() {
@@ -78,21 +67,31 @@ export default function ApplyPage() {
     }
 
     try {
-      // --- 1. Convert files to Base64 ---
-      const [passportPhoto, idFile] = await Promise.all([
-          fileToDataUrl(data.passportPhotoUrl),
-          fileToDataUrl(data.idUrl)
-      ]);
+      // --- 1. Upload Files directly to Firebase Storage ---
+      const storage = getStorage(app);
+      const submissionId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-      // --- 2. Call the Cloud Function ---
+      // Upload Passport Photo
+      const passportPhotoRef = ref(storage, `application-uploads/${submissionId}/${data.passportPhotoUrl.name}`);
+      await uploadBytes(passportPhotoRef, data.passportPhotoUrl);
+      const passportPhotoUrl = await getDownloadURL(passportPhotoRef);
+
+      // Upload ID File
+      const idFileRef = ref(storage, `application-uploads/${submissionId}/${data.idUrl.name}`);
+      await uploadBytes(idFileRef, data.idUrl);
+      const idUrl = await getDownloadURL(idFileRef);
+
+      // --- 2. Call the Cloud Function with file URLs ---
       const functions = getFunctions(app);
       const submitApplication = httpsCallable(functions, 'submitApplicationAndCreateUser');
       
-      const payload: any = { ...data, passportPhoto, idFile };
-      // Remove file objects before sending to function as they are not serializable
-      delete payload.passportPhotoUrl;
-      delete payload.idUrl;
-      delete payload.confirmPassword;
+      const payload = { 
+        ...data, 
+        passportPhotoUrl, // Send the URL string
+        idUrl, // Send the URL string
+      };
+      // Remove unnecessary fields before sending
+      delete (payload as any).confirmPassword;
 
       const result = await submitApplication(payload);
       const resultData = result.data as { success: boolean; message: string };
@@ -115,10 +114,9 @@ export default function ApplyPage() {
         console.error('Submission Error:', error);
         let description = 'An unexpected error occurred. Please check your inputs and try again.';
         
-        // Handle specific Cloud Function errors
-        if (error.code && error.message) {
+        if (error.code && error.message) { // Handle Firebase errors (from storage or functions)
             description = error.message;
-        } else if (error.message) {
+        } else if (error.message) { // Handle generic errors
             description = error.message;
         }
         
@@ -286,3 +284,5 @@ export default function ApplyPage() {
     </div>
   );
 }
+
+    

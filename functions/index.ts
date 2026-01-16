@@ -163,40 +163,6 @@ export const processExcelUpload = functions.storage
     }
   });
 
-
-/**
- * Uploads a base64 encoded file to Firebase Storage, makes it public, and returns metadata.
- */
-const uploadBase64ToStorage = async (base64: string, destination: string) => {
-    const bucket = admin.storage().bucket();
-    const file = bucket.file(destination);
-
-    const matches = base64.match(/^data:(.+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-        throw new functions.https.HttpsError('invalid-argument', 'Invalid base64 string format.');
-    }
-    const contentType = matches[1];
-    const buffer = Buffer.from(matches[2], 'base64');
-
-    // Save the file and make it publicly readable.
-    await file.save(buffer, {
-        metadata: { contentType },
-        public: true
-    });
-
-    // Construct the public URL.
-    const url = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-    
-    const [metadata] = await file.getMetadata();
-
-    return {
-        url,
-        path: destination,
-        contentType: metadata.contentType,
-        size: metadata.size,
-    };
-};
-
 /**
  * Approves a loan application, creating a Customer and a Loan document.
  */
@@ -373,19 +339,31 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
 
     try {
         const destination = `user-uploads/${context.auth.uid}/${Date.now()}-${fileName}`;
-        const result = await uploadBase64ToStorage(file, destination);
         
+        const bucket = admin.storage().bucket();
+        const bucketFile = bucket.file(destination);
+
+        const matches = file.match(/^data:(.+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid base64 string format.');
+        }
+        const contentType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        
+        await bucketFile.save(buffer, { metadata: { contentType } });
+        const [metadata] = await bucketFile.getMetadata();
+
         await db.collection("userFiles").add({
             userId: context.auth.uid,
-            fileUrl: result.url,
-            filePath: result.path,
+            fileUrl: bucketFile.publicUrl(),
+            filePath: destination,
             fileName: fileName,
-            fileType: result.contentType,
-            size: result.size,
+            fileType: metadata.contentType,
+            size: metadata.size,
             uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        return { success: true, url: result.url };
+        return { success: true, url: bucketFile.publicUrl() };
     } catch (error: any) {
         console.error("Upload failed", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected error occurred during upload.");
@@ -400,11 +378,12 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
 export const submitApplicationAndCreateUser = functions.https.onCall(async (data, context) => {
     const { 
         email, password, fullName, phoneNumber, placeOfEmployment, customerType, bvn,
-        loanAmount, loanDuration, passportPhoto, idFile,
+        loanAmount, loanDuration, passportPhotoUrl, idUrl,
         guarantorFullName, guarantorPhoneNumber, guarantorAddress, guarantorRelationship 
     } = data;
     
-    if (!email || !password || !fullName || !passportPhoto?.dataUrl || !idFile?.dataUrl) {
+    // The URLs are now passed directly from the client.
+    if (!email || !password || !fullName || !passportPhotoUrl || !idUrl) {
         throw new functions.https.HttpsError("invalid-argument", "Missing required fields for application submission.");
     }
 
@@ -419,15 +398,10 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             phoneNumber: phoneNumber,
             emailVerified: false,
         });
-        userId = userRecord.uid; // Assign userId immediately after creation
+        userId = userRecord.uid;
 
-        // STEP 2: Upload passport photo.
-        const passportUploadResult = await uploadBase64ToStorage(passportPhoto.dataUrl, `application-files/${userId}/passport-${Date.now()}`);
-
-        // STEP 3: Upload ID file.
-        const idUploadResult = await uploadBase64ToStorage(idFile.dataUrl, `application-files/${userId}/id-${Date.now()}`);
-
-        // STEP 4: Prepare data for Firestore.
+        // STEP 2: Prepare data for Firestore.
+        // File uploads are now done on the client, so we just save the URLs.
         const submissionData: any = {
             userId: userId,
             fullName: fullName,
@@ -438,8 +412,8 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             bvn: bvn,
             loanAmount: loanAmount,
             loanDuration: loanDuration,
-            passportPhotoUrl: passportUploadResult.url,
-            idUrl: idUploadResult.url,
+            passportPhotoUrl: passportPhotoUrl, // This is now a URL string
+            idUrl: idUrl, // This is now a URL string
             submissionDate: admin.firestore.FieldValue.serverTimestamp(),
             status: 'Processing',
         };
@@ -451,7 +425,7 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             submissionData.guarantorRelationship = guarantorRelationship;
         }
 
-        // STEP 5: Write the application to Firestore.
+        // STEP 3: Write the application to Firestore.
         await db.collection("loanApplications").add(submissionData);
 
         // If all steps succeed, return success.
@@ -467,7 +441,6 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
                 console.log(`Successfully rolled back user creation for UID: ${userId}`);
             } catch (rollbackError) {
                 console.error(`CRITICAL: Failed to roll back user creation for UID: ${userId}. Manual cleanup required. Rollback error:`, rollbackError);
-                // We still want to throw the original error, so we don't re-throw here.
             }
         }
         
@@ -476,8 +449,10 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             throw new functions.https.HttpsError('already-exists', 'An account with this email address already exists. Please log in.');
         }
 
-        // For all other errors (from auth, storage, or firestore), throw a properly formatted HttpsError.
+        // For all other errors, throw a properly formatted HttpsError.
         const errorMessage = error.message || "An unexpected server error occurred during submission.";
         throw new functions.https.HttpsError("internal", `Submission failed: ${errorMessage}`);
     }
 });
+
+    
