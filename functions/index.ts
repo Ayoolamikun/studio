@@ -395,6 +395,7 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
 
 /**
  * Handles the entire loan application submission process from the public form.
+ * This version uses a single try-catch block for robust error handling and rollback.
  */
 export const submitApplicationAndCreateUser = functions.https.onCall(async (data, context) => {
     const { 
@@ -404,11 +405,12 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
     } = data;
     
     if (!email || !password || !fullName || !passportPhoto?.dataUrl || !idFile?.dataUrl) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing required fields for application.");
+        throw new functions.https.HttpsError("invalid-argument", "Missing required fields for application submission.");
     }
 
     let userRecord;
     try {
+        // STEP 1: Create the user account first.
         userRecord = await admin.auth().createUser({
             email: email,
             password: password,
@@ -417,36 +419,30 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             emailVerified: false,
         });
     } catch (error: any) {
+        // If user creation fails (e.g., email exists), throw an error immediately.
         if (error.code === 'auth/email-already-exists') {
             throw new functions.https.HttpsError('already-exists', 'An account with this email address already exists. Please log in.');
         }
         console.error("Auth creation error:", error);
+        // For other auth errors, return a clear message.
         throw new functions.https.HttpsError('internal', `Failed to create user account: ${error.message}`);
     }
 
     const userId = userRecord.uid;
 
+    // This is the main processing block. If anything fails here, we roll back user creation.
     try {
-        let passportUploadResult;
-        try {
-            console.log(`Starting passport photo upload for user: ${userId}`);
-            passportUploadResult = await uploadBase64ToStorage(passportPhoto.dataUrl, `application-files/${userId}/passport-${Date.now()}`);
-            console.log(`Passport photo upload successful for user: ${userId}`);
-        } catch (uploadError: any) {
-            console.error(`Passport photo upload FAILED for user ${userId}:`, uploadError);
-            throw new Error(`Passport photo upload failed: ${uploadError.message}`);
-        }
+        // STEP 2: Upload passport photo.
+        console.log(`Starting passport photo upload for user: ${userId}`);
+        const passportUploadResult = await uploadBase64ToStorage(passportPhoto.dataUrl, `application-files/${userId}/passport-${Date.now()}`);
+        console.log(`Passport photo upload successful for user: ${userId}`);
 
-        let idUploadResult;
-        try {
-            console.log(`Starting ID file upload for user: ${userId}`);
-            idUploadResult = await uploadBase64ToStorage(idFile.dataUrl, `application-files/${userId}/id-${Date.now()}`);
-            console.log(`ID file upload successful for user: ${userId}`);
-        } catch (uploadError: any) {
-            console.error(`ID file upload FAILED for user ${userId}:`, uploadError);
-            throw new Error(`ID file upload failed: ${uploadError.message}`);
-        }
+        // STEP 3: Upload ID file.
+        console.log(`Starting ID file upload for user: ${userId}`);
+        const idUploadResult = await uploadBase64ToStorage(idFile.dataUrl, `application-files/${userId}/id-${Date.now()}`);
+        console.log(`ID file upload successful for user: ${userId}`);
 
+        // STEP 4: Prepare data for Firestore.
         const submissionData: any = {
             userId: userId,
             fullName: fullName,
@@ -470,26 +466,30 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
             submissionData.guarantorRelationship = guarantorRelationship;
         }
 
+        // STEP 5: Write the application to Firestore.
         console.log(`Writing application to Firestore for user: ${userId}`);
         await db.collection("loanApplications").add(submissionData);
         console.log(`Firestore write successful for user: ${userId}`);
 
+        // If all steps succeed, return success.
         return { success: true, message: "Application submitted successfully!" };
 
     } catch (error: any) {
+        // This single catch block handles failures from any of the steps inside the 'try'.
         console.error(`Error during application processing for user ${userId}. The original error was:`, error);
         
+        // Attempt to roll back the user creation since the rest of the application failed.
         try {
             console.log(`Attempting to roll back user creation for UID: ${userId}`);
             await admin.auth().deleteUser(userId);
             console.log(`Successfully rolled back user creation for UID: ${userId}`);
         } catch (rollbackError) {
+            // This is a critical failure state. The user exists but their application doesn't.
             console.error(`CRITICAL: Failed to roll back user creation for UID: ${userId}. Manual cleanup required. Rollback error:`, rollbackError);
         }
 
-        const errorMessage = error.message || "An unexpected server error occurred during processing.";
+        // Always throw a specific, useful error message back to the client.
+        const errorMessage = (error as Error).message || "An unexpected server error occurred during processing.";
         throw new functions.https.HttpsError("internal", errorMessage);
     }
 });
-
-    
