@@ -8,7 +8,7 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
-import { firestore, storage, auth } from '@/firebase';
+import { useFirestore, useStorage, useAuth } from '@/firebase';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -21,12 +21,12 @@ import { Spinner } from '@/components/Spinner';
 import { loanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Storage } from 'firebase/storage';
 
 /**
  * A helper function to upload a single file to Firebase Storage.
  */
-const uploadFile = async (file: File, path: string): Promise<string> => {
-  if (!storage) throw new Error("Firebase Storage is not initialized.");
+const uploadFile = async (storage: Storage, file: File, path: string): Promise<string> => {
   if (!file) throw new Error(`Invalid file provided for path: ${path}`);
   
   const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
@@ -39,6 +39,10 @@ const uploadFile = async (file: File, path: string): Promise<string> => {
 export default function ApplyPage() {
   const { toast } = useToast();
   const router = useRouter();
+
+  const firestore = useFirestore();
+  const storage = useStorage();
+  const auth = useAuth();
 
   const form = useForm<LoanApplicationValues>({
     resolver: zodResolver(loanApplicationSchema),
@@ -80,8 +84,8 @@ export default function ApplyPage() {
       // --- 1. File Uploads in Parallel (First Step) ---
       // This is more robust. If uploads fail, we don't create a user.
       const uploadPromises: Promise<string>[] = [
-          uploadFile(data.passportPhotoUrl, 'passports'),
-          uploadFile(data.idUrl, 'ids')
+          uploadFile(storage, data.passportPhotoUrl, 'passports'),
+          uploadFile(storage, data.idUrl, 'ids')
       ];
       const [passportPhotoUrl, idUrl] = await Promise.all(uploadPromises);
 
@@ -309,5 +313,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
