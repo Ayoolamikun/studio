@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useAuth } from '@/firebase';
+import { getStorage, ref, getDownloadURL } from 'firebase/storage';
+import { useAuth, useFirebaseApp } from '@/firebase'; // useFirebaseApp to get storage
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/Spinner';
@@ -11,16 +12,18 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, Image as ImageIcon, Video, File as FileIcon, Trash2, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Type for the file data returned from the Cloud Function
+
+// Type for the file data from the Cloud Function
 type CloudFile = {
   id: string;
-  fileUrl: string;
   filePath: string;
   fileName: string;
   fileType: string;
   size: number;
   uploadedAt: string;
+  // fileUrl is no longer provided directly from Firestore
 };
 
 // Helper to convert file to Base64
@@ -35,17 +38,22 @@ const convertToBase64 = (file: File): Promise<string> => {
 
 
 export default function FileUploadPage() {
+  const app = useFirebaseApp(); // Get the main app instance
   const auth = useAuth();
   const functions = auth ? getFunctions(auth.app) : null;
+  const storage = app ? getStorage(app) : null; // Get storage instance
   const { toast } = useToast();
 
   const [files, setFiles] = useState<CloudFile[]>([]);
+  const [urlMap, setUrlMap] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [urlsLoading, setUrlsLoading] = useState(false);
 
-  // Memoized function to load user files
+
+  // Memoized function to load user files and their URLs
   const loadUserFiles = useCallback(async () => {
-    if (!functions) return;
+    if (!functions || !storage) return;
     setLoading(true);
     try {
       const getUserFiles = httpsCallable(functions, 'getUserFiles');
@@ -54,6 +62,17 @@ export default function FileUploadPage() {
       
       if (data.success) {
         setFiles(data.files);
+        // After getting files, fetch their download URLs
+        setUrlsLoading(true);
+        const urlPromises = data.files.map(file => 
+          getDownloadURL(ref(storage, file.filePath))
+        );
+        const resolvedUrls = await Promise.all(urlPromises);
+        const newUrlMap = data.files.reduce((acc, file, index) => {
+          acc[file.id] = resolvedUrls[index];
+          return acc;
+        }, {} as Record<string, string>);
+        setUrlMap(newUrlMap);
       }
     } catch (error: any) {
       console.error('Error loading files:', error);
@@ -64,8 +83,9 @@ export default function FileUploadPage() {
       });
     } finally {
       setLoading(false);
+      setUrlsLoading(false);
     }
-  }, [functions, toast]);
+  }, [functions, storage, toast]);
 
   useEffect(() => {
     loadUserFiles();
@@ -89,6 +109,7 @@ export default function FileUploadPage() {
     try {
       const base64File = await convertToBase64(file);
       const uploadFile = httpsCallable(functions, 'uploadFile');
+      // The backend function was changed to not return the URL
       await uploadFile({
         file: base64File,
         fileName: file.name,
@@ -98,7 +119,7 @@ export default function FileUploadPage() {
         title: 'Success!',
         description: 'File uploaded successfully!',
       });
-      loadUserFiles(); // Reload files
+      loadUserFiles(); // Reload files and their new URLs
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -181,60 +202,59 @@ export default function FileUploadPage() {
                 <p className="text-muted-foreground text-center py-10">No files uploaded yet.</p>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {files.map((file) => (
-                    <Card key={file.id} className="flex flex-col overflow-hidden">
-                        <CardContent className="p-0">
-                            <div className="relative aspect-video w-full bg-secondary flex items-center justify-center">
-                               {(() => {
-                                  if (file.fileType.startsWith('image/')) {
-                                    return (
-                                      <Image
-                                        src={file.fileUrl}
-                                        alt={file.fileName}
-                                        fill
-                                        className="object-cover"
-                                      />
-                                    );
-                                  } else if (file.fileType.startsWith('video/')) {
-                                    return (
-                                      <video
-                                        src={file.fileUrl}
-                                        controls
-                                        className="w-full h-full object-cover"
-                                      />
-                                    );
-                                  } else {
-                                    return <FileIcon className="h-16 w-16 text-muted-foreground" />;
-                                  }
-                                })()}
+                    {files.map((file) => {
+                      const fileUrl = urlMap[file.id];
+                      return (
+                        <Card key={file.id} className="flex flex-col overflow-hidden">
+                            <CardContent className="p-0">
+                                <div className="relative aspect-video w-full bg-secondary flex items-center justify-center">
+                                  {!fileUrl ? (
+                                    <Skeleton className="h-full w-full" />
+                                  ) : file.fileType.startsWith('image/') ? (
+                                    <Image
+                                      src={fileUrl}
+                                      alt={file.fileName}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  ) : file.fileType.startsWith('video/') ? (
+                                    <video
+                                      src={fileUrl}
+                                      controls
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <FileIcon className="h-16 w-16 text-muted-foreground" />
+                                  )}
+                                </div>
+                            </CardContent>
+                            <div className="p-4 flex flex-col flex-grow">
+                                <p className="font-semibold truncate flex-grow">{file.fileName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {(file.size / 1024).toFixed(2)} KB
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {format(new Date(file.uploadedAt), 'PPP')}
+                                </p>
+                                <div className="mt-4 flex gap-2">
+                                    <Button asChild size="sm" className="flex-1" disabled={!fileUrl}>
+                                        <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                                            <Eye className="mr-2 h-4 w-4" /> View
+                                        </a>
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleDelete(file.id)}
+                                        className="flex-1"
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </Button>
+                                </div>
                             </div>
-                        </CardContent>
-                        <div className="p-4 flex flex-col flex-grow">
-                            <p className="font-semibold truncate flex-grow">{file.fileName}</p>
-                            <p className="text-xs text-muted-foreground">
-                                {(file.size / 1024).toFixed(2)} KB
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {format(new Date(file.uploadedAt), 'PPP')}
-                            </p>
-                            <div className="mt-4 flex gap-2">
-                                <Button asChild size="sm" className="flex-1">
-                                    <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
-                                        <Eye className="mr-2 h-4 w-4" /> View
-                                    </a>
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => handleDelete(file.id)}
-                                    className="flex-1"
-                                >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </Button>
-                            </div>
-                        </div>
-                    </Card>
-                    ))}
+                        </Card>
+                      )
+                    })}
                 </div>
             )}
           </div>

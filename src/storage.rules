@@ -29,7 +29,7 @@ service firebase.storage {
     // The `uploadFile` backend function makes these files public.
     // This rule allows public read access so the generated URLs work.
     match /user-uploads/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSignedIn() && request.auth.uid == userId;
       // Direct client writes are denied; all uploads must go through the 'uploadFile' function.
       allow write: if false;
       // Deletes are handled by the `deleteFile` backend function.

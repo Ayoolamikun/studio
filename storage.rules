@@ -27,13 +27,11 @@ service firebase.storage {
     }
 
     // --- Authenticated User Folder ---
-    // The `uploadFile` backend function makes these files public.
-    // This rule allows public read access so the generated URLs work.
+    // This is the key change. Only the authenticated owner of the file can read it.
     match /user-uploads/{userId}/{allPaths=**} {
-      allow read: if true;
-      // Direct client writes are denied; all uploads must go through the 'uploadFile' function.
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Writes and deletes are still handled by backend functions.
       allow write: if false;
-      // Deletes are handled by the `deleteFile` backend function.
       allow delete: if false;
     }
 

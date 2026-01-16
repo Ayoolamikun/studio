@@ -365,17 +365,12 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
         const contentType = matches[1];
         const buffer = Buffer.from(matches[2], 'base64');
         
+        // The file is saved privately by default.
         await bucketFile.save(buffer, { metadata: { contentType } });
         
-        // Make the file public
-        await bucketFile.makePublic();
-
-        // Get the public URL
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-
+        // We now only store the filePath. The fileUrl will be generated on the client.
         await db.collection("userFiles").add({
             userId: context.auth.uid,
-            fileUrl: publicUrl,
             filePath: destination,
             fileName: fileName,
             fileType: contentType,
@@ -383,7 +378,7 @@ export const uploadFile = functions.https.onCall(async (data, context) => {
             uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        return { success: true, url: publicUrl };
+        return { success: true };
     } catch (error: any) {
         console.error("Upload failed", error);
         throw new functions.https.HttpsError("internal", error.message || "An unexpected error occurred during upload.");
@@ -474,5 +469,3 @@ export const submitApplicationAndCreateUser = functions.https.onCall(async (data
         throw new functions.https.HttpsError("internal", `Submission failed: ${errorMessage}`);
     }
 });
-
-    
