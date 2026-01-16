@@ -14,19 +14,14 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == ADMIN_UID;
     }
 
-    // --- Public Upload Folders ---
-    // Direct client writes are disallowed. All application file uploads
-    // are handled securely by the `submitApplicationAndCreateUser` Cloud Function.
-    match /passports/{allPaths=**} {
-      allow read: if true; // URLs are unguessable, stored in admin-only documents.
+    // --- Application Files Folder ---
+    // These files are uploaded via the secure `submitApplicationAndCreateUser` function.
+    // Client-side writes are disallowed. Admins can read the files.
+    match /application-files/{userId}/{allPaths=**} {
+      allow read: if isAdmin();
       allow write: if false;
     }
     
-    match /ids/{allPaths=**} {
-      allow read: if isAdmin(); // Only admins should be able to view ID documents.
-      allow write: if false;
-    }
-
     // --- Authenticated User Folder ---
     // This rule allows authenticated users to manage their own files via the 'My Files' page.
     // Writes are handled securely by a dedicated Cloud Function.

@@ -23,8 +23,8 @@ service cloud.firestore {
     }
 
     match /loanApplications/{applicationId} {
-      // Allow anyone to create a loan application.
-      allow create: if true;
+      // Allow authenticated users to create applications (now handled by backend function).
+      allow create: if isSignedIn();
       // Only an admin can read/update/delete applications.
       allow read, update, delete: if isAdmin();
     }
