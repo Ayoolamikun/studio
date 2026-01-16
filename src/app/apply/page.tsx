@@ -124,9 +124,9 @@ export default function ApplyPage() {
       // --- 5. Redirect on Success ---
       toast({
         title: 'Success!',
-        description: 'Account created and application submitted. Redirecting to your dashboard...',
+        description: 'Account created and application submitted.',
       });
-      router.push('/dashboard');
+      router.push('/apply/thank-you');
 
     } catch (error: any) {
       console.error('Submission Error:', error);
