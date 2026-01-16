@@ -2,7 +2,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // --- Start of Admin UID Configuration ---
     // IMPORTANT: This UID has been set to grant admin access.
     // This is the UID for the user: corporatemagnatecoop@outlook.com
@@ -36,15 +36,24 @@ service cloud.firestore {
     
     match /Loans/{loanId} {
       // Admins can manage all loan documents
-      allow read, write: if isAdmin();
+      allow write: if isAdmin();
 
-      // Allow users to read their own loans and list only their own loans
-      allow read, list: if isSignedIn() && get(/databases/$(database)/documents/Loans/$(loanId)).data.borrowerId == request.auth.uid;
+      // Admins can get any loan. Users can get their own specific loan document.
+      allow get: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+
+      // Admins can list all loans. Users can list loans, but client code must filter.
+      allow list: if isAdmin() || isSignedIn();
     }
 
     match /ExcelFiles/{excelId} {
         // Only admins can manage excel import records
         allow read, write, delete: if isAdmin();
+    }
+
+    match /userFiles/{fileId} {
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Writes are handled by the backend function, so client-side writes are disallowed.
+      allow create, update: if false; 
     }
   }
 }

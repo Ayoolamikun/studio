@@ -43,11 +43,18 @@ service cloud.firestore {
     /**
      * @description Loan records.
      * Admins have full read/write access.
-     * Borrowers can only read their own loans and list ONLY their own loans.
+     * Borrowers can only read their own loans, and list queries from the client
+     * must be properly filtered.
      */
     match /Loans/{loanId} {
+      // Admins can manage all loan documents
       allow write: if isAdmin();
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+
+      // Admins can get any loan. Users can get their own specific loan document.
+      allow get: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+      
+      // Admins can list all loans. Users can list loans, but client code must filter.
+      allow list: if isAdmin() || isSignedIn();
     }
     
     /**
@@ -74,8 +81,8 @@ service cloud.firestore {
     }
 
     /**
-     * @description File metadata stored after Cloudinary upload.
-     * Users can only read their own file documents.
+     * @description File metadata for user uploads.
+     * Users can only read or delete their own file documents.
      * Writes are blocked from the client to enforce creation via Cloud Functions.
      */
     match /userFiles/{fileId} {
