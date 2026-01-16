@@ -11,15 +11,16 @@ import { Wallet, TrendingUp, BellPlus, PackageCheck, Banknote, Users } from 'luc
 import { formatCurrency } from '@/lib/utils';
 
 type Loan = {
-  amountRequested: number;
+  loanAmount: number;
   amountPaid: number;
-  balance: number;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'paid' | 'overdue';
+  outstandingBalance: number;
+  totalRepayment: number;
+  status: 'Processing' | 'Approved' | 'Disbursed' | 'Active' | 'Completed' | 'Overdue' | 'Rejected';
   createdAt: { toDate: () => Date };
 };
 
 type LoanApplication = {
-    status?: 'pending' | 'approved' | 'rejected';
+    status?: 'Processing' | 'Approved' | 'Rejected';
 };
 
 type Customer = {};
@@ -41,7 +42,7 @@ function StatCard({ title, value, icon: Icon, color, description }: { title: str
 
 function RecentLoans({ loans }: { loans: Loan[] }) {
     const recentLoans = loans
-        .filter(l => l.status === 'paid')
+        .filter(l => l.status === 'Completed')
         .sort((a,b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime())
         .slice(0, 5);
 
@@ -62,7 +63,7 @@ function RecentLoans({ loans }: { loans: Loan[] }) {
                     <TableBody>
                         {recentLoans.length > 0 ? recentLoans.map((loan, i) => (
                             <TableRow key={i}>
-                                <TableCell className="font-medium">{formatCurrency(loan.amountPaid)}</TableCell>
+                                <TableCell className="font-medium">{formatCurrency(loan.totalRepayment)}</TableCell>
                                 <TableCell className="capitalize text-right">{loan.status}</TableCell>
                             </TableRow>
                         )) : (
@@ -86,7 +87,7 @@ export default function AdminDashboardPage() {
         [firestore]
     );
     const applicationsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'loanApplications'), where('status', '==', 'pending')) : null,
+        () => firestore ? query(collection(firestore, 'loanApplications'), where('status', '==', 'Processing')) : null,
         [firestore]
     );
     const customersQuery = useMemoFirebase(
@@ -101,16 +102,18 @@ export default function AdminDashboardPage() {
     const stats = useMemo(() => {
         if (!loans) return { totalDebits: 0, totalCredits: 0, pendingLoans: 0, pendingTopups: 0, outstandingBalance: 0, activeLoans: 0 };
         
-        const totalCredits = loans.reduce((acc, l) => acc + l.amountPaid, 0);
-        const totalDebits = loans.reduce((acc, l) => acc + l.amountRequested, 0);
+        const totalCredits = loans.reduce((acc, l) => acc + (l.amountPaid || 0), 0);
+        const totalDebits = loans.reduce((acc, l) => acc + (l.loanAmount || 0), 0);
+        const activeOrOverdue = loans.filter(l => l.status === 'Active' || l.status === 'Overdue');
+        const outstandingBalance = activeOrOverdue.reduce((acc, l) => acc + (l.outstandingBalance || 0), 0);
 
         return {
             totalDebits,
             totalCredits,
             pendingLoans: applications?.length ?? 0,
-            pendingTopups: loans.filter(l => l.status === 'approved').length,
-            outstandingBalance: totalDebits - totalCredits,
-            activeLoans: loans.filter(l => l.status === 'active' || l.status === 'overdue').length,
+            pendingTopups: loans.filter(l => l.status === 'Approved').length,
+            outstandingBalance: outstandingBalance,
+            activeLoans: activeOrOverdue.length,
         };
     }, [loans, applications]);
 

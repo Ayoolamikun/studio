@@ -1,106 +1,146 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useForm, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { Spinner } from '@/components/Spinner';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Logo from '@/components/Logo';
+import { Spinner } from '@/components/Spinner';
+import { useEffect } from 'react';
 
-// --- Hardcoded Credentials ---
-// Default standard user for demo purposes
-const STANDARD_USER_EMAIL = "user@example.com";
-const STANDARD_USER_PASSWORD = "password123";
+const loginSchema = z.object({
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+});
 
-// Admin user for the admin panel
-const ADMIN_USER_EMAIL = "corporatemagnate@outlook.com";
-const ADMIN_USER_PASSWORD = "password123"; // Using the same simple password for demo
+type LoginValues = z.infer<typeof loginSchema>;
 
-// Admin UID from your security rules
 const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
-// ---------------------------
 
 export default function LoginPage() {
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
 
+  const form = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const { formState: { isSubmitting } } = form;
+
+  // Redirect if user is already logged in
   useEffect(() => {
-    // If user is already logged in, redirect them immediately.
     if (!isUserLoading && user) {
       const targetPath = user.uid === ADMIN_UID ? '/admin' : '/dashboard';
       router.replace(targetPath);
-      return;
+    }
+  }, [user, isUserLoading, router]);
+
+
+  const processLogin: SubmitHandler<LoginValues> = async (data) => {
+    if (!auth) {
+        toast({ variant: 'destructive', title: 'Login Failed', description: 'Authentication service is not available.'});
+        return;
     }
 
-    // When auth is ready and no user is logged in, attempt auto-login.
-    if (!isUserLoading && !user && auth) {
-      const autoLogin = async (email: string, password: string) => {
-        try {
-          // Attempt to sign in with the provided credentials.
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          toast({
-            title: "Auto Sign-In Successful",
-            description: `Welcome! Redirecting to ${email === ADMIN_USER_EMAIL ? 'Admin Panel' : 'Dashboard'}...`,
-          });
-          
-          const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
-          router.replace(targetPath);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      toast({ title: 'Login Successful', description: 'Redirecting...' });
+      
+      // Redirect based on UID
+      const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
+      router.replace(targetPath);
 
-        } catch (error: any) {
-          // If the user doesn't exist, create it.
-          if (error.code === 'auth/user-not-found') {
-            try {
-              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-              toast({
-                title: "Default Account Created",
-                description: `Signing you in to ${email === ADMIN_USER_EMAIL ? 'Admin Panel' : 'Dashboard'}.`,
-              });
-              const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
-              router.replace(targetPath);
-            } catch (creationError: any) {
-              toast({
-                variant: "destructive",
-                title: "Auto-Login Failed",
-                description: `Could not create default user: ${creationError.message}`,
-              });
-            }
-          } else if (error.code === 'auth/invalid-credential') {
-             // If default standard user login fails, try the admin user.
-             if (email === STANDARD_USER_EMAIL) {
-                autoLogin(ADMIN_USER_EMAIL, ADMIN_USER_PASSWORD);
-             } else {
-                // If admin login also fails with wrong password.
-                 toast({
-                    variant: "destructive",
-                    title: "Auto-Login Failed",
-                    description: "Stored credentials for the admin account seem to be incorrect.",
-                });
-             }
-          } else {
-             // Handle other errors (network issues, etc.)
-             toast({
-                variant: "destructive",
-                title: "Auto-Login Failed",
-                description: error.message || "An unexpected error occurred.",
-            });
-          }
-        }
-      };
-
-      // Start the login process with the default standard user email first.
-      autoLogin(STANDARD_USER_EMAIL, STANDARD_USER_PASSWORD);
+    } catch (error: any) {
+      let description = 'An unexpected error occurred. Please try again.';
+      switch (error.code) {
+        case 'auth/invalid-credential':
+          description = 'Incorrect email or password. Please try again.';
+          break;
+        case 'auth/user-not-found':
+          description = 'No account found with this email address.';
+          break;
+        case 'auth/wrong-password':
+          description = 'Incorrect password. Please try again.';
+          break;
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description,
+      });
     }
-  }, [auth, user, isUserLoading, router, toast]);
+  };
+
+  if (isUserLoading || user) {
+    return (
+        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
+            <Logo />
+            <Spinner size="large" />
+            <p className="text-lg mt-4 text-muted-foreground">Loading...</p>
+        </div>
+    )
+  }
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
-      <Logo />
-      <Spinner size="large" />
-      <p className="text-lg mt-4 text-muted-foreground">Signing in automatically...</p>
+    <div className="flex min-h-screen items-center justify-center bg-secondary/50 p-4">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="text-center">
+            <div className="mx-auto mb-4">
+                <Logo />
+            </div>
+          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+          <CardDescription>Enter your credentials to access your account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(processLogin)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="you@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <><Spinner size="small" /> Signing In...</> : 'Sign In'}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
