@@ -35,7 +35,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 type Loan = {
   borrowerId: string;
@@ -83,7 +83,6 @@ export function LoanManagementTable() {
   const firestore = useFirestore();
   const auth = useAuth();
   const functions = auth ? getFunctions(auth.app) : null;
-  const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -156,17 +155,14 @@ export function LoanManagementTable() {
         const data = result.data as { success: boolean; message: string };
 
         if (data.success) {
-            toast({
-                title: 'Success',
+            toast.success('Success', {
                 description: data.message,
             });
         } else {
             throw new Error(data.message);
         }
     } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Update Failed',
+        toast.error('Update Failed', {
             description: error.message || "An unexpected error occurred.",
         });
     } finally {
@@ -285,4 +281,5 @@ export function LoanManagementTable() {
       </Card>
   );
 }
+
 

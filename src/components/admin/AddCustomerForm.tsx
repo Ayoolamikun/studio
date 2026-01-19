@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useEffect } from 'react';
 
 function SubmitButton() {
@@ -34,21 +34,17 @@ type AddCustomerFormProps = {
 };
 
 export function AddCustomerForm({ isOpen, onOpenChange }: AddCustomerFormProps) {
-  const { toast } = useToast();
 
   const handleAction = async (prevState: any, formData: FormData) => {
     const result = await addCustomer(formData);
     if (result.success) {
-      toast({
-        title: 'Success!',
+      toast.success('Success!', {
         description: result.message,
       });
       onOpenChange(false); // Close dialog on success
     } else {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: result.message,
-        variant: 'destructive',
       });
     }
     return result;

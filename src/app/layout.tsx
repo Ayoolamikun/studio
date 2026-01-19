@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from 'sonner';
 import { FirebaseClientProvider } from '@/firebase';
 import './globals.css';
 
@@ -26,7 +26,7 @@ export default function RootLayout({
         <FirebaseClientProvider>
           {children}
         </FirebaseClientProvider>
-        <Toaster />
+        <Toaster richColors />
       </body>
     </html>
   );

@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, useUser } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +36,6 @@ export default function SignupPage() {
   const auth = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const { user, isUserLoading } = useUser();
 
   const form = useForm<SignupValues>({
@@ -61,7 +60,7 @@ export default function SignupPage() {
 
   const processSignup: SubmitHandler<SignupValues> = async (data) => {
     if (!auth) {
-        toast({ variant: 'destructive', title: 'Sign Up Failed', description: 'Authentication service is not available.'});
+        toast.error('Sign Up Failed', { description: 'Authentication service is not available.'});
         return;
     }
 
@@ -72,7 +71,7 @@ export default function SignupPage() {
         displayName: data.fullName
       });
       
-      toast({ title: 'Account Created Successfully', description: 'Redirecting to your dashboard...' });
+      toast.success('Account Created Successfully', { description: 'Redirecting to your dashboard...' });
       
       const redirectUrl = searchParams.get('redirect') || (userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard');
       router.replace(redirectUrl);
@@ -82,9 +81,7 @@ export default function SignupPage() {
       if (error.code === 'auth/email-already-in-use') {
           description = 'This email address is already in use. Please try logging in.';
       }
-      toast({
-        variant: 'destructive',
-        title: 'Sign Up Failed',
+      toast.error('Sign Up Failed', {
         description,
       });
     }
@@ -92,13 +89,13 @@ export default function SignupPage() {
 
   const handleGoogleSignIn = async () => {
     if (!auth) {
-        toast({ variant: 'destructive', title: 'Login Failed', description: 'Authentication service is not available.' });
+        toast.error('Login Failed', { description: 'Authentication service is not available.' });
         return;
     }
 
     try {
         const userCredential = await signInWithPopup(auth, new GoogleAuthProvider());
-        toast({ title: 'Sign Up Successful', description: 'Redirecting...' });
+        toast.success('Sign Up Successful', { description: 'Redirecting...' });
 
         const redirectUrl = searchParams.get('redirect') || (userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard');
         router.replace(redirectUrl);
@@ -110,9 +107,7 @@ export default function SignupPage() {
         } else if (error.code === 'auth/account-exists-with-different-credential') {
             description = 'An account already exists with the same email address but different sign-in credentials.';
         }
-        toast({
-            variant: 'destructive',
-            title: 'Google Sign-In Failed',
+        toast.error('Google Sign-In Failed', {
             description,
         });
     }

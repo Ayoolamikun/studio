@@ -25,7 +25,7 @@ import { collection, query, orderBy, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 type LoanApplication = {
   fullName: string;
@@ -43,7 +43,6 @@ export function ApplicationsTable() {
   const firestore = useFirestore();
   const auth = useAuth();
   const functions = auth ? getFunctions(auth.app) : null;
-  const { toast } = useToast();
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const applicationsQuery = useMemoFirebase(
@@ -67,17 +66,14 @@ export function ApplicationsTable() {
         const data = result.data as {success: boolean; message: string};
 
         if (data.success) {
-            toast({
-                title: 'Success',
+            toast.success('Success', {
                 description: data.message
             });
         } else {
              throw new Error(data.message);
         }
     } catch (error: any) {
-         toast({
-            variant: 'destructive',
-            title: 'Approval Failed',
+         toast.error('Approval Failed', {
             description: error.message || "An unexpected error occurred.",
         });
     } finally {
@@ -91,14 +87,11 @@ export function ApplicationsTable() {
       const docRef = doc(firestore, 'loanApplications', applicationId);
       try {
         updateDocumentNonBlocking(docRef, { status: 'Rejected' });
-        toast({
-            title: 'Application Rejected',
+        toast.warning('Application Rejected', {
             description: 'The application has been marked as rejected.'
         });
       } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Update Failed',
+        toast.error('Update Failed', {
             description: error.message || "Could not update the application status.",
         });
       } finally {

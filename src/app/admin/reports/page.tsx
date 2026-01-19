@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { generateExcelReport } from '@/app/actions';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -21,7 +21,6 @@ function SubmitButton() {
 }
 
 export default function ReportsPage() {
-  const { toast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
   const handleAction = async (prevState: any, formData: FormData) => {
@@ -29,8 +28,7 @@ export default function ReportsPage() {
     const result = await generateExcelReport(formData);
 
     if (result.success && result.data) {
-      toast({
-        title: 'Success!',
+      toast.success('Success!', {
         description: result.message,
       });
 
@@ -44,10 +42,8 @@ export default function ReportsPage() {
       XLSX.writeFile(wb, fileName);
       
     } else {
-      toast({
-        title: 'Generation Failed',
+      toast.error('Generation Failed', {
         description: result.message,
-        variant: 'destructive',
       });
     }
     return result;

@@ -13,7 +13,7 @@ import { Spinner } from '@/components/Spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 
 type Loan = {
@@ -38,7 +38,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const { toast } = useToast();
 
   const activeLoanQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -94,8 +93,7 @@ export default function DashboardPage() {
   }
 
   const handleTopUp = () => {
-    toast({
-        title: "Feature Coming Soon!",
+    toast("Feature Coming Soon!", {
         description: "The loan top-up feature is currently in development.",
     })
   }

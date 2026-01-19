@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth, useFunctions, useStorage } from '@/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useState } from 'react';
 
 import Header from '@/components/Header';
@@ -28,7 +28,6 @@ export default function ApplyPage() {
   const functions = useFunctions();
   const storage = useStorage();
   const router = useRouter();
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<InvestmentApplicationValues>({
@@ -64,15 +63,13 @@ export default function ApplyPage() {
 
   const processForm = async (data: InvestmentApplicationValues) => {
     if (!auth?.currentUser) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
+      toast.error('Authentication Error', {
         description: 'You must be logged in to submit an application.',
       });
       return;
     }
     if (!functions || !storage) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to backend services.' });
+        toast.error('Error', { description: 'Could not connect to backend services.' });
         return;
     }
 
@@ -113,8 +110,7 @@ export default function ApplyPage() {
       const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
       await submitApplication(sanitizedData);
 
-      toast({
-        title: 'Success!',
+      toast.success('Success!', {
         description: 'Your application has been submitted.',
       });
 
@@ -122,9 +118,7 @@ export default function ApplyPage() {
 
     } catch (error: any) {
       console.error("Submission Error:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Submission Failed',
+      toast.error('Submission Failed', {
         description: error.message || 'An unexpected error occurred. Please try again.',
       });
     } finally {

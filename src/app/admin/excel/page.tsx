@@ -3,7 +3,7 @@
 import { useState, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { uploadExcelFile } from '@/app/actions';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,22 +20,18 @@ function SubmitButton() {
 }
 
 export default function ExcelImportPage() {
-  const { toast } = useToast();
   const [fileName, setFileName] = useState('');
 
   const handleAction = async (prevState: any, formData: FormData) => {
     const result = await uploadExcelFile(formData);
     if (result.success) {
-      toast({
-        title: 'Success!',
+      toast.success('Success!', {
         description: result.message,
       });
       setFileName('');
     } else {
-      toast({
-        title: 'Upload Failed',
+      toast.error('Upload Failed', {
         description: result.message,
-        variant: 'destructive',
       });
     }
     return result;
