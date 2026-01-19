@@ -5,9 +5,9 @@ import { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useStorage, useFunctions } from '@/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { httpsCallable } from 'firebase/functions';
+import { useAuth, useUser, useStorage, useFunctions, useFirestore } from '@/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+
 
 import { InvestmentApplicationSchema, type InvestmentApplicationValues } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
@@ -26,8 +26,7 @@ import Link from 'next/link';
 
 export default function ApplyPage() {
   const auth = useAuth();
-  const storage = useStorage();
-  const functions = useFunctions();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -49,8 +48,6 @@ export default function ApplyPage() {
     },
   });
 
-  const { formState: { isSubmitting } } = form;
-
   // Pre-populate form with user data if available
   useEffect(() => {
     if (user) {
@@ -62,61 +59,45 @@ export default function ApplyPage() {
     }
   }, [user, form]);
 
-  const uploadFile = async (file: File, path: string): Promise<string> => {
-    if (!storage) throw new Error("Storage service is not available.");
-    if (!file) throw new Error("File is missing for upload.");
-    const fileRef = ref(storage, path);
-    console.log(`Uploading ${file.name} to ${path}...`);
-    const snapshot = await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(snapshot.ref);
-    console.log(`Upload finished for ${file.name}. URL: ${url}`);
-    return url;
-  };
-
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
-    if (!user || !auth || !functions) {
-      toast({ variant: 'destructive', title: 'Not Authenticated', description: 'You must be logged in to apply. Please refresh and try again.' });
-      console.error("Auth check failed. User, Auth service or Functions service is missing.");
+    console.log("SUBMIT STARTED");
+
+    if (!user || !firestore) {
+      alert("Not logged in or Firestore not available.");
+      console.log("Auth User or Firestore instance is missing", { user, firestore });
       return;
     }
 
     try {
-      const uploadPath = `investment-uploads/${user.uid}/${Date.now()}`;
-      const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all([
-        uploadFile(data.govIdFile, `${uploadPath}-id`),
-        uploadFile(data.proofOfAddressFile, `${uploadPath}-address`),
-        uploadFile(data.passportPhotoFile, `${uploadPath}-passport`),
-      ]);
-      
-      const { govIdFile, proofOfAddressFile, passportPhotoFile, ...formData } = data;
-      const applicationData = {
-        ...formData,
-        govIdUrl,
-        proofOfAddressUrl,
-        passportPhotoUrl,
+      const payload = {
+        userId: user.uid,
+        email: user.email,
+        fullName: user.displayName,
+        status: "Processing",
+        createdAt: serverTimestamp(),
+        // Minimal data to satisfy security rules
+        investmentPlan: "Gold",
+        investmentAmount: 1000,
+        currency: "NGN",
+        expectedDuration: "1 Year",
+        country: "Nigeria",
+        phoneNumber: "0000000000",
+        govIdType: "N/A",
+        govIdUrl: "",
+        proofOfAddressUrl: "",
+        passportPhotoUrl: ""
       };
-
-      const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
-      const result = await submitApplication(applicationData);
-
-      const resultData = result.data as { success: boolean; applicationId?: string; message?: string; };
-      if (!resultData.success) {
-        throw new Error(resultData.message || 'An unknown error occurred on the server.');
-      }
       
-      toast({
-        title: 'Application Submitted!',
-        description: 'Your investment application has been received.',
-      });
-      router.push('/apply/thank-you');
+      console.log("BEFORE ADDDOC with payload:", payload);
 
-    } catch (error: any) {
-      console.error("SUBMISSION ERROR:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Submission Failed',
-        description: error.message || 'An unexpected error occurred. Please try again.',
-      });
+      await addDoc(collection(firestore, "investmentApplications"), payload);
+
+      console.log("AFTER ADDDOC");
+      alert("Application submitted successfully! (Test)");
+
+    } catch (err: any) {
+      console.error("FIRESTORE WRITE ERROR:", err);
+      alert("Submission failed: " + err.message);
     }
   };
 
@@ -363,8 +344,8 @@ export default function ApplyPage() {
                       </div>
                   </section>
                   
-                  <Button type="submit" size="lg" className="w-full md:w-auto" disabled={isSubmitting}>
-                    {isSubmitting ? <><Spinner size="small" /> Submitting...</> : 'Submit Application'}
+                  <Button type="submit" size="lg" className="w-full md:w-auto">
+                    Submit Application (Test)
                   </Button>
                 </form>
               </Form>
@@ -376,6 +357,5 @@ export default function ApplyPage() {
     </div>
   );
 }
-    
 
     
