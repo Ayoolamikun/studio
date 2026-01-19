@@ -74,6 +74,47 @@
             "applicationId": { "type": "string", "description": "The ID of the original loan application."}
         },
         "required": ["borrowerId", "loanAmount", "status", "createdAt"]
+    },
+    "InvestmentApplication": {
+      "title": "Investment Application",
+      "description": "Represents an investment application submitted by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user submitting the application." },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phoneNumber": { "type": "string" },
+        "country": { "type": "string" },
+        "investmentPlan": { "type": "string", "enum": ["Gold", "Platinum"] },
+        "investmentAmount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["NGN", "USD"] },
+        "expectedDuration": { "type": "string" },
+        "govIdType": { "type": "string" },
+        "govIdUrl": { "type": "string" },
+        "proofOfAddressUrl": { "type": "string" },
+        "passportPhotoUrl": { "type": "string" },
+        "referralCode": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Processing", "Approved", "Rejected"], "default": "Processing"},
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "fullName",
+        "email",
+        "phoneNumber",
+        "country",
+        "investmentPlan",
+        "investmentAmount",
+        "currency",
+        "expectedDuration",
+        "govIdType",
+        "govIdUrl",
+        "proofOfAddressUrl",
+        "passportPhotoUrl",
+        "createdAt",
+        "status"
+      ]
     }
   },
   "auth": {
@@ -83,6 +124,10 @@
     "/loanApplications/{loanApplicationId}": {
       "schema": { "$ref": "#/entities/LoanApplication" },
       "description": "Stores all loan applications submitted through the public form."
+    },
+    "/investmentApplications/{investmentId}": {
+        "schema": { "$ref": "#/entities/InvestmentApplication" },
+        "description": "Stores all investment applications from users."
     },
     "/Customers/{customerId}": {
       "schema": { "$ref": "#/entities/Customer" },

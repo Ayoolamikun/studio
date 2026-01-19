@@ -20,5 +20,12 @@ service firebase.storage {
         allow read: if isAdmin();
         allow write: if isAdmin(); // Admin can upload via server-side logic
     }
+    
+    // --- Investment Application Uploads ---
+    // Users can write to a folder named after their own UID.
+    match /investment-uploads/{userId}/{fileName} {
+      allow write: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin(); // User can read their own, Admin can read any
+    }
   }
 }

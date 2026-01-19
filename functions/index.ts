@@ -295,3 +295,42 @@ export const updateLoanStatus = functions.https.onCall(async (data, context) => 
         throw new functions.https.HttpsError("internal", error.message || "Failed to update loan status.");
     }
 });
+
+/**
+ * Saves a new investment application to Firestore.
+ */
+export const submitInvestmentApplication = functions.https.onCall(async (data, context) => {
+    // 1. Authentication Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to submit an application.");
+    }
+
+    // 2. Data Validation (basic check, more complex validation is on client)
+    const requiredFields = [
+        "fullName", "email", "phoneNumber", "country", "investmentPlan",
+        "investmentAmount", "currency", "expectedDuration", "govIdType",
+        "govIdUrl", "proofOfAddressUrl", "passportPhotoUrl"
+    ];
+    for (const field of requiredFields) {
+        if (!data[field]) {
+            throw new functions.https.HttpsError("invalid-argument", `The function must be called with the '${field}' argument.`);
+        }
+    }
+    
+    // 3. Create Firestore Document
+    const applicationData = {
+        ...data,
+        userId: context.auth.uid, // Ensure the userId is the authenticated user's ID
+        status: "Processing", // Set initial status
+        createdAt: admin.firestore.FieldValue.serverTimestamp(), // Use server timestamp
+    };
+    
+    try {
+        const docRef = await db.collection("investmentApplications").add(applicationData);
+        console.log("Investment application submitted successfully:", docRef.id);
+        return { success: true, applicationId: docRef.id };
+    } catch (error: any) {
+        console.error("Error submitting investment application:", error);
+        throw new functions.https.HttpsError("internal", "An error occurred while saving your application. Please try again.");
+    }
+});

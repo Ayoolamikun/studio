@@ -74,6 +74,18 @@ service cloud.firestore {
     }
 
     /**
+     * @description Investment applications submitted by users.
+     */
+    match /investmentApplications/{investmentId} {
+      // Creation is handled by a secure backend function.
+      allow create: if false;
+      // Admins can read any application, users can only read their own.
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      // Only admins can modify applications.
+      allow update, delete: if isAdmin();
+    }
+
+    /**
      * @description Contact form submissions. Publicly writable, admin-readable.
      */
     match /contactFormSubmissions/{contactFormSubmissionId} {

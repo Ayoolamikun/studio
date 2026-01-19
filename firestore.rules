@@ -28,6 +28,15 @@ service cloud.firestore {
       // Only an admin can read/update/delete applications.
       allow read, update, delete: if isAdmin();
     }
+    
+    match /investmentApplications/{investmentId} {
+      // Users can create their own application via a backend function.
+      allow create: if false;
+      // Users can read their own applications. Admins can read any.
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      // Only Admins can update/delete.
+      allow update, delete: if isAdmin();
+    }
 
     match /Customers/{customerId} {
       // Only admins can manage customer records
