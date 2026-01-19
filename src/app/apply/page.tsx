@@ -5,9 +5,9 @@ import { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useStorage } from '@/firebase';
+import { useAuth, useUser, useStorage, useFunctions } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 
 import { InvestmentApplicationSchema, type InvestmentApplicationValues } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,7 @@ import Link from 'next/link';
 export default function ApplyPage() {
   const auth = useAuth();
   const storage = useStorage();
+  const functions = useFunctions();
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -73,33 +74,20 @@ export default function ApplyPage() {
   };
 
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
-    console.log("SUBMIT CLICKED");
-
-    if (!user || !auth) {
+    if (!user || !auth || !functions) {
       toast({ variant: 'destructive', title: 'Not Authenticated', description: 'You must be logged in to apply. Please refresh and try again.' });
-      console.error("Auth check failed. User or Auth service is missing.");
+      console.error("Auth check failed. User, Auth service or Functions service is missing.");
       return;
     }
-    console.log("Auth check passed. User ID:", user.uid);
 
     try {
-      console.log("STEP 1: Bypassing file uploads for testing.");
-      // Per the debugging plan, we are commenting out the real file uploads
-      // to see if they are the cause of the hang. We use dummy URLs instead.
-
-      // const uploadPath = `investment-uploads/${user.uid}/${Date.now()}`;
-      // const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all([
-      //   uploadFile(data.govIdFile, `${uploadPath}-id`),
-      //   uploadFile(data.proofOfAddressFile, `${uploadPath}-address`),
-      //   uploadFile(data.passportPhotoFile, `${uploadPath}-passport`),
-      // ]);
+      const uploadPath = `investment-uploads/${user.uid}/${Date.now()}`;
+      const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all([
+        uploadFile(data.govIdFile, `${uploadPath}-id`),
+        uploadFile(data.proofOfAddressFile, `${uploadPath}-address`),
+        uploadFile(data.passportPhotoFile, `${uploadPath}-passport`),
+      ]);
       
-      const govIdUrl = "https://example.com/test-id.pdf";
-      const proofOfAddressUrl = "https://example.com/test-address.pdf";
-      const passportPhotoUrl = "https://example.com/test-passport.jpg";
-
-
-      console.log("STEP 2: Preparing data for backend function.");
       const { govIdFile, proofOfAddressFile, passportPhotoFile, ...formData } = data;
       const applicationData = {
         ...formData,
@@ -108,18 +96,14 @@ export default function ApplyPage() {
         passportPhotoUrl,
       };
 
-      console.log("STEP 3: Calling backend function 'submitInvestmentApplication'.");
-      const functions = getFunctions(auth.app);
       const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
       const result = await submitApplication(applicationData);
-      console.log("STEP 4: Backend function call finished.");
 
       const resultData = result.data as { success: boolean; applicationId?: string; message?: string; };
       if (!resultData.success) {
         throw new Error(resultData.message || 'An unknown error occurred on the server.');
       }
       
-      console.log("STEP 5: Submission success! Redirecting now.");
       toast({
         title: 'Application Submitted!',
         description: 'Your investment application has been received.',
@@ -134,8 +118,6 @@ export default function ApplyPage() {
         description: error.message || 'An unexpected error occurred. Please try again.',
       });
     }
-    // react-hook-form's `formState.isSubmitting` is automatically set to false here.
-    console.log("SUBMIT HANDLER FINISHED");
   };
 
   if (isUserLoading) {
