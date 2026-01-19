@@ -82,10 +82,16 @@ export default function ApplyPage() {
       const userId = auth.currentUser.uid;
       const timestamp = Date.now();
       
-      const govIdUrl = await uploadFile(data.govIdFile, `investment-uploads/${userId}/govId-${timestamp}-${data.govIdFile.name}`);
-      const proofOfAddressUrl = await uploadFile(data.proofOfAddressFile, `investment-uploads/${userId}/proofOfAddress-${timestamp}-${data.proofOfAddressFile.name}`);
-      const passportPhotoUrl = await uploadFile(data.passportPhotoFile, `investment-uploads/${userId}/passport-${timestamp}-${data.passportPhotoFile.name}`);
+      // 1. Upload all files concurrently and wait for them to finish
+      const uploadPromises = [
+        uploadFile(data.govIdFile, `investment-uploads/${userId}/govId-${timestamp}-${data.govIdFile.name}`),
+        uploadFile(data.proofOfAddressFile, `investment-uploads/${userId}/proofOfAddress-${timestamp}-${data.proofOfAddressFile.name}`),
+        uploadFile(data.passportPhotoFile, `investment-uploads/${userId}/passport-${timestamp}-${data.passportPhotoFile.name}`)
+      ];
 
+      const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all(uploadPromises);
+
+      // 2. Prepare the data for the backend function
       const sanitizedData = {
         fullName: data.fullName,
         email: data.email,
@@ -103,6 +109,7 @@ export default function ApplyPage() {
         notes: data.notes || '',
       };
       
+      // 3. Call the Cloud Function with the complete data
       const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
       await submitApplication(sanitizedData);
 
@@ -231,6 +238,7 @@ export default function ApplyPage() {
                 {/* Document Uploads */}
                 <div className="space-y-4">
                     <h3 className="text-xl font-semibold text-primary border-b pb-2">Document Uploads</h3>
+                    <p className="text-sm text-muted-foreground">Please upload your documents. Supported formats: JPG, PNG, PDF. Max size: 5MB.</p>
                     <div className="grid md:grid-cols-2 gap-6">
                         <FormField control={form.control} name="govIdType" render={({ field }) => (
                              <FormItem>
@@ -363,5 +371,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
