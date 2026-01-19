@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { firestore as db, storage, auth } from '@/firebase'
+import { firestore, storage, auth } from '@/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 
 interface FormData {
@@ -233,7 +233,7 @@ export default function LoanApplicationPage() {
       setUploadProgress('Saving application...')
 
       // Save to Firestore
-      const docRef = await addDoc(collection(db, 'loanApplications'), {
+      const docRef = await addDoc(collection(firestore, 'loanApplications'), {
         // User Identity
         userId: userId,
         userEmail: currentUser.email,
@@ -504,15 +504,15 @@ export default function LoanApplicationPage() {
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 [&>option]:bg-slate-800 [&>option]:text-white"
                 >
-                  <option value="">Select Purpose</option>
-                  <option value="business">Business</option>
-                  <option value="education">Education</option>
-                  <option value="medical">Medical</option>
-                  <option value="home">Home Improvement</option>
-                  <option value="personal">Personal</option>
-                  <option value="other">Other</option>
+                  <option value="" className="bg-slate-800 text-gray-400">Select Purpose</option>
+                  <option value="business" className="bg-slate-800 text-white">Business</option>
+                  <option value="education" className="bg-slate-800 text-white">Education</option>
+                  <option value="medical" className="bg-slate-800 text-white">Medical</option>
+                  <option value="home" className="bg-slate-800 text-white">Home Improvement</option>
+                  <option value="personal" className="bg-slate-800 text-white">Personal</option>
+                  <option value="other" className="bg-slate-800 text-white">Other</option>
                 </select>
               </div>
 
@@ -527,13 +527,13 @@ export default function LoanApplicationPage() {
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 [&>option]:bg-slate-800 [&>option]:text-white"
                 >
-                  <option value="3">3 months</option>
-                  <option value="6">6 months</option>
-                  <option value="12">12 months</option>
-                  <option value="18">18 months</option>
-                  <option value="24">24 months</option>
+                  <option value="3" className="bg-slate-800 text-white">3 months</option>
+                  <option value="6" className="bg-slate-800 text-white">6 months</option>
+                  <option value="12" className="bg-slate-800 text-white">12 months</option>
+                  <option value="18" className="bg-slate-800 text-white">18 months</option>
+                  <option value="24" className="bg-slate-800 text-white">24 months</option>
                 </select>
               </div>
             </div>
