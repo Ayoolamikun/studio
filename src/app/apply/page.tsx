@@ -1,15 +1,42 @@
 
 "use client";
 
+import { useAuth, useFirestore } from '@/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import React from 'react';
 
 export default function ApplyPage() {
-  const handleSubmit = (e: React.FormEvent) => {
+  const auth = useAuth();
+  const db = useFirestore();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("FORM SUBMITTED");
+    
+    if (!auth || !db) {
+        alert("Firebase services are not ready. Please wait a moment and try again.");
+        return;
+    }
+
+    if (!auth.currentUser) {
+      alert("You must be logged in to submit an application.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "loanApplications"), {
+        userId: auth.currentUser.uid,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+      alert("Application submitted successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Error: " + (err as Error).message);
+    }
   };
 
   return (
