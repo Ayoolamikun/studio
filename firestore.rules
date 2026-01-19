@@ -25,7 +25,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid;
 
       allow read: if isAdmin()
-        || (isSignedIn() && resource.data.userId == request.auth.uid);
+        || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
 
       allow update, delete: if isAdmin();
     }
@@ -40,7 +40,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid;
 
       allow read: if isAdmin()
-        || (isSignedIn() && resource.data.userId == request.auth.uid);
+        || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
 
       allow update, delete: if isAdmin();
     }
@@ -60,7 +60,7 @@ service cloud.firestore {
     match /Loans/{loanId} {
 
       allow read: if isAdmin()
-        || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+        || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
 
       allow write: if isAdmin();
     }
