@@ -3,7 +3,7 @@
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,7 @@ import {
 import { Label } from '@/components/ui/label';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
@@ -40,6 +41,7 @@ const ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
 export default function LoginPage() {
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const [resetEmail, setResetEmail] = useState('');
@@ -58,10 +60,10 @@ export default function LoginPage() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (!isUserLoading && user) {
-      const targetPath = user.uid === ADMIN_UID ? '/admin' : '/dashboard';
-      router.replace(targetPath);
+      const redirectUrl = searchParams.get('redirect') || (user.uid === ADMIN_UID ? '/admin' : '/dashboard');
+      router.replace(redirectUrl);
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, searchParams]);
 
   const processLogin: SubmitHandler<LoginValues> = async (data) => {
     if (!auth) {
@@ -73,8 +75,8 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({ title: 'Login Successful', description: 'Redirecting...' });
       
-      const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
-      router.replace(targetPath);
+      const redirectUrl = searchParams.get('redirect') || (userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard');
+      router.replace(redirectUrl);
 
     } catch (error: any) {
       let description = 'An unexpected error occurred. Please try again.';
@@ -145,8 +147,8 @@ export default function LoginPage() {
         const userCredential = await signInWithPopup(auth, new GoogleAuthProvider());
         toast({ title: 'Login Successful', description: 'Redirecting...' });
 
-        const targetPath = userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard';
-        router.replace(targetPath);
+        const redirectUrl = searchParams.get('redirect') || (userCredential.user.uid === ADMIN_UID ? '/admin' : '/dashboard');
+        router.replace(redirectUrl);
 
     } catch (error: any) {
         let description = 'An unexpected error occurred during Google sign-in.';
@@ -271,6 +273,13 @@ export default function LoginPage() {
                 </svg>
                 Sign in with Google
             </Button>
+            
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{' '}
+              <Link href="/signup" className="font-semibold text-primary underline-offset-4 hover:underline">
+                Sign up
+              </Link>
+            </p>
 
             </CardContent>
         </Card>
