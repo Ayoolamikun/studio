@@ -20,9 +20,9 @@ service firebase.storage {
     }
 
     // --- File Validation Helpers ---
-    // Max file size: 5MB (matches client-side validation)
+    // Max file size: 10MB (matches client-side validation)
     function isValidSize() {
-      return request.resource.size <= 5 * 1024 * 1024;
+      return request.resource.size <= 10 * 1024 * 1024;
     }
     
     // Allowed file types: images and PDFs (matches client-side validation)
@@ -37,8 +37,13 @@ service firebase.storage {
         allow read, write: if isAdmin();
     }
     
+    // --- Loan Application Uploads ---
+    match /loan-applications/{userId}/{fileName} {
+      allow write: if isOwner(userId) && isValidSize() && isValidFileType();
+      allow read: if isOwner(userId) || isAdmin();
+    }
+
     // --- Investment Application Uploads ---
-    // This is the rule that was missing. It allows a user to write to their own folder.
     match /investment-uploads/{userId}/{fileName} {
       // User must own the folder, and file must meet size/type requirements
       allow write: if isOwner(userId) && isValidSize() && isValidFileType();

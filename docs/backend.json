@@ -7,37 +7,40 @@
       "description": "Represents a loan application submitted by a user.",
       "properties": {
         "userId": { "type": "string", "description": "The ID of the user who submitted the application." },
+        "userEmail": { "type": "string", "description": "The email of the user who submitted the application.", "format": "email" },
         "fullName": { "type": "string", "description": "The full name of the applicant." },
         "email": { "type": "string", "description": "The email address of the applicant.", "format": "email" },
-        "phoneNumber": { "type": "string", "description": "The phone number of the applicant." },
-        "placeOfEmployment": { "type": "string", "description": "The applicant's place of employment." },
-        "customerType": { "type": "string", "description": "The type of customer.", "enum": ["BYSG", "Private Individual"] },
-        "bvn": { "type": "string", "description": "The applicant's Bank Verification Number." },
-        "passportPhotoUrl": { "type": "string", "description": "URL of the uploaded passport photograph." },
-        "idUrl": { "type": "string", "description": "URL of the uploaded NIN or valid ID." },
+        "phone": { "type": "string", "description": "The phone number of the applicant." },
+        "dateOfBirth": { "type": "string", "description": "The applicant's date of birth.", "format": "date" },
+        "residentialAddress": { "type": "string", "description": "The applicant's residential address." },
+        "city": { "type": "string" },
+        "country": { "type": "string" },
         "loanAmount": { "type": "number", "description": "The amount requested for the loan." },
-        "loanDuration": { "type": "number", "description": "The duration of the loan in months." },
-        "submissionDate": { "type": "string", "description": "Date and time the application was submitted.", "format": "date-time" },
-        "status": { "type": "string", "description": "The current status of the application.", "enum": ["Processing", "Approved", "Rejected"] },
-        "guarantorFullName": { "type": "string", "description": "Full name of the guarantor." },
-        "guarantorPhoneNumber": { "type": "string", "description": "Phone number of the guarantor." },
-        "guarantorAddress": { "type": "string", "description": "Address of the guarantor." },
-        "guarantorRelationship": { "type": "string", "description": "Relationship of the guarantor to the borrower." }
+        "loanPurpose": { "type": "string", "enum": ["business", "education", "medical", "home", "personal", "other"]},
+        "repaymentDuration": { "type": "number", "description": "The duration of the loan in months." },
+        "documents": {
+          "type": "object",
+          "properties": {
+            "governmentId": {"type": "string", "format": "uri"},
+            "proofOfAddress": {"type": "string", "format": "uri"},
+            "selfie": {"type": "string", "format": "uri"}
+          }
+        },
+        "declarations": {
+          "type": "object",
+          "properties": {
+            "accurateInfo": {"type": "boolean"},
+            "termsAndConditions": {"type": "boolean"},
+            "identityVerification": {"type": "boolean"},
+            "acceptedAt": {"type": "string", "format": "date-time"}
+          }
+        },
+        "status": { "type": "string", "description": "The current status of the application.", "enum": ["pending", "approved", "rejected"], "default": "pending"},
+        "createdAt": { "type": "string", "description": "Date and time the application was submitted.", "format": "date-time" },
+        "updatedAt": { "type": "string", "description": "Date and time the application was last updated.", "format": "date-time" }
       },
       "required": [
-        "userId",
-        "fullName",
-        "email",
-        "phoneNumber",
-        "placeOfEmployment",
-        "customerType",
-        "bvn",
-        "passportPhotoUrl",
-        "idUrl",
-        "loanAmount",
-        "loanDuration",
-        "submissionDate",
-        "status"
+        "userId", "userEmail", "fullName", "email", "phone", "dateOfBirth", "residentialAddress", "city", "country", "loanAmount", "loanPurpose", "repaymentDuration", "documents", "declarations", "status", "createdAt"
       ]
     },
     "Customer": {
