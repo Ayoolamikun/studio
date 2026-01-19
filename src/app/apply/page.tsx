@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -192,45 +193,61 @@ export default function LoanApplicationPage() {
     e.preventDefault()
     setError('')
 
+    console.log('=== FORM SUBMISSION STARTED ===')
+
     if (!validateForm()) {
+      console.log('❌ Validation failed')
       return
     }
+    console.log('✅ Validation passed')
 
     if (!currentUser) {
+      console.log('❌ No user logged in')
       setError('You must be logged in to submit an application')
       router.push('/login?redirect=/apply')
       return
     }
+    console.log('✅ User authenticated:', currentUser.email)
 
     setIsSubmitting(true)
 
     try {
       const userId = currentUser.uid
       const basePath = `loan-applications/${userId}`
+      console.log('📁 Upload path:', basePath)
 
       // Upload files with progress updates
+      console.log('📤 Starting file uploads...')
+      
       setUploadProgress('Uploading Government ID...')
+      console.log('Uploading Government ID...')
       const governmentIdUrl = await uploadFile(
         files.governmentId!,
         files.governmentId!.name,
         basePath
       )
+      console.log('✅ Government ID uploaded:', governmentIdUrl)
 
       setUploadProgress('Uploading Proof of Address...')
+      console.log('Uploading Proof of Address...')
       const proofOfAddressUrl = await uploadFile(
         files.proofOfAddress!,
         files.proofOfAddress!.name,
         basePath
       )
+      console.log('✅ Proof of Address uploaded:', proofOfAddressUrl)
 
       setUploadProgress('Uploading Selfie...')
+      console.log('Uploading Selfie...')
       const selfieUrl = await uploadFile(
         files.selfie!,
         files.selfie!.name,
         basePath
       )
+      console.log('✅ Selfie uploaded:', selfieUrl)
 
       setUploadProgress('Saving application...')
+      console.log('💾 Saving to Firestore...')
 
       // Save to Firestore
       const docRef = await addDoc(collection(firestore, 'loanApplications'), {
@@ -277,11 +294,17 @@ export default function LoanApplicationPage() {
         updatedAt: serverTimestamp(),
       })
 
+      console.log('✅ Application saved! Doc ID:', docRef.id)
+      console.log('🎉 SUCCESS! Redirecting...')
+
       // Success - redirect to confirmation page
       router.push(`/application-success?id=${docRef.id}`)
 
     } catch (error: any) {
-      console.error('Application submission error:', error)
+      console.error('❌ SUBMISSION ERROR:', error)
+      console.error('Error code:', error.code)
+      console.error('Error message:', error.message)
+      console.error('Full error:', JSON.stringify(error, null, 2))
       
       if (error.code === 'permission-denied') {
         setError('Permission denied. Please contact support.')
@@ -291,6 +314,7 @@ export default function LoanApplicationPage() {
         setError(`Failed to submit application: ${error.message || 'Please try again'}`)
       }
     } finally {
+      console.log('=== FORM SUBMISSION ENDED ===')
       setIsSubmitting(false)
       setUploadProgress('')
     }
