@@ -10,6 +10,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // The admin UID for corporatemagnatecoop@outlook.com
     function isAdmin() {
       return isSignedIn()
         && request.auth.uid == "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
@@ -21,12 +22,15 @@ service cloud.firestore {
 
     match /loanApplications/{applicationId} {
 
+      // Anyone signed in can create an application for themselves.
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
 
+      // Users can read their own applications, Admins can read any.
       allow read: if isAdmin()
-        || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
 
+      // Only Admins can update or delete applications after submission.
       allow update, delete: if isAdmin();
     }
 
@@ -36,12 +40,15 @@ service cloud.firestore {
 
     match /investmentApplications/{investmentId} {
 
+      // Logged in users can create their own investment applications.
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
 
+      // Users can read their own applications; Admins can read any.
       allow read: if isAdmin()
-        || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
 
+      // Only Admins can update or delete investment applications.
       allow update, delete: if isAdmin();
     }
 
@@ -50,6 +57,7 @@ service cloud.firestore {
     ========================== */
 
     match /Customers/{customerId} {
+      // All customer record management is handled by admin functions.
       allow read, write: if isAdmin();
     }
 
@@ -59,9 +67,11 @@ service cloud.firestore {
 
     match /Loans/{loanId} {
 
+      // Users can read their own loan details; Admins can read any.
       allow read: if isAdmin()
-        || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
+        || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
 
+      // All loan creation/updates are handled by admin functions.
       allow write: if isAdmin();
     }
   }

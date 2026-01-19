@@ -38,7 +38,7 @@ service firebase.storage {
     }
     
     // --- Investment Application Uploads ---
-    // Users can write to a folder named after their own UID.
+    // This is the rule that was missing. It allows a user to write to their own folder.
     match /investment-uploads/{userId}/{fileName} {
       // User must own the folder, and file must meet size/type requirements
       allow write: if isOwner(userId) && isValidSize() && isValidFileType();
