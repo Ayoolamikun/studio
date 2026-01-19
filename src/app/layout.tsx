@@ -26,7 +26,7 @@ export default function RootLayout({
         <FirebaseClientProvider>
           {children}
         </FirebaseClientProvider>
-        <Toaster richColors />
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );
