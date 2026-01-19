@@ -1,19 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
     
-    // Loans collection - users can only access their own loans
+    function isAdmin() {
+      return isSignedIn() && request.auth.uid == ADMIN_UID;
+    }
+    
+    // Loan Applications
+    match /loanApplications/{applicationId} {
+      // User can read their own to see status, Admin can read all.
+      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
+      // Writes are handled by admin functions
+      allow write: if isAdmin();
+    }
+
+    // Investment Applications
+    match /investmentApplications/{investmentId} {
+      // User can read their own. Admin can read all. Created via a function.
+      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
+      allow write: if isAdmin(); // Functions and admin manage writes.
+    }
+    
+    // Customers collection
+    match /Customers/{customerId} {
+      // Only admins should manage customer records directly.
+      allow read, write: if isAdmin();
+    }
+
+    // Loans collection
     match /Loans/{loanId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.borrowerId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.borrowerId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.borrowerId;
+      // User can read their own loans. Admin can manage all.
+      allow read: if isAdmin() || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
+      allow write: if isAdmin(); // All writes are done by admin/functions
     }
-    
-    // work_with_us_requests collection
-    match /work_with_us_requests/{requestId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // Add other collections as needed
   }
 }

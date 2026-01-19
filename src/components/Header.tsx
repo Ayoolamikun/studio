@@ -31,8 +31,8 @@ export default function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
-  // The new admin UID for corporatemagnatecoop@outlook.com should be pasted here.
-  const adminUid = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
+  // The admin UID for corporatemagnatecoop@outlook.com
+  const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -119,7 +119,7 @@ export default function Header() {
                         <Link href="/login" onClick={() => setIsMenuOpen(false)}>Login</Link>
                       </Button>
                       <Button asChild className="w-full text-lg h-12">
-                        <Link href="/apply" onClick={() => setIsMenuOpen(false)}>Sign Up</Link>
+                        <Link href="/signup" onClick={() => setIsMenuOpen(false)}>Sign Up</Link>
                       </Button>
                     </>
                   ) : (

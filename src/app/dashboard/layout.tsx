@@ -15,18 +15,19 @@ export default function DashboardLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
   useEffect(() => {
     if (isUserLoading) return; // Wait until user status is resolved
 
     if (!user) {
       router.push('/login');
-    } else if (user.uid === 'PASTE_YOUR_NEW_ADMIN_UID_HERE') {
+    } else if (user.uid === ADMIN_UID) {
       router.push('/admin');
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user || user.uid === 'PASTE_YOUR_NEW_ADMIN_UID_HERE') {
+  if (isUserLoading || !user || user.uid === ADMIN_UID) {
     // Show a loading spinner while checking auth or redirecting
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">

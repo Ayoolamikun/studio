@@ -33,8 +33,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Spinner } from '@/components/Spinner';
 import { useEffect } from 'react';
 
-// The admin UID for 'corporatemagnatecoop@outlook.com' should be pasted here.
-const ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
+// The admin UID for 'corporatemagnatecoop@outlook.com'
+const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
 
 function getInitials(name: string | null | undefined) {
   if (!name) return 'A';
