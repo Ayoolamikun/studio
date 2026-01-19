@@ -63,31 +63,43 @@ export default function ApplyPage() {
 
   const uploadFile = async (file: File, path: string): Promise<string> => {
     if (!storage) throw new Error("Storage service is not available.");
+    if (!file) throw new Error("File is missing for upload.");
     const fileRef = ref(storage, path);
+    console.log(`Uploading ${file.name} to ${path}...`);
     const snapshot = await uploadBytes(fileRef, file);
-    return getDownloadURL(snapshot.ref);
+    const url = await getDownloadURL(snapshot.ref);
+    console.log(`Upload finished for ${file.name}. URL: ${url}`);
+    return url;
   };
 
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
-    if (!user) {
-      toast({ variant: 'destructive', title: 'Not Authenticated', description: 'You must be logged in to apply.' });
+    console.log("SUBMIT CLICKED");
+
+    if (!user || !auth) {
+      toast({ variant: 'destructive', title: 'Not Authenticated', description: 'You must be logged in to apply. Please refresh and try again.' });
+      console.error("Auth check failed. User or Auth service is missing.");
       return;
     }
-    if (!auth) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'Firebase Auth is not configured.' });
-        return;
-    }
+    console.log("Auth check passed. User ID:", user.uid);
 
     try {
-      // 1. Upload files in parallel
-      const uploadPath = `investment-uploads/${user.uid}/${Date.now()}`;
-      const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all([
-        uploadFile(data.govIdFile, `${uploadPath}-id`),
-        uploadFile(data.proofOfAddressFile, `${uploadPath}-address`),
-        uploadFile(data.passportPhotoFile, `${uploadPath}-passport`),
-      ]);
+      console.log("STEP 1: Bypassing file uploads for testing.");
+      // Per the debugging plan, we are commenting out the real file uploads
+      // to see if they are the cause of the hang. We use dummy URLs instead.
 
-      // 2. Prepare data for backend function (omitting file objects)
+      // const uploadPath = `investment-uploads/${user.uid}/${Date.now()}`;
+      // const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all([
+      //   uploadFile(data.govIdFile, `${uploadPath}-id`),
+      //   uploadFile(data.proofOfAddressFile, `${uploadPath}-address`),
+      //   uploadFile(data.passportPhotoFile, `${uploadPath}-passport`),
+      // ]);
+      
+      const govIdUrl = "https://example.com/test-id.pdf";
+      const proofOfAddressUrl = "https://example.com/test-address.pdf";
+      const passportPhotoUrl = "https://example.com/test-passport.jpg";
+
+
+      console.log("STEP 2: Preparing data for backend function.");
       const { govIdFile, proofOfAddressFile, passportPhotoFile, ...formData } = data;
       const applicationData = {
         ...formData,
@@ -96,33 +108,34 @@ export default function ApplyPage() {
         passportPhotoUrl,
       };
 
-      // 3. Call the secure Cloud Function
+      console.log("STEP 3: Calling backend function 'submitInvestmentApplication'.");
       const functions = getFunctions(auth.app);
       const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
       const result = await submitApplication(applicationData);
+      console.log("STEP 4: Backend function call finished.");
 
       const resultData = result.data as { success: boolean; applicationId?: string; message?: string; };
       if (!resultData.success) {
-          throw new Error(resultData.message || 'An unknown error occurred on the server.');
+        throw new Error(resultData.message || 'An unknown error occurred on the server.');
       }
       
-      // 4. Handle success
+      console.log("STEP 5: Submission success! Redirecting now.");
       toast({
         title: 'Application Submitted!',
         description: 'Your investment application has been received.',
       });
-
-      // Redirect to a thank you page on success
       router.push('/apply/thank-you');
 
     } catch (error: any) {
-      console.error("Submission Error:", error);
+      console.error("SUBMISSION ERROR:", error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
         description: error.message || 'An unexpected error occurred. Please try again.',
       });
     }
+    // react-hook-form's `formState.isSubmitting` is automatically set to false here.
+    console.log("SUBMIT HANDLER FINISHED");
   };
 
   if (isUserLoading) {
