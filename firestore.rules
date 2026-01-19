@@ -49,11 +49,5 @@ service cloud.firestore {
         // Only admins can manage excel import records
         allow read, write, delete: if isAdmin();
     }
-
-    match /userFiles/{fileId} {
-      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // Writes are handled by the backend function, so client-side writes are disallowed.
-      allow create, update: if false; 
-    }
   }
 }

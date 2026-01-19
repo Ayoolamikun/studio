@@ -80,16 +80,5 @@ service cloud.firestore {
       allow create: if true;
       allow read, write, delete: if isAdmin();
     }
-
-    /**
-     * @description File metadata for user uploads.
-     * Users can only read or delete their own file documents.
-     * Writes are blocked from the client to enforce creation via Cloud Functions.
-     */
-    match /userFiles/{fileId} {
-      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // Writes are handled by the backend function, so client-side writes are disallowed.
-      allow create, update: if false; 
-    }
   }
 }
