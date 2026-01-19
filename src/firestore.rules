@@ -65,8 +65,9 @@ service cloud.firestore {
     match /loanApplications/{applicationId} {
        // Writes are handled by the backend function. Client writes are disallowed for security.
       allow create: if false;
-      // Admins can manage all, users can read their own.
-      allow read: if isAdmin() || isOwner(resource.data.userId);
+      // Admins can manage all, users can read their own. This covers get and list.
+      // For list queries, the client MUST use a `where('userId', '==', request.auth.uid)` filter.
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 
@@ -77,7 +78,7 @@ service cloud.firestore {
       // Creation is handled by a secure backend function.
       allow create: if false;
       // Admins can read any application, users can only read their own.
-      allow read: if isAdmin() || isOwner(resource.data.userId);
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       // Only admins can modify applications.
       allow update, delete: if isAdmin();
     }
