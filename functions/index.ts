@@ -317,9 +317,22 @@ export const submitInvestmentApplication = functions.https.onCall(async (data, c
         }
     }
     
-    // 3. Create Firestore Document
+    // 3. Create Firestore Document (SANITIZED)
     const applicationData = {
-        ...data,
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        country: data.country,
+        investmentPlan: data.investmentPlan,
+        investmentAmount: data.investmentAmount,
+        currency: data.currency,
+        expectedDuration: data.expectedDuration,
+        govIdType: data.govIdType,
+        govIdUrl: data.govIdUrl,
+        proofOfAddressUrl: data.proofOfAddressUrl,
+        passportPhotoUrl: data.passportPhotoUrl,
+        referralCode: data.referralCode || "", // Sanitize optional field
+        notes: data.notes || "", // Sanitize optional field
         userId: context.auth.uid, // Ensure the userId is the authenticated user's ID
         status: "Processing", // Set initial status
         createdAt: admin.firestore.FieldValue.serverTimestamp(), // Use server timestamp
