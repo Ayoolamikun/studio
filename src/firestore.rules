@@ -47,7 +47,7 @@ service cloud.firestore {
      */
     match /Loans/{loanId} {
       allow write: if isAdmin();
-      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
     }
     
     /**
@@ -67,7 +67,7 @@ service cloud.firestore {
       allow create: if false;
       // Admins can manage all, users can read their own. This covers get and list.
       // For list queries, the client MUST use a `where('userId', '==', request.auth.uid)` filter.
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 
@@ -78,7 +78,7 @@ service cloud.firestore {
       // Creation is handled by a secure backend function.
       allow create: if false;
       // Admins can read any application, users can only read their own.
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
       // Only admins can modify applications.
       allow update, delete: if isAdmin();
     }

@@ -26,7 +26,7 @@ service cloud.firestore {
       // Writes are handled by the backend function. Client writes are disallowed for security.
       allow create: if false;
       // Admins can manage all, users can read their own.
-      allow read: if isAdmin() || isOwner(resource.data.userId);
+      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
       // Only an admin can update/delete applications.
       allow update, delete: if isAdmin();
     }
@@ -35,7 +35,7 @@ service cloud.firestore {
       // Users can create their own application via a backend function.
       allow create: if false;
       // Users can read their own applications. Admins can read any.
-      allow read: if isAdmin() || isOwner(resource.data.userId);
+      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
       // Only Admins can update/delete.
       allow update, delete: if isAdmin();
     }
@@ -52,7 +52,7 @@ service cloud.firestore {
       // Admins can read any loan.
       // Users can only read loans where their UID matches the borrowerId.
       // This enforces that list() queries from the client MUST include a where('borrowerId', '==', auth.uid) filter.
-      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
     }
 
     match /ExcelFiles/{excelId} {
