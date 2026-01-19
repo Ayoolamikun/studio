@@ -1,94 +1,19 @@
-
-/**
- * @fileoverview Firestore Security Rules for Corporate Magnate Cooperative Society Ltd.
- *
- * This ruleset implements role-based and ownership-based access control.
- * Admin roles are determined by a hardcoded Admin UID.
- * This simplifies the auth logic and removes the need for custom claims.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- Start of Admin UID Configuration ---
-    // IMPORTANT: This UID has been set to grant admin access.
-    // This is the UID for the user: corporatemagnatecoop@outlook.com
-    let ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE";
-    // --- End of Admin UID Configuration ---
     
-    /**
-     * Helper functions
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Admin status is now checked by comparing the requestor's UID to the hardcoded ADMIN_UID.
-    function isAdmin() {
-      return isSignedIn() && request.auth.uid == ADMIN_UID;
-    }
-    
-    /**
-     * @description Customer profiles (borrowers).
-     * Only an admin can create, read, update, or delete customer records.
-     */
-    match /Customers/{customerId} {
-      allow read, write: if isAdmin();
-    }
-
-    /**
-     * @description Loan records.
-     * Admins have full read/write access.
-     * Borrowers can only read their own loans. Client queries must filter by borrowerId.
-     */
+    // Loans collection - users can only access their own loans
     match /Loans/{loanId} {
-      allow write: if isAdmin();
-      allow read: if isAdmin() || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
+      allow read: if request.auth != null && request.auth.uid == resource.data.borrowerId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.borrowerId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.borrowerId;
     }
     
-    /**
-     * @description Excel file metadata for batch imports. Admin-only access.
-     */
-    match /ExcelFiles/{excelId} {
-      allow read, write: if isAdmin();
+    // work_with_us_requests collection
+    match /work_with_us_requests/{requestId} {
+      allow read, write: if request.auth != null;
     }
-
-    /**
-     * @description Publicly submitted loan applications.
-     * Admins can read/manage all applications.
-     * Users can read their own application to check the status.
-     */
-    match /loanApplications/{applicationId} {
-       // Writes are handled by the backend function. Client writes are disallowed for security.
-      allow create: if false;
-      // Admins can manage all, users can read their own. This covers get and list.
-      // For list queries, the client MUST use a `where('userId', '==', request.auth.uid)` filter.
-      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
-      allow update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Investment applications submitted by users.
-     */
-    match /investmentApplications/{investmentId} {
-      // Creation is handled by a secure backend function.
-      allow create: if false;
-      // Admins can read any application, users can only read their own.
-      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
-      // Only admins can modify applications.
-      allow update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Contact form submissions. Publicly writable, admin-readable.
-     */
-    match /contactFormSubmissions/{contactFormSubmissionId} {
-      allow create: if true;
-      allow read, write, delete: if isAdmin();
-    }
+    
+    // Add other collections as needed
   }
 }

@@ -1,63 +1,19 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- Start of Admin UID Configuration ---
-    // IMPORTANT: This UID has been set to grant admin access.
-    // This is the UID for the user: corporatemagnatecoop@outlook.com
-    let ADMIN_UID = "PASTE_YOUR_NEW_ADMIN_UID_HERE"; 
-    // --- End of Admin UID Configuration ---
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Admin status is now determined by the hardcoded UID.
-    function isAdmin() {
-      return isSignedIn() && request.auth.uid == ADMIN_UID;
-    }
-
-    match /loanApplications/{applicationId} {
-      // Writes are handled by the backend function. Client writes are disallowed for security.
-      allow create: if false;
-      // Admins can manage all, users can read their own.
-      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
-      // Only an admin can update/delete applications.
-      allow update, delete: if isAdmin();
-    }
     
-    match /investmentApplications/{investmentId} {
-      // Users can create their own application via a backend function.
-      allow create: if false;
-      // Users can read their own applications. Admins can read any.
-      allow read: if isAdmin() || (isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid);
-      // Only Admins can update/delete.
-      allow update, delete: if isAdmin();
-    }
-
-    match /Customers/{customerId} {
-      // Only admins can manage customer records
-      allow read, write: if isAdmin();
-    }
-    
+    // Loans collection - users can only access their own loans
     match /Loans/{loanId} {
-      // Admins can manage all loan documents
-      allow write: if isAdmin();
-
-      // Admins can read any loan.
-      // Users can only read loans where their UID matches the borrowerId.
-      // This enforces that list() queries from the client MUST include a where('borrowerId', '==', auth.uid) filter.
-      allow read: if isAdmin() || (isSignedIn() && 'borrowerId' in resource.data && resource.data.borrowerId == request.auth.uid);
+      allow read: if request.auth != null && request.auth.uid == resource.data.borrowerId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.borrowerId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.borrowerId;
     }
-
-    match /ExcelFiles/{excelId} {
-        // Only admins can manage excel import records
-        allow read, write, delete: if isAdmin();
+    
+    // work_with_us_requests collection
+    match /work_with_us_requests/{requestId} {
+      allow read, write: if request.auth != null;
     }
+    
+    // Add other collections as needed
   }
 }
