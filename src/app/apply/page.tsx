@@ -68,6 +68,20 @@ export default function ApplyPage() {
   };
 
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
+    // STEP 1 & 3 from your guide: Prove the handler is firing and isolate from Firebase.
+    console.log("SUBMIT CLICKED: Starting test to isolate UI from Firebase.");
+    
+    // This test waits for 2 seconds then shows an alert.
+    // If you see the alert, the form's UI and event handling are working correctly.
+    // The problem would then be with the Firebase logic that was here.
+    await new Promise(res => setTimeout(res, 2000));
+  
+    console.log("TEST END");
+    alert("FORM SUBMISSION HANDLER WORKS! The problem is with Firebase or file uploads.");
+
+
+    // Original Firebase logic is commented out below for this test.
+    /*
     if (!user) {
       toast({ variant: 'destructive', title: 'Not Authenticated', description: 'You must be logged in to apply.' });
       return;
@@ -117,6 +131,7 @@ export default function ApplyPage() {
         description: error.message || 'An unexpected error occurred. Please try again.',
       });
     }
+    */
   };
 
   if (isUserLoading) {
@@ -375,3 +390,4 @@ export default function ApplyPage() {
     </div>
   );
 }
+    
