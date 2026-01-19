@@ -5,8 +5,9 @@ import { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useFirestore } from '@/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { useAuth, useUser, useFirestore, useFunctions } from '@/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 
 import { InvestmentApplicationSchema, type InvestmentApplicationValues } from '@/lib/schemas';
@@ -27,9 +28,11 @@ import Link from 'next/link';
 export default function ApplyPage() {
   const auth = useAuth();
   const firestore = useFirestore();
+  const functions = useFunctions();
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
+  const storage = getStorage();
 
   const form = useForm<InvestmentApplicationValues>({
     resolver: zodResolver(InvestmentApplicationSchema),
@@ -62,15 +65,25 @@ export default function ApplyPage() {
   const { formState: { isSubmitting } } = form;
 
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
-    if (!user || !firestore) {
+    if (!user || !functions) {
         toast({ title: "Error", description: "You must be logged in to submit.", variant: "destructive"});
         return;
     }
     
     try {
-      // This test version submits form data but SKIPS file uploads.
+      // 1. Upload files and get URLs
+      const uploadFile = async (file: File, pathSuffix: string): Promise<string> => {
+        const storageRef = ref(storage, `investment-uploads/${user.uid}/${pathSuffix}-${file.name}`);
+        await uploadBytes(storageRef, file);
+        return getDownloadURL(storageRef);
+      };
+
+      const govIdUrl = await uploadFile(data.govIdFile, 'gov-id');
+      const proofOfAddressUrl = await uploadFile(data.proofOfAddressFile, 'proof-of-address');
+      const passportPhotoUrl = await uploadFile(data.passportPhotoFile, 'passport-photo');
+
+      // 2. Prepare payload for cloud function
       const payload = {
-        userId: user.uid,
         fullName: data.fullName,
         email: data.email,
         phoneNumber: data.phoneNumber,
@@ -80,18 +93,21 @@ export default function ApplyPage() {
         currency: data.currency,
         expectedDuration: data.expectedDuration,
         govIdType: data.govIdType,
-        govIdUrl: "", // Skipped for now
-        proofOfAddressUrl: "", // Skipped for now
-        passportPhotoUrl: "", // Skipped for now
-        referralCode: data.referralCode || "",
-        notes: data.notes || "",
-        status: "Processing",
-        createdAt: serverTimestamp(),
+        govIdUrl,
+        proofOfAddressUrl,
+        passportPhotoUrl,
+        referralCode: data.referralCode,
+        notes: data.notes,
       };
       
-      console.log("SUBMITTING SAFE PAYLOAD (NO FILES):", payload);
+      // 3. Call the cloud function
+      const submitInvestmentApplication = httpsCallable(functions, 'submitInvestmentApplication');
+      const result = await submitInvestmentApplication(payload);
+      const resultData = result.data as { success: boolean; message?: string; applicationId?: string };
 
-      await addDoc(collection(firestore, "investmentApplications"), payload);
+      if (!resultData.success) {
+        throw new Error(resultData.message || 'The application could not be submitted.');
+      }
 
       toast({
         title: "Application Submitted!",
@@ -254,7 +270,6 @@ export default function ApplyPage() {
                   {/* Verification Section */}
                   <section>
                     <h3 className="text-xl font-headline font-semibold mb-4 border-b pb-2 text-primary">Verification Documents</h3>
-                     <p className="text-sm text-muted-foreground mb-4">File uploads are temporarily disabled for testing. You can proceed with submission.</p>
                     <div className="space-y-6">
                         <FormField name="govIdType" control={form.control} render={({ field }) => (
                             <FormItem>
@@ -274,7 +289,7 @@ export default function ApplyPage() {
                         <FormField name="govIdFile" control={form.control} render={({ field: { onChange, ...props } }) => (
                             <FormItem>
                                 <FormLabel>Government ID Upload</FormLabel>
-                                <FormControl><Input disabled type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
+                                <FormControl><Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
                                 <FormDescription>JPG, PNG, or PDF. Max 5MB.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -282,7 +297,7 @@ export default function ApplyPage() {
                         <FormField name="proofOfAddressFile" control={form.control} render={({ field: { onChange, ...props } }) => (
                             <FormItem>
                                 <FormLabel>Proof of Address Upload</FormLabel>
-                                <FormControl><Input disabled type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
+                                <FormControl><Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
                                 <FormDescription>Utility bill or bank statement. Max 5MB.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -290,7 +305,7 @@ export default function ApplyPage() {
                         <FormField name="passportPhotoFile" control={form.control} render={({ field: { onChange, ...props } }) => (
                             <FormItem>
                                 <FormLabel>Passport Photograph / Selfie</FormLabel>
-                                <FormControl><Input disabled type="file" accept=".jpg,.jpeg,.png" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
+                                <FormControl><Input type="file" accept=".jpg,.jpeg,.png" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
                                 <FormDescription>A clear, recent photo of yourself. Max 5MB.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -371,5 +386,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
