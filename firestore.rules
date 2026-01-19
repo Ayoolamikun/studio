@@ -47,11 +47,10 @@ service cloud.firestore {
       // Admins can manage all loan documents
       allow write: if isAdmin();
 
-      // Admins can get any loan. Users can get their own specific loan document.
-      allow get: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
-
-      // Admins can list all loans. Users can list loans, but client code must filter.
-      allow list: if isAdmin() || isSignedIn();
+      // Admins can read any loan.
+      // Users can only read loans where their UID matches the borrowerId.
+      // This enforces that list() queries from the client MUST include a where('borrowerId', '==', auth.uid) filter.
+      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
     }
 
     match /ExcelFiles/{excelId} {
