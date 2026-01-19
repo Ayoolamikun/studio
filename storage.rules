@@ -33,22 +33,21 @@ service firebase.storage {
 
     // --- Admin-Only Excel Import Folder ---
     match /excel-imports/{fileName} {
-        // Admin uploads via a server function, so these rules are a safeguard
+        // Admin uploads are handled by a server function, but rules provide defense-in-depth.
         allow read, write: if isAdmin();
     }
     
     // --- Loan Application Uploads ---
+    // Path structure: loan-applications/{userId}/{fileName}
     match /loan-applications/{userId}/{fileName} {
       allow write: if isOwner(userId) && isValidSize() && isValidFileType();
       allow read: if isOwner(userId) || isAdmin();
     }
 
     // --- Investment Application Uploads ---
+    // Path structure: investment-uploads/{userId}/{fileName}
     match /investment-uploads/{userId}/{fileName} {
-      // User must own the folder, and file must meet size/type requirements
       allow write: if isOwner(userId) && isValidSize() && isValidFileType();
-      
-      // User can read their own files, Admin can read any file
       allow read: if isOwner(userId) || isAdmin(); 
     }
   }
