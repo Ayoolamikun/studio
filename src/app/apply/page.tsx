@@ -1,128 +1,102 @@
+"use client";
 
-'use client';
-
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { InvestmentApplicationSchema, type InvestmentApplicationValues } from '@/lib/schemas';
-import { useRouter } from 'next/navigation';
-import { useAuth, useFunctions, useStorage } from '@/firebase';
-import { httpsCallable } from 'firebase/functions';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useState } from "react";
+import { auth, firestore as db, storage } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { toast } from 'sonner';
-import { useState } from 'react';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/Spinner';
 import Link from 'next/link';
 
 export default function ApplyPage() {
-  const auth = useAuth();
-  const functions = useFunctions();
-  const storage = useStorage();
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const form = useForm<InvestmentApplicationValues>({
-    resolver: zodResolver(InvestmentApplicationSchema),
-    defaultValues: {
-      fullName: '',
-      email: '',
-      phoneNumber: '',
-      country: '',
-      investmentPlan: undefined,
-      investmentAmount: 0,
-      currency: undefined,
-      expectedDuration: '',
-      govIdType: '',
-      referralCode: '',
-      notes: '',
-      acceptTerms: false,
-      acceptPrivacy: false,
-      acceptRisks: false,
-    },
-  });
+  const [files, setFiles] = useState<File[]>([]);
+  const [notes, setNotes] = useState("");
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  const [agreedRisks, setAgreedRisks] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   
-  const uploadFile = async (file: File, path: string): Promise<string> => {
-    if (!storage) throw new Error("Storage not available");
-    if (!file) throw new Error(`File not provided for upload to path: ${path}`);
-    
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setFiles(Array.from(e.target.files));
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const processForm = async (data: InvestmentApplicationValues) => {
-    if (!auth?.currentUser) {
-      toast.error('Authentication Error', {
-        description: 'You must be logged in to submit an application.',
-      });
+    if (!auth.currentUser) {
+      toast.error("Authentication Error", { description: "You must be logged in to submit." });
       return;
     }
-    if (!functions || !storage) {
-        toast.error('Error', { description: 'Could not connect to backend services.' });
-        return;
+
+    if (!agreedTerms || !agreedPrivacy || !agreedRisks) {
+      toast.error("Agreements Required", { description: "Please agree to all terms, privacy, and risk acknowledgments." });
+      return;
     }
 
-    setIsSubmitting(true);
+    if (files.length === 0) {
+      toast.error("File Upload Required", { description: "Please select at least one file to upload." });
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
-      const userId = auth.currentUser.uid;
-      const timestamp = Date.now();
-      
-      // 1. Upload all files concurrently and wait for them to finish
-      const uploadPromises = [
-        uploadFile(data.govIdFile, `investment-uploads/${userId}/govId-${timestamp}-${data.govIdFile.name}`),
-        uploadFile(data.proofOfAddressFile, `investment-uploads/${userId}/proofOfAddress-${timestamp}-${data.proofOfAddressFile.name}`),
-        uploadFile(data.passportPhotoFile, `investment-uploads/${userId}/passport-${timestamp}-${data.passportPhotoFile.name}`)
-      ];
+      // 1. Upload files to Storage
+      const fileUrls: string[] = [];
 
-      const [govIdUrl, proofOfAddressUrl, passportPhotoUrl] = await Promise.all(uploadPromises);
+      for (const file of files) {
+        const storageRef = ref(storage, `investment-uploads/${auth.currentUser.uid}/${Date.now()}-${file.name}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        fileUrls.push(url);
+      }
 
-      // 2. Prepare the data for the backend function
-      const sanitizedData = {
-        fullName: data.fullName,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
-        country: data.country,
-        investmentPlan: data.investmentPlan,
-        investmentAmount: data.investmentAmount,
-        currency: data.currency,
-        expectedDuration: data.expectedDuration,
-        govIdType: data.govIdType,
-        govIdUrl: govIdUrl, 
-        proofOfAddressUrl: proofOfAddressUrl,
-        passportPhotoUrl: passportPhotoUrl,
-        referralCode: data.referralCode || '',
-        notes: data.notes || '',
-      };
-      
-      // 3. Call the Cloud Function with the complete data
-      const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
-      await submitApplication(sanitizedData);
-
-      toast.success('Success!', {
-        description: 'Your application has been submitted.',
+      // 2. Save application to Firestore
+      // NOTE: This simplified form doesn't include all fields from the schema.
+      // It serves as a working baseline for submission.
+      await addDoc(collection(db, "investmentApplications"), {
+        userId: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        fullName: auth.currentUser.displayName || "N/A",
+        investmentPlan: "Gold", // Default value for this minimal form
+        investmentAmount: 0, // Default value for this minimal form
+        currency: "NGN", // Default value for this minimal form
+        expectedDuration: "N/A", // Default value for this minimal form
+        country: "N/A", // Default value for this minimal form
+        phoneNumber: auth.currentUser.phoneNumber || "N/A", // Default value for this minimal form
+        govIdType: "N/A", // Default value for this minimal form
+        notes: notes,
+        govIdUrl: fileUrls[0] || "",
+        proofOfAddressUrl: fileUrls[1] || "",
+        passportPhotoUrl: fileUrls[2] || "",
+        createdAt: serverTimestamp(),
+        status: "Processing",
       });
 
-      router.push('/apply/thank-you');
+      toast.success("Application Submitted!", { description: "Your application has been received successfully." });
+      // Reset form
+      setNotes("");
+      setFiles([]);
+      const fileInput = document.getElementById('files') as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
+      setAgreedTerms(false);
+      setAgreedPrivacy(false);
+      setAgreedRisks(false);
 
-    } catch (error: any) {
-      console.error("Submission Error:", error);
-      toast.error('Submission Failed', {
-        description: error.message || 'An unexpected error occurred. Please try again.',
-      });
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast.error("Submission Failed", { description: (error as Error).message || "An unexpected error occurred. Please try again." });
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -130,234 +104,52 @@ export default function ApplyPage() {
     <div className="flex min-h-screen flex-col bg-secondary/50">
       <Header />
       <main className="flex-1 container py-12 md:py-24">
-        <Card className="mx-auto max-w-4xl shadow-lg">
+        <Card className="mx-auto max-w-2xl shadow-lg">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-primary">Investment Application</CardTitle>
-            <CardDescription>Fill out the form below to start your investment journey with us. All fields marked with an asterisk (*) are required.</CardDescription>
+            <CardDescription>A minimal, working form to test submission. More fields will be added back later.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(processForm)} className="space-y-8">
-                
-                {/* Personal Information */}
-                <div className="space-y-4">
-                    <h3 className="text-xl font-semibold text-primary border-b pb-2">Personal Information</h3>
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="fullName" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Full Name *</FormLabel>
-                                <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="email" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email Address *</FormLabel>
-                                <FormControl><Input type="email" placeholder="you@example.com" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="phoneNumber" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Phone Number *</FormLabel>
-                                <FormControl><Input placeholder="+234..." {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="country" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Country of Residence *</FormLabel>
-                                <FormControl><Input placeholder="Nigeria" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                    </div>
-                </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="notes">Notes / Additional Info (optional)</Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any additional information..."
+                />
+              </div>
 
-                {/* Investment Details */}
-                <div className="space-y-4">
-                    <h3 className="text-xl font-semibold text-primary border-b pb-2">Investment Details</h3>
-                    <div className="grid md:grid-cols-2 gap-6">
-                       <FormField control={form.control} name="investmentPlan" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Investment Plan *</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a plan" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Gold">Gold (₦0 - ₦10M)</SelectItem>
-                                        <SelectItem value="Platinum">Platinum (₦10M+)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                         <FormField control={form.control} name="investmentAmount" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Investment Amount (₦) *</FormLabel>
-                                <FormControl><Input type="number" placeholder="500000" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="currency" render={({ field }) => (
-                             <FormItem>
-                                <FormLabel>Currency *</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="NGN">NGN (Nigerian Naira)</SelectItem>
-                                        <SelectItem value="USD">USD (United States Dollar)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                         <FormField control={form.control} name="expectedDuration" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Expected Investment Duration *</FormLabel>
-                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="6 Months">6 Months</SelectItem>
-                                        <SelectItem value="1 Year">1 Year</SelectItem>
-                                        <SelectItem value="2 Years">2 Years</SelectItem>
-                                        <SelectItem value="3+ Years">3+ Years</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                    </div>
-                </div>
+              <div>
+                <Label htmlFor="files">Upload Documents (Select 3 files)</Label>
+                <Input type="file" id="files" multiple onChange={handleFileChange} />
+              </div>
 
-                {/* Document Uploads */}
-                <div className="space-y-4">
-                    <h3 className="text-xl font-semibold text-primary border-b pb-2">Document Uploads</h3>
-                    <p className="text-sm text-muted-foreground">Please upload your documents. Supported formats: JPG, PNG, PDF. Max size: 5MB.</p>
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="govIdType" render={({ field }) => (
-                             <FormItem>
-                                <FormLabel>Government Issued ID Type *</FormLabel>
-                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select ID Type" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="NIN">NIN</SelectItem>
-                                        <SelectItem value="DriversLicense">Driver's License</SelectItem>
-                                        <SelectItem value="Passport">International Passport</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                         <FormField
-                            control={form.control}
-                            name="govIdFile"
-                            render={({ field: { onChange, value, ...rest } }) => (
-                                <FormItem>
-                                    <FormLabel>Government ID Upload *</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="file"
-                                            onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
-                                            {...rest}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                         )} />
-                          <FormField
-                            control={form.control}
-                            name="proofOfAddressFile"
-                            render={({ field: { onChange, value, ...rest } }) => (
-                             <FormItem>
-                                <FormLabel>Proof of Address Upload *</FormLabel>
-                                <FormControl>
-                                    <Input 
-                                        type="file" 
-                                        onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
-                                        {...rest}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                         )} />
-                          <FormField
-                            control={form.control}
-                            name="passportPhotoFile"
-                            render={({ field: { onChange, value, ...rest } }) => (
-                             <FormItem>
-                                <FormLabel>Passport Photograph *</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="file"
-                                        onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
-                                        {...rest}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                         )} />
-                    </div>
-                </div>
+              <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="terms" checked={agreedTerms} onCheckedChange={(checked) => setAgreedTerms(Boolean(checked))} />
+                    <Label htmlFor="terms" className="font-normal">I agree to the <Link href="/terms-of-service" className="underline text-primary" target="_blank">Terms and Conditions</Link>.</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="privacy" checked={agreedPrivacy} onCheckedChange={(checked) => setAgreedPrivacy(Boolean(checked))} />
+                    <Label htmlFor="privacy" className="font-normal">I have read and accept the <Link href="/privacy-policy" className="underline text-primary" target="_blank">Privacy Policy</Link>.</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="risks" checked={agreedRisks} onCheckedChange={(checked) => setAgreedRisks(Boolean(checked))} />
+                    <Label htmlFor="risks" className="font-normal">I acknowledge the risks associated with investments.</Label>
+                  </div>
+              </div>
 
-                 {/* Additional Information */}
-                <div className="space-y-4">
-                    <h3 className="text-xl font-semibold text-primary border-b pb-2">Additional Information</h3>
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="referralCode" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Referral Code (Optional)</FormLabel>
-                                <FormControl><Input placeholder="MAGNATE2024" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                    </div>
-                     <FormField control={form.control} name="notes" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Notes (Optional)</FormLabel>
-                            <FormControl><Textarea placeholder="Any additional information you'd like to provide..." {...field} /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </div>
-                
-                 {/* Agreements */}
-                <div className="space-y-4">
-                     <h3 className="text-xl font-semibold text-primary border-b pb-2">Agreements</h3>
-                    <FormField control={form.control} name="acceptTerms" render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                           <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                           <div className="space-y-1 leading-none">
-                                <FormLabel>I agree to the <Link href="/terms-of-service" className="underline text-primary" target="_blank">Terms and Conditions</Link>. *</FormLabel>
-                                <FormMessage />
-                           </div>
-                        </FormItem>
-                    )} />
-                     <FormField control={form.control} name="acceptPrivacy" render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                           <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                           <div className="space-y-1 leading-none">
-                                <FormLabel>I have read and accept the <Link href="/privacy-policy" className="underline text-primary" target="_blank">Privacy Policy</Link>. *</FormLabel>
-                                <FormMessage />
-                           </div>
-                        </FormItem>
-                    )} />
-                     <FormField control={form.control} name="acceptRisks" render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                           <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                           <div className="space-y-1 leading-none">
-                                <FormLabel>I acknowledge the risks associated with investments. *</FormLabel>
-                                <FormMessage />
-                           </div>
-                        </FormItem>
-                    )} />
-                </div>
-
-
-                <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? <><Spinner size="small" /> Submitting...</> : 'Submit Application'}
-                </Button>
-              </form>
-            </Form>
+              <Button
+                type="submit"
+                disabled={submitting}
+                size="lg"
+                className="w-full"
+              >
+                {submitting ? <><Spinner size="small" /> Submitting...</> : "Submit Application"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </main>
