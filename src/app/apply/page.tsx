@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useAuth, useUser, useStorage, useFunctions, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 
@@ -58,42 +58,55 @@ export default function ApplyPage() {
       });
     }
   }, [user, form]);
+  
+  const { formState: { isSubmitting } } = form;
 
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
     if (!user || !firestore) {
-        alert("Not logged in or Firestore not available.");
+        toast({ title: "Error", description: "You must be logged in to submit.", variant: "destructive"});
         return;
     }
     
     try {
-      if (!user) throw new Error("Not logged in");
-
+      // This test version submits form data but SKIPS file uploads.
       const payload = {
         userId: user.uid,
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        country: data.country,
+        investmentPlan: data.investmentPlan,
+        investmentAmount: data.investmentAmount,
+        currency: data.currency,
+        expectedDuration: data.expectedDuration,
+        govIdType: data.govIdType,
+        govIdUrl: "", // Skipped for now
+        proofOfAddressUrl: "", // Skipped for now
+        passportPhotoUrl: "", // Skipped for now
+        referralCode: data.referralCode || "",
+        notes: data.notes || "",
         status: "Processing",
         createdAt: serverTimestamp(),
-        // Minimal data to satisfy security rules
-        investmentPlan: "Gold",
-        investmentAmount: 1000,
-        currency: "NGN",
-        expectedDuration: "1 Year",
-        country: "Nigeria",
-        phoneNumber: "0000000000",
-        govIdType: "N/A",
-        govIdUrl: "",
-        proofOfAddressUrl: "",
-        passportPhotoUrl: ""
       };
       
-      console.log("SENDING:", payload);
+      console.log("SUBMITTING SAFE PAYLOAD (NO FILES):", payload);
 
       await addDoc(collection(firestore, "investmentApplications"), payload);
 
-      alert("Application submitted successfully! (Test)");
+      toast({
+        title: "Application Submitted!",
+        description: "Redirecting you to the confirmation page.",
+      });
+      
+      router.push('/apply/thank-you');
 
     } catch (err: any) {
-      console.error(err);
-      alert(err.message);
+      console.error("SUBMISSION ERROR:", err);
+      toast({
+        title: "Submission Failed",
+        description: err.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -146,7 +159,6 @@ export default function ApplyPage() {
                 <form
                   onSubmit={form.handleSubmit(processForm)}
                   method="POST"
-                  encType="multipart/form-data"
                   className="space-y-8"
                 >
                   {/* Identity Section */}
@@ -242,6 +254,7 @@ export default function ApplyPage() {
                   {/* Verification Section */}
                   <section>
                     <h3 className="text-xl font-headline font-semibold mb-4 border-b pb-2 text-primary">Verification Documents</h3>
+                     <p className="text-sm text-muted-foreground mb-4">File uploads are temporarily disabled for testing. You can proceed with submission.</p>
                     <div className="space-y-6">
                         <FormField name="govIdType" control={form.control} render={({ field }) => (
                             <FormItem>
@@ -261,7 +274,7 @@ export default function ApplyPage() {
                         <FormField name="govIdFile" control={form.control} render={({ field: { onChange, ...props } }) => (
                             <FormItem>
                                 <FormLabel>Government ID Upload</FormLabel>
-                                <FormControl><Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
+                                <FormControl><Input disabled type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
                                 <FormDescription>JPG, PNG, or PDF. Max 5MB.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -269,7 +282,7 @@ export default function ApplyPage() {
                         <FormField name="proofOfAddressFile" control={form.control} render={({ field: { onChange, ...props } }) => (
                             <FormItem>
                                 <FormLabel>Proof of Address Upload</FormLabel>
-                                <FormControl><Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
+                                <FormControl><Input disabled type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
                                 <FormDescription>Utility bill or bank statement. Max 5MB.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -277,7 +290,7 @@ export default function ApplyPage() {
                         <FormField name="passportPhotoFile" control={form.control} render={({ field: { onChange, ...props } }) => (
                             <FormItem>
                                 <FormLabel>Passport Photograph / Selfie</FormLabel>
-                                <FormControl><Input type="file" accept=".jpg,.jpeg,.png" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
+                                <FormControl><Input disabled type="file" accept=".jpg,.jpeg,.png" onChange={e => onChange(e.target.files?.[0])} /></FormControl>
                                 <FormDescription>A clear, recent photo of yourself. Max 5MB.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -341,12 +354,12 @@ export default function ApplyPage() {
                   </section>
                   
                   <Button
-                    type="button"
-                    onClick={() => alert("BUTTON CLICKED")}
+                    type="submit"
+                    disabled={isSubmitting}
                     size="lg"
                     className="w-full md:w-auto"
                   >
-                    Submit Application (Test)
+                    {isSubmitting ? <><Spinner size="small" /> Submitting...</> : "Submit Application"}
                   </Button>
                 </form>
               </Form>
@@ -358,3 +371,5 @@ export default function ApplyPage() {
     </div>
   );
 }
+
+    
