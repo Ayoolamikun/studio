@@ -58,12 +58,16 @@ service cloud.firestore {
     }
 
     /**
-     * @description Publicly submitted loan applications. Admin-readable.
+     * @description Publicly submitted loan applications.
+     * Admins can read/manage all applications.
+     * Users can read their own application to check the status.
      */
     match /loanApplications/{applicationId} {
        // Writes are handled by the backend function. Client writes are disallowed for security.
       allow create: if false;
-      allow read, update, delete: if isAdmin();
+      // Admins can manage all, users can read their own.
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      allow update, delete: if isAdmin();
     }
 
     /**
