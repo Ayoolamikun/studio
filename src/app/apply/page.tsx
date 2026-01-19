@@ -5,8 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { InvestmentApplicationSchema, type InvestmentApplicationValues } from '@/lib/schemas';
 import { useRouter } from 'next/navigation';
-import { useAuth, useFunctions } from '@/firebase';
+import { useAuth, useFunctions, useStorage } from '@/firebase';
 import { httpsCallable } from 'firebase/functions';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 
@@ -25,6 +26,7 @@ import Link from 'next/link';
 export default function ApplyPage() {
   const auth = useAuth();
   const functions = useFunctions();
+  const storage = useStorage();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +50,17 @@ export default function ApplyPage() {
       acceptRisks: false,
     },
   });
+  
+  const uploadFile = async (file: File, path: string): Promise<string> => {
+    if (!storage) throw new Error("Storage not available");
+    if (!file) throw new Error(`File not provided for upload to path: ${path}`);
+    
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  };
+
 
   const processForm = async (data: InvestmentApplicationValues) => {
     if (!auth?.currentUser) {
@@ -58,7 +71,7 @@ export default function ApplyPage() {
       });
       return;
     }
-    if (!functions) {
+    if (!functions || !storage) {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to backend services.' });
         return;
     }
@@ -66,9 +79,12 @@ export default function ApplyPage() {
     setIsSubmitting(true);
 
     try {
-      // NOTE: File uploads are temporarily disabled for debugging.
-      // This is a placeholder for the real URLs.
-      const placeholderFileUrl = "https://example.com/placeholder.pdf";
+      const userId = auth.currentUser.uid;
+      const timestamp = Date.now();
+      
+      const govIdUrl = await uploadFile(data.govIdFile, `investment-uploads/${userId}/govId-${timestamp}-${data.govIdFile.name}`);
+      const proofOfAddressUrl = await uploadFile(data.proofOfAddressFile, `investment-uploads/${userId}/proofOfAddress-${timestamp}-${data.proofOfAddressFile.name}`);
+      const passportPhotoUrl = await uploadFile(data.passportPhotoFile, `investment-uploads/${userId}/passport-${timestamp}-${data.passportPhotoFile.name}`);
 
       const sanitizedData = {
         fullName: data.fullName,
@@ -80,9 +96,9 @@ export default function ApplyPage() {
         currency: data.currency,
         expectedDuration: data.expectedDuration,
         govIdType: data.govIdType,
-        govIdUrl: placeholderFileUrl, 
-        proofOfAddressUrl: placeholderFileUrl,
-        passportPhotoUrl: placeholderFileUrl,
+        govIdUrl: govIdUrl, 
+        proofOfAddressUrl: proofOfAddressUrl,
+        passportPhotoUrl: passportPhotoUrl,
         referralCode: data.referralCode || '',
         notes: data.notes || '',
       };
@@ -215,7 +231,6 @@ export default function ApplyPage() {
                 {/* Document Uploads */}
                 <div className="space-y-4">
                     <h3 className="text-xl font-semibold text-primary border-b pb-2">Document Uploads</h3>
-                     <p className="text-sm text-muted-foreground font-bold">NOTE: File uploads are temporarily disabled for testing. You can proceed without selecting files.</p>
                     <div className="grid md:grid-cols-2 gap-6">
                         <FormField control={form.control} name="govIdType" render={({ field }) => (
                              <FormItem>
@@ -231,24 +246,51 @@ export default function ApplyPage() {
                                 <FormMessage />
                             </FormItem>
                         )} />
-                         <FormField control={form.control} name="govIdFile" render={({ field }) => (
-                             <FormItem>
-                                <FormLabel>Government ID Upload *</FormLabel>
-                                <FormControl><Input type="file" disabled {...form.register('govIdFile')} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
+                         <FormField
+                            control={form.control}
+                            name="govIdFile"
+                            render={({ field: { onChange, value, ...rest } }) => (
+                                <FormItem>
+                                    <FormLabel>Government ID Upload *</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="file"
+                                            onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
+                                            {...rest}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
                          )} />
-                          <FormField control={form.control} name="proofOfAddressFile" render={({ field }) => (
+                          <FormField
+                            control={form.control}
+                            name="proofOfAddressFile"
+                            render={({ field: { onChange, value, ...rest } }) => (
                              <FormItem>
                                 <FormLabel>Proof of Address Upload *</FormLabel>
-                                <FormControl><Input type="file" disabled {...form.register('proofOfAddressFile')} /></FormControl>
+                                <FormControl>
+                                    <Input 
+                                        type="file" 
+                                        onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
+                                        {...rest}
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                          )} />
-                          <FormField control={form.control} name="passportPhotoFile" render={({ field }) => (
+                          <FormField
+                            control={form.control}
+                            name="passportPhotoFile"
+                            render={({ field: { onChange, value, ...rest } }) => (
                              <FormItem>
                                 <FormLabel>Passport Photograph *</FormLabel>
-                                <FormControl><Input type="file" disabled {...form.register('passportPhotoFile')} /></FormControl>
+                                <FormControl>
+                                    <Input
+                                        type="file"
+                                        onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)}
+                                        {...rest}
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                          )} />
