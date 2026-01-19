@@ -60,19 +60,16 @@ export default function ApplyPage() {
   }, [user, form]);
 
   const processForm: SubmitHandler<InvestmentApplicationValues> = async (data) => {
-    console.log("SUBMIT STARTED");
-
     if (!user || !firestore) {
-      alert("Not logged in or Firestore not available.");
-      console.log("Auth User or Firestore instance is missing", { user, firestore });
-      return;
+        alert("Not logged in or Firestore not available.");
+        return;
     }
-
+    
     try {
+      if (!user) throw new Error("Not logged in");
+
       const payload = {
         userId: user.uid,
-        email: user.email,
-        fullName: user.displayName,
         status: "Processing",
         createdAt: serverTimestamp(),
         // Minimal data to satisfy security rules
@@ -88,16 +85,15 @@ export default function ApplyPage() {
         passportPhotoUrl: ""
       };
       
-      console.log("BEFORE ADDDOC with payload:", payload);
+      console.log("SENDING:", payload);
 
       await addDoc(collection(firestore, "investmentApplications"), payload);
 
-      console.log("AFTER ADDDOC");
       alert("Application submitted successfully! (Test)");
 
     } catch (err: any) {
-      console.error("FIRESTORE WRITE ERROR:", err);
-      alert("Submission failed: " + err.message);
+      console.error(err);
+      alert(err.message);
     }
   };
 
@@ -344,7 +340,12 @@ export default function ApplyPage() {
                       </div>
                   </section>
                   
-                  <Button type="submit" size="lg" className="w-full md:w-auto">
+                  <Button
+                    type="button"
+                    onClick={() => alert("BUTTON CLICKED")}
+                    size="lg"
+                    className="w-full md:w-auto"
+                  >
                     Submit Application (Test)
                   </Button>
                 </form>
@@ -357,5 +358,3 @@ export default function ApplyPage() {
     </div>
   );
 }
-
-    
