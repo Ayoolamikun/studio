@@ -1,34 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import admin from 'firebase-admin';
+import { db, adminStorage } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
-// --- Firebase Admin SDK Initialization ---
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const projectId = process.env.FIREBASE_PROJECT_ID;
-
-// Explicitly check for all required service account variables
-if (!privateKey || !clientEmail || !projectId) {
-  throw new Error("Missing required Firebase Admin SDK credentials. Please set FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, and FIREBASE_PROJECT_ID in your environment.");
-}
-
-if (admin.apps.length === 0) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId,
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n'),
-    }),
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  });
-}
-// --- End of Initialization ---
-
-
-const db = admin.firestore();
-const storage = admin.storage();
-
+const bucket = adminStorage.bucket();
 
 export async function uploadExcelFile(formData: FormData) {
   try {
@@ -42,7 +18,6 @@ export async function uploadExcelFile(formData: FormData) {
     const buffer = Buffer.from(bytes);
 
     // Get a reference to the storage bucket
-    const bucket = storage.bucket();
     const fileName = `excel-imports/${Date.now()}-${file.name}`;
     const fileUpload = bucket.file(fileName);
 
@@ -65,7 +40,7 @@ export async function uploadExcelFile(formData: FormData) {
     await db.collection('ExcelFiles').add({
       fileName: file.name,
       fileUrl: publicUrl,
-      uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+      uploadedAt: FieldValue.serverTimestamp(),
       processed: false, // Mark as not processed
       status: 'uploaded',
     });
@@ -77,48 +52,6 @@ export async function uploadExcelFile(formData: FormData) {
     return { success: false, message: error.message || 'An unexpected error occurred.' };
   }
 }
-
-
-export async function generateExcelReport(formData: FormData) {
-    try {
-        const month = formData.get('month') as string; // YYYY-MM
-        if (!month) {
-            return { success: false, message: 'Month is required.' };
-        }
-
-        const startDate = new Date(`${month}-01T00:00:00`);
-        const endDate = new Date(startDate);
-        endDate.setMonth(startDate.getMonth() + 1);
-        endDate.setDate(0);
-        endDate.setHours(23, 59, 59, 999);
-
-        const loansSnapshot = await db.collection('Loans')
-            .where('createdAt', '>=', startDate)
-            .where('createdAt', '<=', endDate)
-            .get();
-
-        if (loansSnapshot.empty) {
-            return { success: false, message: 'No loans found for the selected month.' };
-        }
-
-        const loansData = loansSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                createdAt: (data.createdAt.toDate as () => Date)().toISOString(),
-                updatedAt: (data.updatedAt.toDate as () => Date)().toISOString(),
-            };
-        });
-        
-        return { success: true, message: 'Report generated successfully.', data: loansData };
-
-    } catch (error: any) {
-        console.error('Error in generateExcelReport:', error);
-        return { success: false, message: error.message || 'An unexpected error occurred.' };
-    }
-}
-
 
 export async function addCustomer(formData: FormData) {
     try {
@@ -136,7 +69,7 @@ export async function addCustomer(formData: FormData) {
             email,
             phone,
             bvn: bvn || '',
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
         };
 
         const docRef = await db.collection('Customers').add(newCustomer);
