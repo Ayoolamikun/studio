@@ -27,7 +27,7 @@ function calculateLoanDetails(principal: number, duration: number, interestRate:
 /**
  * Triggered when a new file is uploaded to the 'excel-imports/' path in Storage.
  * This function downloads the Excel file, parses it, and updates Firestore.
- * This optimized version fetches all loans first to reduce DB reads inside the loop.
+ * This optimized version fetches all loans and customers first to reduce DB reads inside the loop.
  */
 export const processExcelUpload = functions.storage
   .object()
@@ -75,7 +75,7 @@ export const processExcelUpload = functions.storage
 
       console.log(`Found ${rows.length} rows to process.`);
 
-      // 2. OPTIMIZATION: Fetch all active/overdue loans and customers beforehand
+      // 2. OPTIMIZATION: Fetch all loans and customers beforehand to avoid queries in loop.
       const loansQuery = await db.collection("Loans")
         .where("status", "in", ["Active", "Overdue"])
         .orderBy("createdAt", "desc")
@@ -90,6 +90,23 @@ export const processExcelUpload = functions.storage
           }
       }
       console.log(`Cached ${loansByBorrowerId.size} active loans in memory.`);
+      
+      // Create maps of customers for quick lookup
+      const customersQuery = await db.collection("Customers").get();
+      const customersByBvn = new Map<string, admin.firestore.QueryDocumentSnapshot>();
+      const customersByPhoneAndName = new Map<string, admin.firestore.QueryDocumentSnapshot>();
+      for (const doc of customersQuery.docs) {
+          const customerData = doc.data();
+          if (customerData.bvn) {
+            customersByBvn.set(String(customerData.bvn), doc);
+          }
+          if (customerData.phone && customerData.name) {
+            // Using a separator to create a unique key from phone and name
+            customersByPhoneAndName.set(`${String(customerData.phone)}|${customerData.name}`, doc);
+          }
+      }
+      console.log(`Cached ${customersQuery.size} customers for lookup.`);
+
 
       const batch = db.batch();
 
@@ -110,25 +127,19 @@ export const processExcelUpload = functions.storage
           return obj;
         }, {} as any);
 
+        // OPTIMIZATION: Use in-memory maps for customer lookup
         let customerDoc: admin.firestore.DocumentSnapshot | undefined;
-        // This part still queries per row, but it's a fast lookup.
         if (rowData.bvn) {
-            const customerRef = db.collection("Customers").doc(rowData.bvn);
-            customerDoc = await customerRef.get();
+            customerDoc = customersByBvn.get(String(rowData.bvn));
         } else if (rowData.phone && rowData.name) {
-             const querySnapshot = await db.collection("Customers")
-                .where("phone", "==", rowData.phone)
-                .where("name", "==", rowData.name)
-                .limit(1)
-                .get();
-             if(!querySnapshot.empty) customerDoc = querySnapshot.docs[0];
+             customerDoc = customersByPhoneAndName.get(`${String(rowData.phone)}|${rowData.name}`);
         } else {
-            console.warn("Skipping row, not enough info (bvn, or phone+name):", rowData);
+            console.warn("Skipping row, not enough info to find customer (needs BVN, or Phone+Name):", rowData);
             continue;
         }
 
         if (!customerDoc || !customerDoc.exists) {
-            console.warn(`Customer not found for row, skipping:`, rowData);
+            console.warn(`Customer not found in cache for row, skipping:`, rowData);
             continue;
         }
         
