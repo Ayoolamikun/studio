@@ -13,10 +13,8 @@ service firebase.storage {
     }
 
     // The admin UID for the designated admin user.
-    let ADMIN_UID = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2"; 
-
     function isAdmin() {
-      return isSignedIn() && request.auth.uid == ADMIN_UID;
+      return isSignedIn() && request.auth.uid == "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
     }
 
     // --- File Validation Helpers ---
@@ -39,14 +37,14 @@ service firebase.storage {
     
     // --- Loan Application Uploads ---
     // Path structure: loan-applications/{userId}/{fileName}
-    match /loan-applications/{userId}/{fileName} {
+    match /loan-applications/{userId}/{allPaths=**} {
       allow write: if isOwner(userId) && isValidSize() && isValidFileType();
       allow read: if isOwner(userId) || isAdmin();
     }
 
     // --- Investment Application Uploads ---
     // Path structure: investment-uploads/{userId}/{fileName}
-    match /investment-uploads/{userId}/{fileName} {
+    match /investment-uploads/{userId}/{allPaths=**} {
       allow write: if isOwner(userId) && isValidSize() && isValidFileType();
       allow read: if isOwner(userId) || isAdmin(); 
     }

@@ -200,14 +200,15 @@ export const approveApplication = functions.https.onCall(async (data, context) =
         }
         const appData = applicationDoc.data()!;
 
-        if (appData.status === "approved") {
+        if (appData.status === "Approved") {
             throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
         }
 
         const batch = db.batch();
 
         let customerId: string;
-        const customerRef = db.collection("Customers").doc(appData.bvn);
+        // Use a stable customer ID, like the user's UID, if possible
+        const customerRef = db.collection("Customers").doc(appData.userId);
         const customerDoc = await customerRef.get();
 
         if (!customerDoc.exists) {
@@ -215,8 +216,8 @@ export const approveApplication = functions.https.onCall(async (data, context) =
              batch.set(customerRef, {
                 name: appData.fullName,
                 email: appData.email,
-                phone: appData.phoneNumber,
-                bvn: appData.bvn,
+                phone: appData.phone,
+                bvn: appData.bvn || '',
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         } else {
@@ -224,14 +225,14 @@ export const approveApplication = functions.https.onCall(async (data, context) =
         }
         
         const interestRate = 0.05; // 5% flat monthly interest
-        const { totalInterest, totalRepayment, monthlyRepayment } = calculateLoanDetails(appData.loanAmount, appData.loanDuration, interestRate);
+        const { totalInterest, totalRepayment, monthlyRepayment } = calculateLoanDetails(appData.loanAmount, appData.repaymentDuration, interestRate);
 
         const loanRef = db.collection("Loans").doc();
         batch.set(loanRef, {
             borrowerId: customerId,
             applicationId: applicationId,
             loanAmount: appData.loanAmount,
-            duration: appData.loanDuration,
+            duration: appData.repaymentDuration,
             interestRate: interestRate,
             totalInterest: totalInterest,
             totalRepayment: totalRepayment,
@@ -243,7 +244,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         
-        batch.update(applicationRef, { status: "approved" });
+        batch.update(applicationRef, { status: "Approved", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
 
         await batch.commit();
         return { success: true, message: "Application approved successfully!" };
@@ -253,6 +254,71 @@ export const approveApplication = functions.https.onCall(async (data, context) =
         throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
     }
 });
+
+
+/**
+ * Approves an investment application, creating an Investment document.
+ */
+export const approveInvestmentApplication = functions.https.onCall(async (data, context) => {
+    // This is the UID for the designated admin user.
+    const adminUid = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
+    if (!context.auth || context.auth.uid !== adminUid) {
+        throw new functions.https.HttpsError("permission-denied", "Only admins can approve investments.");
+    }
+
+    const { applicationId } = data;
+    if (!applicationId) {
+        throw new functions.https.HttpsError("invalid-argument", "The function must be called with an 'applicationId'.");
+    }
+
+    const applicationRef = db.collection("investmentApplications").doc(applicationId);
+
+    try {
+        const applicationDoc = await applicationRef.get();
+        if (!applicationDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "Investment application not found.");
+        }
+        const appData = applicationDoc.data()!;
+
+        if (appData.status === "Approved") {
+            throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
+        }
+
+        const batch = db.batch();
+        
+        const startDate = new Date();
+        const durationInMonths = parseInt(appData.expectedDuration.split(" ")[0]);
+        const maturityDate = new Date(startDate.getFullYear(), startDate.getMonth() + durationInMonths, startDate.getDate());
+
+        // Simple ROI calculation for now
+        const expectedReturn = appData.investmentAmount * (appData.investmentPlan === 'Gold' ? 1.15 : 1.25);
+
+        const investmentRef = db.collection("Investments").doc();
+        batch.set(investmentRef, {
+            userId: appData.userId,
+            applicationId: applicationId,
+            plan: appData.investmentPlan,
+            amount: appData.investmentAmount,
+            startDate: admin.firestore.Timestamp.fromDate(startDate),
+            duration: durationInMonths,
+            maturityDate: admin.firestore.Timestamp.fromDate(maturityDate),
+            expectedReturn: expectedReturn,
+            status: "Active",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        
+        batch.update(applicationRef, { status: "Approved", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+        await batch.commit();
+        return { success: true, message: "Investment application approved successfully!" };
+
+    } catch (error: any) {
+        console.error("Investment Approval Error:", error);
+        throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
+    }
+});
+
 
 /**
  * Updates the status of a loan. Admin-only.

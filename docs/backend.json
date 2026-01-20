@@ -35,7 +35,7 @@
             "acceptedAt": {"type": "string", "format": "date-time"}
           }
         },
-        "status": { "type": "string", "description": "The current status of the application.", "enum": ["pending", "approved", "rejected"], "default": "pending"},
+        "status": { "type": "string", "description": "The current status of the application.", "enum": ["Processing", "Approved", "Rejected"], "default": "Processing"},
         "createdAt": { "type": "string", "description": "Date and time the application was submitted.", "format": "date-time" },
         "updatedAt": { "type": "string", "description": "Date and time the application was last updated.", "format": "date-time" }
       },
@@ -99,7 +99,8 @@
         "referralCode": { "type": "string" },
         "notes": { "type": "string" },
         "status": { "type": "string", "enum": ["Processing", "Approved", "Rejected"], "default": "Processing"},
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": [
         "userId",
@@ -133,9 +134,10 @@
         "maturityDate": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["Active", "Matured", "Withdrawn"] },
         "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "applicationId": { "type": "string", "description": "The ID of the original investment application."}
       },
-      "required": ["userId", "plan", "amount", "startDate", "duration", "status", "createdAt"]
+      "required": ["userId", "plan", "amount", "startDate", "duration", "status", "createdAt", "applicationId"]
     }
   },
   "auth": {
@@ -161,6 +163,20 @@
     "/Investments/{investmentId}": {
       "schema": { "$ref": "#/entities/Investment" },
       "description": "Stores all active investment records for users."
+    },
+    "/ExcelFiles/{fileId}": {
+        "schema": {
+            "type": "object",
+            "properties": {
+                "fileName": {"type": "string"},
+                "fileUrl": {"type": "string", "format": "uri"},
+                "uploadedAt": {"type": "string", "format": "date-time"},
+                "processed": {"type": "boolean"},
+                "status": {"type": "string", "enum": ["uploaded", "processed", "error"]},
+                "error": {"type": "string"}
+            }
+        },
+        "description": "Tracks uploaded Excel files for processing."
     }
   }
 }

@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -5,87 +6,89 @@ service cloud.firestore {
     /* ==========================
        Helper Functions
     ========================== */
-
     function isSignedIn() {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     // The admin UID for the designated admin user.
     function isAdmin() {
-      return isSignedIn()
-        && request.auth.uid == "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
+      return isSignedIn() && request.auth.uid == "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
+    }
+    
+    // Check if a user is only modifying fields they are allowed to.
+    function isOnlyUpdating(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
     }
 
     /* ==========================
+       Customers (Admin Read/Write, User Read Own)
+    ========================== */
+    match /Customers/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    /* ==========================
        Loan Applications
     ========================== */
-
     match /loanApplications/{applicationId} {
-
       // Anyone signed in can create an application for themselves.
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
 
       // Users can read their own applications, Admins can read any.
-      allow read: if isAdmin()
-        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
 
-      // Only Admins can update or delete applications after submission.
+      // No one can update an application after it has been created, except admins.
+      // This prevents users from changing details after submission.
       allow update, delete: if isAdmin();
     }
 
     /* ==========================
+       Active Loans
+    ========================== */
+    match /Loans/{loanId} {
+      // Users can read their own loan details; Admins can read any.
+      allow read: if isAdmin() || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
+
+      // All loan creation/updates are handled by admin-only backend functions.
+      // This is critical to prevent users from modifying their own loan status or balance.
+      allow write: if isAdmin();
+    }
+    
+    /* ==========================
        Investment Applications
     ========================== */
-
     match /investmentApplications/{investmentId} {
-
       // Logged in users can create their own investment applications.
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
 
       // Users can read their own applications; Admins can read any.
-      allow read: if isAdmin()
-        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
 
       // Only Admins can update or delete investment applications.
       allow update, delete: if isAdmin();
     }
     
     /* ==========================
-       Investments (Active)
+       Active Investments
     ========================== */
-
     match /Investments/{investmentId} {
       // Users can read their own investment details; Admins can read any.
-      allow read: if isAdmin()
-        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
 
-      // All investment creation/updates are handled by admin functions.
+      // All investment creation/updates are handled by admin-only backend functions.
       allow write: if isAdmin();
     }
 
     /* ==========================
-       Customers (Admin Only)
+       Admin-Only Collections
     ========================== */
-
-    match /Customers/{customerId} {
-      // All customer record management is handled by admin functions.
+    match /ExcelFiles/{fileId} {
       allow read, write: if isAdmin();
-    }
-
-    /* ==========================
-       Loans (Approved Loans)
-    ========================== */
-
-    match /Loans/{loanId} {
-
-      // Users can read their own loan details; Admins can read any.
-      allow read: if isAdmin()
-        || (isSignedIn() && resource.data.borrowerId == request.auth.uid);
-
-      // All loan creation/updates are handled by admin functions.
-      allow write: if isAdmin();
     }
   }
 }

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { LogOut, Files, LayoutDashboard, HandCoins, UserCheck, Users, BarChart, Settings, BookUser } from 'lucide-react';
+import { LogOut, Files, LayoutDashboard, HandCoins, UserCheck, Users, BarChart, Settings, BookUser, ShoppingCart, Briefcase } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -73,8 +73,9 @@ export default function AdminLayout({
 
   const navItems = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/applications', label: 'Applications', icon: UserCheck },
     { href: '/admin/loans', label: 'Loans', icon: HandCoins },
-    { href: '/admin/approvals', label: 'Approvals', icon: UserCheck },
+    { href: '/admin/investments', label: 'Investments', icon: Briefcase },
     { href: '/admin/customers', label: 'Customers', icon: Users },
     { href: '/admin/reports', label: 'Reports', icon: BarChart },
     { href: '/admin/excel', label: 'Excel Import', icon: Files },
@@ -100,7 +101,7 @@ export default function AdminLayout({
            <SidebarMenu>
             {navItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                    <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
                         <Link href={item.href}>
                             <item.icon />
                             <span>{item.label}</span>
