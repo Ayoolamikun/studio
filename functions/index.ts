@@ -200,7 +200,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
         }
         const appData = applicationDoc.data()!;
 
-        if (appData.status === "Approved") {
+        if (appData.status === "approved") {
             throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
         }
 
@@ -243,7 +243,7 @@ export const approveApplication = functions.https.onCall(async (data, context) =
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         
-        batch.update(applicationRef, { status: "Approved" });
+        batch.update(applicationRef, { status: "approved" });
 
         await batch.commit();
         return { success: true, message: "Application approved successfully!" };

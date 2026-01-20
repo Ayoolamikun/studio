@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -30,8 +29,8 @@ type Loan = {
 
 type LoanApplication = {
   loanAmount: number;
-  submissionDate: any;
-  status: 'Processing' | 'Approved' | 'Rejected';
+  createdAt: any;
+  status: 'pending' | 'approved' | 'rejected';
 };
 
 export default function DashboardPage() {
@@ -54,7 +53,7 @@ export default function DashboardPage() {
     return query(
         collection(firestore, 'loanApplications'),
         where('userId', '==', user.uid),
-        where('status', '==', 'Processing'),
+        where('status', '==', 'pending'),
         limit(1)
     );
   }, [firestore, user?.uid]);

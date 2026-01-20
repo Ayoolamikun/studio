@@ -34,8 +34,8 @@ type LoanApplication = {
   loanAmount: number;
   customerType: 'BYSG' | 'Private Individual';
   passportPhotoUrl?: string;
-  submissionDate: string;
-  status?: 'Approved' | 'Rejected' | 'Processing';
+  createdAt: any;
+  status?: 'approved' | 'rejected' | 'pending';
 };
 
 
@@ -48,8 +48,8 @@ export function ApplicationsTable() {
   const applicationsQuery = useMemoFirebase(
     () => firestore ? query(
         collection(firestore, 'loanApplications'), 
-        where('status', '==', 'Processing'),
-        orderBy('submissionDate', 'desc')
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
     ) : null,
     [firestore]
   );
@@ -86,7 +86,7 @@ export function ApplicationsTable() {
       setProcessingId(applicationId);
       const docRef = doc(firestore, 'loanApplications', applicationId);
       try {
-        updateDocumentNonBlocking(docRef, { status: 'Rejected' });
+        updateDocumentNonBlocking(docRef, { status: 'rejected' });
         toast.warning('Application Rejected', {
             description: 'The application has been marked as rejected.'
         });
@@ -134,7 +134,7 @@ export function ApplicationsTable() {
                           <Badge variant="secondary">{item.customerType}</Badge>
                         </TableCell>
                         <TableCell>{formatCurrency(item.loanAmount)}</TableCell>
-                        <TableCell>{format(new Date(item.submissionDate), 'PPP')}</TableCell>
+                        <TableCell>{item.createdAt?.toDate ? format(item.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
                               <Button
