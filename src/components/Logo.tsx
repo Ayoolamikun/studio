@@ -12,7 +12,7 @@ const Logo = ({ className }: { className?: string }) => {
       )}
     >
       <Banknote className="h-6 w-6 text-accent" />
-      <span className="font-headline">Corporate Magnate</span>
+      <span className="font-headline group-data-[collapsible=icon]:hidden">Corporate Magnate</span>
     </Link>
   );
 };

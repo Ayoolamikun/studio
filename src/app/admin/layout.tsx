@@ -151,7 +151,7 @@ export default function AdminLayout({
       <SidebarInset>
         <header className="flex h-14 items-center justify-between border-b bg-background px-4">
           <div className="flex items-center gap-2">
-            <SidebarTrigger className="md:hidden" />
+            <SidebarTrigger />
             <h1 className="text-xl font-semibold capitalize">{pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}</h1>
           </div>
           
