@@ -44,48 +44,11 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-20 items-center justify-between">
         <Logo />
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <NavLink key={link.name} href={link.href}>
-              {link.name}
-            </NavLink>
-          ))}
-        </nav>
         
         <div className="flex items-center gap-2">
-           {/* Desktop Auth Buttons */}
-           <div className="hidden md:flex items-center gap-2">
-             {isUserLoading ? (
-                <div className="flex items-center gap-2">
-                    <Skeleton className="h-10 w-20" />
-                    <Skeleton className="h-10 w-24" />
-                </div>
-             ) : !user ? (
-                <>
-                    <Button asChild variant="ghost">
-                        <Link href="/login">Login</Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href="/signup">Sign Up</Link>
-                    </Button>
-                </>
-             ) : (
-                <>
-                    <Button asChild variant="secondary">
-                        <Link href={user.uid === ADMIN_UID ? '/admin' : '/dashboard'}>My Dashboard</Link>
-                    </Button>
-                    <Button onClick={handleLogout} variant="ghost">
-                        Logout
-                    </Button>
-                </>
-             )}
-           </div>
-
           {/* Mobile Menu */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
