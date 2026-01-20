@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useActionState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,33 +8,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Bot, User, Send, Loader } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { chat } from "@/ai/flows/chat-flow";
-import { useFormStatus } from 'react-dom';
 
 type Message = {
   role: 'user' | 'assistant';
   content: string;
 };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="icon" disabled={pending}>
-      {pending ? <Loader className="animate-spin" /> : <Send />}
-    </Button>
-  );
-}
-
 export default function AIAgent() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
-  async function handleAction(prevState: any, formData: FormData) {
+  async function handleAction(formData: FormData) {
     const userInput = formData.get("message") as string;
     if (!userInput.trim()) return;
 
+    setIsSending(true);
     setMessages(prev => [...prev, { role: 'user', content: userInput }]);
     
     // Optimistic UI for bot typing
@@ -53,11 +44,8 @@ export default function AIAgent() {
         }
         return newMessages;
     });
-
-    return null; 
+    setIsSending(false);
   }
-
-  const [state, formAction] = useActionState(handleAction, null);
   
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -143,15 +131,19 @@ export default function AIAgent() {
           </CardContent>
           <CardFooter>
             <form
-              ref={formRef}
-              action={(formData) => {
-                formAction(formData);
-                formRef.current?.reset();
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const formData = new FormData(form);
+                handleAction(formData);
+                form.reset();
               }}
               className="flex w-full gap-2"
             >
-              <Input name="message" placeholder="Ask a question..." autoComplete="off" ref={inputRef} />
-              <SubmitButton />
+              <Input name="message" placeholder="Ask a question..." autoComplete="off" ref={inputRef} disabled={isSending} />
+              <Button type="submit" size="icon" disabled={isSending}>
+                {isSending ? <Loader className="animate-spin" /> : <Send />}
+              </Button>
             </form>
           </CardFooter>
         </Card>

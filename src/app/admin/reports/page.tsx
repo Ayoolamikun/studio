@@ -1,8 +1,6 @@
-
 'use client';
 
 import { useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
 import { generateExcelReport } from '@/app/actions';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,19 +9,12 @@ import { Label } from '@/components/ui/label';
 import { DownloadCloud } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full mt-4">
-      {pending ? 'Generating...' : <><DownloadCloud className="mr-2 h-4 w-4" /> Generate Excel Report</>}
-    </Button>
-  );
-}
-
 export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleAction = async (prevState: any, formData: FormData) => {
+  const handleAction = async (formData: FormData) => {
+    setIsGenerating(true);
     formData.set('month', selectedMonth);
     const result = await generateExcelReport(formData);
 
@@ -46,10 +37,8 @@ export default function ReportsPage() {
         description: result.message,
       });
     }
-    return result;
+    setIsGenerating(false);
   };
-
-  const [state, formAction] = useActionState(handleAction, { success: false, message: ""});
 
   return (
     <Card>
@@ -60,7 +49,12 @@ export default function ReportsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAction(new FormData(e.currentTarget));
+          }}
+        >
           <div className="grid w-full max-w-sm items-center gap-1.5">
             <Label htmlFor="month">Select Month</Label>
             <input
@@ -72,7 +66,9 @@ export default function ReportsPage() {
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
-          <SubmitButton />
+          <Button type="submit" disabled={isGenerating} className="w-full mt-4">
+            {isGenerating ? 'Generating...' : <><DownloadCloud className="mr-2 h-4 w-4" /> Generate Excel Report</>}
+          </Button>
         </form>
       </CardContent>
     </Card>

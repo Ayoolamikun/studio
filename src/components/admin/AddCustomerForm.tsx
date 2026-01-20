@@ -1,8 +1,6 @@
-
 'use client';
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useState, useEffect, useRef } from 'react';
 import { addCustomer } from '@/app/actions';
 import {
   Dialog,
@@ -17,16 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? 'Saving...' : 'Save Customer'}
-    </Button>
-  );
-}
 
 type AddCustomerFormProps = {
   isOpen: boolean;
@@ -34,8 +22,11 @@ type AddCustomerFormProps = {
 };
 
 export function AddCustomerForm({ isOpen, onOpenChange }: AddCustomerFormProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const handleAction = async (prevState: any, formData: FormData) => {
+  const handleAction = async (formData: FormData) => {
+    setIsSaving(true);
     const result = await addCustomer(formData);
     if (result.success) {
       toast.success('Success!', {
@@ -47,15 +38,14 @@ export function AddCustomerForm({ isOpen, onOpenChange }: AddCustomerFormProps) 
         description: result.message,
       });
     }
-    return result;
+    setIsSaving(false);
   };
-
-  const [state, formAction] = useActionState(handleAction, null);
-
-  // Reset form state when dialog is closed
+  
+  // Reset form when dialog closes
   useEffect(() => {
     if (!isOpen) {
-        // Reset logic if needed, though useActionState handles most of it.
+        formRef.current?.reset();
+        setIsSaving(false);
     }
   }, [isOpen]);
 
@@ -68,7 +58,13 @@ export function AddCustomerForm({ isOpen, onOpenChange }: AddCustomerFormProps) 
             Enter the details for the new borrower. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction}>
+        <form
+          ref={formRef}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAction(new FormData(e.currentTarget));
+          }}
+        >
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
@@ -97,9 +93,11 @@ export function AddCustomerForm({ isOpen, onOpenChange }: AddCustomerFormProps) 
           </div>
           <DialogFooter>
             <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline" type="button">Cancel</Button>
             </DialogClose>
-            <SubmitButton />
+            <Button type="submit" disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Customer'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

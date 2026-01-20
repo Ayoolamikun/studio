@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useState } from 'react';
 import { uploadExcelFile } from '@/app/actions';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,34 +9,27 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { UploadCloud } from 'lucide-react';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full mt-4">
-      {pending ? 'Uploading...' : 'Upload and Process File'}
-    </Button>
-  );
-}
-
 export default function ExcelImportPage() {
   const [fileName, setFileName] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [formKey, setFormKey] = useState(Date.now());
 
-  const handleAction = async (prevState: any, formData: FormData) => {
+  const handleAction = async (formData: FormData) => {
+    setIsUploading(true);
     const result = await uploadExcelFile(formData);
     if (result.success) {
       toast.success('Success!', {
         description: result.message,
       });
       setFileName('');
+      setFormKey(Date.now()); // Reset form by changing key
     } else {
       toast.error('Upload Failed', {
         description: result.message,
       });
     }
-    return result;
+    setIsUploading(false);
   };
-
-  const [state, formAction] = useActionState(handleAction, null);
 
   return (
     <Card>
@@ -49,7 +41,21 @@ export default function ExcelImportPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction}>
+        <form
+          key={formKey}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const file = formData.get('excelFile') as File;
+            if (file && file.size > 0) {
+                 handleAction(formData);
+            } else {
+                toast.error('No file selected', {
+                    description: 'Please select a file to upload.',
+                });
+            }
+          }}
+        >
           <div className="grid w-full max-w-sm items-center gap-1.5">
             <Label htmlFor="excelFile" className="sr-only">Excel File</Label>
             <div className="flex items-center justify-center w-full">
@@ -76,7 +82,9 @@ export default function ExcelImportPage() {
               </label>
             </div>
           </div>
-          <SubmitButton />
+           <Button type="submit" disabled={isUploading} className="w-full mt-4">
+            {isUploading ? 'Uploading...' : 'Upload and Process File'}
+          </Button>
         </form>
       </CardContent>
     </Card>
