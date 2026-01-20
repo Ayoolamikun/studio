@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { useDoc, useMemoFirebase, useAuth, useFirestore, WithId } from '@/firebase';
+import { useDoc, useMemoFirebase, useAuth, useFirestore, WithId, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
@@ -134,31 +134,57 @@ export default function ApplicationDetailsPage() {
     }
   };
 
-  const handleReject = async () => {
+  const handleReject = () => {
     if (!applicationRef) return;
     setIsProcessing(true);
-    try {
-      await updateDoc(applicationRef, { status: 'Rejected', updatedAt: serverTimestamp() });
-      toast.warning('Application Rejected', { description: 'The application has been marked as rejected.' });
-      router.push('/admin/applications');
-    } catch (error: any) {
-      toast.error('Update Failed', { description: error.message || "Could not update the application status." });
-    } finally {
-      setIsProcessing(false);
-    }
+    
+    const updateData = { status: 'Rejected', updatedAt: serverTimestamp() };
+
+    updateDoc(applicationRef, updateData)
+      .then(() => {
+        toast.warning('Application Rejected', { description: 'The application has been marked as rejected.' });
+        router.push('/admin/applications');
+      })
+      .catch(error => {
+        console.error("Rejection error:", error);
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: applicationRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            })
+        );
+        toast.error('Update Failed', { description: error.message || "Could not update the application status." });
+        setIsProcessing(false);
+      });
   };
 
-  const handleSaveNote = async () => {
+  const handleSaveNote = () => {
     if (!applicationRef) return;
     setIsProcessing(true);
-    try {
-      await updateDoc(applicationRef, { adminNotes: note, updatedAt: serverTimestamp() });
-      toast.success('Note Saved', { description: 'Your note has been saved successfully.' });
-    } catch (error: any) {
-      toast.error('Save Failed', { description: error.message || "Could not save the note." });
-    } finally {
-      setIsProcessing(false);
-    }
+    
+    const updateData = { adminNotes: note, updatedAt: serverTimestamp() };
+
+    updateDoc(applicationRef, updateData)
+      .then(() => {
+        toast.success('Note Saved', { description: 'Your note has been saved successfully.' });
+      })
+      .catch(error => {
+        console.error("Save note error:", error);
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: applicationRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            })
+        );
+        toast.error('Save Failed', { description: error.message || "Could not save the note." });
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
   };
 
   const isLoading = applicationLoading || userLoading;

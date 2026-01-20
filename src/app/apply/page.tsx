@@ -3,11 +3,11 @@
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
-import { useAuth, useUser, useFirestore, useStorage } from '@/firebase';
+import { useAuth, useUser, useFirestore, useStorage, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -70,18 +70,19 @@ export default function LoanApplicationPage() {
     form.clearErrors();
 
     try {
+      // --- This part is blocking and must complete ---
       const basePath = `loan-applications/${user.uid}/${Date.now()}`;
-      
       setUploadProgress('Uploading Government ID...');
       const governmentIdUrl = await uploadFile(data.governmentIdFile[0], `${basePath}_govId`);
-      
       setUploadProgress('Uploading Proof of Address...');
       const proofOfAddressUrl = await uploadFile(data.proofOfAddressFile[0], `${basePath}_proofOfAddress`);
-      
       setUploadProgress('Uploading Selfie...');
       const selfieUrl = await uploadFile(data.selfieFile[0], `${basePath}_selfie`);
+       // --- End of blocking part ---
 
       setUploadProgress('Saving application...');
+
+      const newDocRef = doc(collection(firestore, 'loanApplications')); // Generate ID client-side
 
       const submissionData = {
         userId: user.uid,
@@ -112,17 +113,35 @@ export default function LoanApplicationPage() {
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(firestore, 'loanApplications'), submissionData);
-
+      // --- Optimistic UI and Non-blocking write ---
       toast.success('Application Submitted!', {
         description: 'We will review your application and get back to you shortly.',
       });
-      router.push(`/application-success?id=${docRef.id}`);
+      router.push(`/application-success?id=${newDocRef.id}`);
 
-    } catch (error: any) {
-      console.error("Submission error:", error);
-      toast.error('Submission Failed', {
-        description: error.message || 'An unexpected error occurred. Please try again.',
+      // Perform the write in the background
+      setDoc(newDocRef, submissionData)
+        .catch(error => {
+            console.error("Submission error:", error);
+            // This will be caught by the global error listener
+            errorEmitter.emit(
+                'permission-error',
+                new FirestorePermissionError({
+                    path: newDocRef.path,
+                    operation: 'create',
+                    requestResourceData: submissionData,
+                })
+            );
+            // We could also show a specific toast here if needed, but the dev overlay is the main goal.
+            toast.error('Save Failed in Background', {
+              description: "There was a problem saving your application. Please contact support.",
+            });
+        });
+
+    } catch (error: any) { // This will now only catch upload errors
+      console.error("File upload error:", error);
+      toast.error('Upload Failed', {
+        description: error.message || 'An unexpected error occurred during file upload. Please try again.',
       });
     } finally {
         setUploadProgress('');
@@ -270,8 +289,8 @@ export default function LoanApplicationPage() {
                     )}/>
                 </section>
 
-                <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? <><Spinner size="small" /> Submitting...</> : 'Submit Loan Application'}
+                <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting || !!uploadProgress}>
+                  {uploadProgress ? <><Spinner size="small" /> {uploadProgress}</> : 'Submit Loan Application'}
                 </Button>
               </form>
             </Form>
