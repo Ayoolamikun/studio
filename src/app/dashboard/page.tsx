@@ -14,6 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 type Loan = {
   loanAmount: number;
@@ -53,8 +56,7 @@ export default function DashboardPage() {
     return query(
         collection(firestore, 'loanApplications'),
         where('userId', '==', user.uid),
-        where('status', '==', 'pending'),
-        limit(1)
+        where('status', '==', 'pending')
     );
   }, [firestore, user?.uid]);
 
@@ -72,7 +74,6 @@ export default function DashboardPage() {
   const { data: pastLoans, isLoading: pastLoading } = useCollection<Loan>(pastLoansQuery);
 
   const activeLoan = useMemo(() => (activeLoans && activeLoans.length > 0 ? activeLoans[0] : null), [activeLoans]);
-  const pendingApplication = useMemo(() => (pendingApplications && pendingApplications.length > 0 ? pendingApplications[0] : null), [pendingApplications]);
 
   const isLoading = isUserLoading || (user && (activeLoading || pastLoading || pendingLoading));
 
@@ -138,30 +139,53 @@ export default function DashboardPage() {
                       )}
                   </TabsContent>
               </Tabs>
-            ) : pendingApplication ? (
-                <Card className="text-center py-16 shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-semibold text-primary">Application Processing</CardTitle>
-                    <CardDescription className="mt-2 text-muted-foreground">
-                        Your loan application for {formatCurrency(pendingApplication.loanAmount)} is currently under review.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">We will notify you once a decision has been made. You can check back here for updates.</p>
-                  </CardContent>
-                </Card>
             ) : (
-                <Card className="text-center py-16 shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-semibold text-primary">No Active Loans</CardTitle>
-                    <CardDescription className="mt-2 text-muted-foreground">You do not have any pending or active loans at this time.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild size="lg" className="mt-6 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <a href="/apply">Apply for a New Loan</a>
-                    </Button>
-                  </CardContent>
-                </Card>
+                <div className="space-y-8">
+                    {/* Section 1: Processing Loans */}
+                    {pendingApplications && pendingApplications.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Pending Applications</CardTitle>
+                                <CardDescription>Your loan applications that are currently under review.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Submitted</TableHead>
+                                            <TableHead>Amount</TableHead>
+                                            <TableHead className="text-right">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pendingApplications.map(app => (
+                                            <TableRow key={app.id}>
+                                                <TableCell>{app.createdAt?.toDate ? format(app.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
+                                                <TableCell>{formatCurrency(app.loanAmount)}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-600 capitalize">{app.status}</Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Section 2: Apply for a new loan */}
+                    <Card className="text-center py-16 shadow-md">
+                        <CardHeader>
+                            <CardTitle className="text-2xl font-semibold text-primary">Apply for a New Loan</CardTitle>
+                            <CardDescription className="mt-2 text-muted-foreground">Ready to start a new financial journey? Apply for a loan today.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button asChild size="lg" className="mt-6 bg-accent text-accent-foreground hover:bg-accent/90">
+                                <a href="/apply">Apply Now</a>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
             )}
         </div>
       </main>
