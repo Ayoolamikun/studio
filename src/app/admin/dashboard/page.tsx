@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -7,7 +6,7 @@ import { collection, query, where } from 'firebase/firestore';
 import { Spinner } from '@/components/Spinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Wallet, TrendingUp, BellPlus, PackageCheck, Banknote, Users } from 'lucide-react';
+import { Wallet, TrendingUp, BellPlus, PackageCheck, Banknote, Users, Briefcase, PiggyBank } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 type Loan = {
@@ -22,6 +21,18 @@ type Loan = {
 type LoanApplication = {
     status?: 'Processing' | 'Approved' | 'Rejected';
 };
+
+type Investment = {
+    plan: string;
+    amount: number;
+    status: 'Active' | 'Matured' | 'Withdrawn';
+    maturityDate: { toDate: () => Date };
+};
+
+type InvestmentApplication = {
+    status?: 'Processing' | 'Approved' | 'Rejected';
+};
+
 
 type Customer = {};
 
@@ -78,6 +89,46 @@ function RecentLoans({ loans }: { loans: Loan[] }) {
     )
 }
 
+function RecentInvestments({ investments }: { investments: Investment[] }) {
+    const recentInvestments = investments
+        .filter(l => l.status === 'Matured')
+        .sort((a,b) => b.maturityDate.toDate().getTime() - a.maturityDate.toDate().getTime())
+        .slice(0, 5);
+
+    return (
+        <Card className="col-span-1 lg:col-span-3">
+            <CardHeader>
+                <CardTitle>Recently Matured Investments</CardTitle>
+                <CardDescription>A log of the most recently matured investments.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Plan</TableHead>
+                            <TableHead>Amount Matured</TableHead>
+                            <TableHead className='text-right'>Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {recentInvestments.length > 0 ? recentInvestments.map((inv, i) => (
+                            <TableRow key={i}>
+                                <TableCell className="font-medium">{inv.plan}</TableCell>
+                                <TableCell>{formatCurrency(inv.amount)}</TableCell>
+                                <TableCell className="capitalize text-right">{inv.status}</TableCell>
+                            </TableRow>
+                        )) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center">No recently matured investments</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    )
+}
+
 
 export default function AdminDashboardPage() {
     const firestore = useFirestore();
@@ -94,30 +145,46 @@ export default function AdminDashboardPage() {
         () => firestore ? query(collection(firestore, 'Customers')) : null,
         [firestore]
     );
+    const investmentsQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'Investments')) : null,
+        [firestore]
+    );
+    const investmentApplicationsQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'investmentApplications'), where('status', '==', 'Processing')) : null,
+        [firestore]
+    );
     
     const { data: loans, isLoading: loansLoading } = useCollection<Loan>(loansQuery);
     const { data: applications, isLoading: applicationsLoading } = useCollection<LoanApplication>(applicationsQuery);
     const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
+    const { data: investments, isLoading: investmentsLoading } = useCollection<Investment>(investmentsQuery);
+    const { data: investmentApplications, isLoading: investmentAppsLoading } = useCollection<InvestmentApplication>(investmentApplicationsQuery);
+
 
     const stats = useMemo(() => {
-        if (!loans) return { totalDebits: 0, totalCredits: 0, pendingLoans: 0, pendingTopups: 0, outstandingBalance: 0, activeLoans: 0 };
+        if (!loans || !investments) return { totalDebits: 0, totalCredits: 0, pendingLoans: 0, outstandingBalance: 0, activeLoans: 0, totalInvested: 0, activeInvestments: 0, pendingInvestments: 0 };
         
         const totalCredits = loans.reduce((acc, l) => acc + (l.amountPaid || 0), 0);
         const totalDebits = loans.reduce((acc, l) => acc + (l.loanAmount || 0), 0);
         const activeOrOverdue = loans.filter(l => l.status === 'Active' || l.status === 'Overdue');
         const outstandingBalance = activeOrOverdue.reduce((acc, l) => acc + (l.outstandingBalance || 0), 0);
 
+        const activeInvestmentsData = investments.filter(i => i.status === 'Active');
+        const totalInvested = activeInvestmentsData.reduce((acc, i) => acc + (i.amount || 0), 0);
+
         return {
             totalDebits,
             totalCredits,
             pendingLoans: applications?.length ?? 0,
-            pendingTopups: loans.filter(l => l.status === 'Approved').length,
             outstandingBalance: outstandingBalance,
             activeLoans: activeOrOverdue.length,
+            totalInvested: totalInvested,
+            activeInvestments: activeInvestmentsData.length,
+            pendingInvestments: investmentApplications?.length ?? 0
         };
-    }, [loans, applications]);
+    }, [loans, applications, investments, investmentApplications]);
 
-    const isLoading = loansLoading || applicationsLoading || customersLoading;
+    const isLoading = loansLoading || applicationsLoading || customersLoading || investmentsLoading || investmentAppsLoading;
 
     if (isLoading) {
         return (
@@ -130,16 +197,21 @@ export default function AdminDashboardPage() {
     return (
         <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard title="Total Credit(s)" value={formatCurrency(stats.totalCredits)} icon={Wallet} color="bg-green-500/10 text-green-500" description="Total repayments received" />
+                <StatCard title="Total Credit(s)" value={formatCurrency(stats.totalCredits)} icon={Wallet} color="bg-green-500/10 text-green-500" description="Total loan repayments received" />
                 <StatCard title="Total Debit(s)" value={formatCurrency(stats.totalDebits)} icon={Banknote} color="bg-red-500/10 text-red-500" description="Total loans disbursed" />
-                <StatCard title="Pending Loans" value={stats.pendingLoans} icon={BellPlus} color="bg-orange-500/10 text-orange-500" description="New applications awaiting approval" />
-                <StatCard title="Pending Topup" value={stats.pendingTopups} icon={BellPlus} color="bg-blue-500/10 text-blue-500" description="Approved, awaiting disbursal" />
-                <StatCard title="Outstanding Balance" value={formatCurrency(stats.outstandingBalance)} icon={TrendingUp} description="Across all active loans"/>
-                <StatCard title="Total Active Loans" value={stats.activeLoans} icon={PackageCheck} description="Currently running loans" />
+                <StatCard title="Total Invested" value={formatCurrency(stats.totalInvested)} icon={PiggyBank} color="bg-cyan-500/10 text-cyan-500" description="Total active investments"/>
+                <StatCard title="Outstanding Loan Balance" value={formatCurrency(stats.outstandingBalance)} icon={TrendingUp} description="Across all active loans"/>
+                
+                <StatCard title="Active Loans" value={stats.activeLoans} icon={PackageCheck} description="Currently running loans" />
+                <StatCard title="Active Investments" value={stats.activeInvestments} icon={Briefcase} description="Currently running investments" />
                 <StatCard title="Total Customers" value={customers?.length ?? 0} icon={Users} description="Total number of borrowers" />
+
+                <StatCard title="Pending Loan Apps" value={stats.pendingLoans} icon={BellPlus} color="bg-orange-500/10 text-orange-500" description="New loan applications" />
+                <StatCard title="Pending Investment Apps" value={stats.pendingInvestments} icon={BellPlus} color="bg-purple-500/10 text-purple-500" description="New investment applications" />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                {loans && <RecentLoans loans={loans} />}
+               {investments && <RecentInvestments investments={investments} />}
             </div>
         </div>
     );

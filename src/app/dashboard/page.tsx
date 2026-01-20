@@ -45,6 +45,16 @@ type InvestmentApplication = {
     status: 'Processing' | 'Approved' | 'Rejected';
 }
 
+type Investment = {
+    plan: 'Gold' | 'Platinum';
+    amount: number;
+    startDate: any;
+    duration: number;
+    expectedReturn: number;
+    maturityDate: any;
+    status: 'Active' | 'Matured' | 'Withdrawn';
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const firestore = useFirestore();
@@ -87,14 +97,24 @@ export default function DashboardPage() {
     );
   }, [firestore, user?.uid]);
 
+  const activeInvestmentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return query(
+        collection(firestore, 'Investments'),
+        where('userId', '==', user.uid),
+        where('status', '==', 'Active')
+    );
+  }, [firestore, user?.uid]);
+
   const { data: activeLoans, isLoading: activeLoading } = useCollection<Loan>(activeLoanQuery);
   const { data: pendingLoanApplications, isLoading: pendingLoansLoading } = useCollection<LoanApplication>(pendingLoanApplicationsQuery);
   const { data: pendingInvestmentApplications, isLoading: pendingInvestmentsLoading } = useCollection<InvestmentApplication>(pendingInvestmentApplicationsQuery);
   const { data: pastLoans, isLoading: pastLoading } = useCollection<Loan>(pastLoansQuery);
+  const { data: activeInvestments, isLoading: investmentsLoading } = useCollection<Investment>(activeInvestmentsQuery);
 
   const activeLoan = useMemo(() => (activeLoans && activeLoans.length > 0 ? activeLoans[0] : null), [activeLoans]);
 
-  const isLoading = isUserLoading || (user && (activeLoading || pastLoading || pendingLoansLoading || pendingInvestmentsLoading));
+  const isLoading = isUserLoading || (user && (activeLoading || pastLoading || pendingLoansLoading || pendingInvestmentsLoading || investmentsLoading));
 
   if (isLoading) {
     return (
@@ -203,15 +223,50 @@ export default function DashboardPage() {
                 
                 {/* INVESTMENTS TAB */}
                 <TabsContent value="investments" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Active Investments</CardTitle>
-                             <CardDescription>This feature is coming soon. Your active investments will appear here.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <p className="text-muted-foreground text-center py-8">No active investments found.</p>
-                        </CardContent>
-                    </Card>
+                    {activeInvestments && activeInvestments.length > 0 ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Active Investments</CardTitle>
+                                <CardDescription>Your portfolio of active investments.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Plan</TableHead>
+                                            <TableHead>Amount</TableHead>
+                                            <TableHead>Start Date</TableHead>
+                                            <TableHead>Maturity Date</TableHead>
+                                            <TableHead className="text-right">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {activeInvestments.map(inv => (
+                                            <TableRow key={inv.id}>
+                                                <TableCell>{inv.plan}</TableCell>
+                                                <TableCell>{formatCurrency(inv.amount)}</TableCell>
+                                                <TableCell>{inv.startDate?.toDate ? format(inv.startDate.toDate(), 'PPP') : 'N/A'}</TableCell>
+                                                <TableCell>{inv.maturityDate?.toDate ? format(inv.maturityDate.toDate(), 'PPP') : 'N/A'}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Badge variant="default" className="bg-green-500/20 text-green-600 capitalize">{inv.status}</Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Active Investments</CardTitle>
+                                 <CardDescription>Your active investments will appear here.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                               <p className="text-muted-foreground text-center py-8">No active investments found.</p>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {pendingInvestmentApplications && pendingInvestmentApplications.length > 0 && (
                         <Card>
