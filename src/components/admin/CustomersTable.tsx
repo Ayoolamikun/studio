@@ -23,8 +23,9 @@ import { useCollection, useMemoFirebase, WithId } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { format } from 'date-fns';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Eye } from 'lucide-react';
 import { AddCustomerForm } from './AddCustomerForm';
+import Link from 'next/link';
 
 type Customer = {
   name: string;
@@ -114,6 +115,7 @@ export function CustomersTable() {
                     <TableHead className="min-w-[250px]">Contact</TableHead>
                     <TableHead>BVN</TableHead>
                     <TableHead>Date Joined</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -127,11 +129,19 @@ export function CustomersTable() {
                           </TableCell>
                           <TableCell>{item.bvn || 'N/A'}</TableCell>
                           <TableCell>{formatDate(item.createdAt)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`/admin/customers/${item.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </Link>
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center h-24">No customers found.</TableCell>
+                      <TableCell colSpan={5} className="text-center h-24">No customers found.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
