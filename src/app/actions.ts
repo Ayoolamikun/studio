@@ -2,30 +2,20 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { storage as adminStorage } from 'firebase-admin';
-import { firestore as adminFirestore } from 'firebase-admin';
+import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import * as XLSX from 'xlsx';
 
-// A simple in-memory flag to ensure initialization only runs once.
-let isServerAppInitialized = false;
-
-function initializeServerApp() {
-  if (isServerAppInitialized) {
-    return;
-  }
-  // The environment variables should be set in your deployment environment (e.g., Vercel, Firebase Hosting).
-  // For local development, they would be in your .env.local file.
-  // This setup assumes you have the service account JSON stored in a GOOGLE_APPLICATION_CREDENTIALS env var.
-  adminStorage(); // This call might be what initializes the app with default credentials
-  isServerAppInitialized = true;
+// Ensure the app is initialized only once.
+if (admin.apps.length === 0) {
+  admin.initializeApp();
 }
+
+const db = admin.firestore();
+const storage = admin.storage();
 
 
 export async function uploadExcelFile(formData: FormData) {
   try {
-    initializeServerApp();
-
     const file = formData.get('excelFile') as File;
     if (!file) {
       return { success: false, message: 'No file provided.' };
@@ -36,7 +26,7 @@ export async function uploadExcelFile(formData: FormData) {
     const buffer = Buffer.from(bytes);
 
     // Get a reference to the storage bucket
-    const bucket = adminStorage().bucket();
+    const bucket = storage.bucket();
     const fileName = `excel-imports/${Date.now()}-${file.name}`;
     const fileUpload = bucket.file(fileName);
 
@@ -56,7 +46,7 @@ export async function uploadExcelFile(formData: FormData) {
     const publicUrl = `gs://${bucket.name}/${fileName}`;
 
     // Create a record in Firestore
-    await adminFirestore().collection('ExcelFiles').add({
+    await db.collection('ExcelFiles').add({
       fileName: file.name,
       fileUrl: publicUrl,
       uploadedAt: FieldValue.serverTimestamp(),
@@ -75,8 +65,6 @@ export async function uploadExcelFile(formData: FormData) {
 
 export async function generateExcelReport(formData: FormData) {
     try {
-        initializeServerApp();
-
         const month = formData.get('month') as string; // YYYY-MM
         if (!month) {
             return { success: false, message: 'Month is required.' };
@@ -88,7 +76,7 @@ export async function generateExcelReport(formData: FormData) {
         endDate.setDate(0);
         endDate.setHours(23, 59, 59, 999);
 
-        const loansSnapshot = await adminFirestore().collection('Loans')
+        const loansSnapshot = await db.collection('Loans')
             .where('createdAt', '>=', startDate)
             .where('createdAt', '<=', endDate)
             .get();
@@ -118,8 +106,6 @@ export async function generateExcelReport(formData: FormData) {
 
 export async function addCustomer(formData: FormData) {
     try {
-        initializeServerApp();
-
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
         const phone = formData.get('phone') as string;
@@ -137,7 +123,7 @@ export async function addCustomer(formData: FormData) {
             createdAt: FieldValue.serverTimestamp(),
         };
 
-        const docRef = await adminFirestore().collection('Customers').add(newCustomer);
+        const docRef = await db.collection('Customers').add(newCustomer);
 
         revalidatePath('/admin/customers');
         return { success: true, message: `Customer "${name}" added successfully with ID ${docRef.id}.` };
