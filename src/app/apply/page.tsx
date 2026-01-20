@@ -1,707 +1,284 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { firestore, storage, auth } from '@/firebase'
-import { onAuthStateChanged } from 'firebase/auth'
-
-interface FormData {
-  fullName: string
-  email: string
-  phone: string
-  dateOfBirth: string
-  residentialAddress: string
-  city: string
-  country: string
-  loanAmount: string
-  loanPurpose: string
-  repaymentDuration: string
-}
-
-interface FileUploads {
-  governmentId: File | null
-  proofOfAddress: File | null
-  selfie: File | null
-}
+import { useForm, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { LoanApplicationSchema, type LoanApplicationValues } from '@/lib/schemas';
+import { useAuth, useUser, useFirestore, useStorage } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Spinner } from '@/components/Spinner';
+import Link from 'next/link';
 
 export default function LoanApplicationPage() {
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const router = useRouter();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const storage = useStorage();
+  const { user, isUserLoading } = useUser();
+  const [uploadProgress, setUploadProgress] = useState('');
+
+  const form = useForm<LoanApplicationValues>({
+    resolver: zodResolver(LoanApplicationSchema),
+    defaultValues: {
+      fullName: '',
+      email: '',
+      phone: '',
+      country: 'Nigeria',
+      loanAmount: 50000,
+      repaymentDuration: '6',
+      loanPurpose: 'personal',
+      accurateInfo: false,
+      termsAndConditions: false,
+      identityVerification: false,
+    },
+  });
   
-  const [formData, setFormData] = useState<FormData>({
-    fullName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    residentialAddress: '',
-    city: '',
-    country: '',
-    loanAmount: '',
-    loanPurpose: '',
-    repaymentDuration: '6',
-  })
-
-  const [files, setFiles] = useState<FileUploads>({
-    governmentId: null,
-    proofOfAddress: null,
-    selfie: null,
-  })
-
-  const [declarations, setDeclarations] = useState({
-    accurateInfo: false,
-    termsAndConditions: false,
-    identityVerification: false,
-  })
-
-  const [error, setError] = useState('')
-  const [uploadProgress, setUploadProgress] = useState('')
-
-  // Check authentication and pre-fill email
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (!isUserLoading) {
       if (user) {
-        setCurrentUser(user)
-        setFormData(prev => ({
-          ...prev,
-          email: user.email || '',
-          fullName: user.displayName || '',
-        }))
+        form.setValue('email', user.email || '');
+        form.setValue('fullName', user.displayName || '');
       } else {
-        router.push('/login?redirect=/apply')
+        router.push('/login?redirect=/apply');
       }
-      setIsLoading(false)
-    })
+    }
+  }, [user, isUserLoading, router, form]);
 
-    return () => unsubscribe()
-  }, [router])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    setError('')
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof FileUploads) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Validate file size (10MB max)
-      if (file.size > 10 * 1024 * 1024) {
-        setError(`${fieldName} file must be less than 10MB`)
-        e.target.value = ''
-        return
-      }
-      setFiles(prev => ({ ...prev, [fieldName]: file }))
-      setError('')
+  const uploadFile = async (file: File, path: string): Promise<string> => {
+    if (!storage) throw new Error("Firebase Storage is not available.");
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  };
+  
+  const onSubmit: SubmitHandler<LoanApplicationValues> = async (data) => {
+    if (!user || !auth || !firestore) {
+      toast.error('Authentication Error', { description: 'You must be logged in to submit.' });
+      return;
     }
-  }
-
-  const handleDeclarationChange = (name: keyof typeof declarations) => {
-    setDeclarations(prev => ({ ...prev, [name]: !prev[name] }))
-  }
-
-  const validateForm = (): boolean => {
-    // Personal Information
-    if (!formData.fullName.trim()) {
-      setError('Full Name is required')
-      return false
-    }
-    if (!formData.email.trim()) {
-      setError('Email Address is required')
-      return false
-    }
-    if (!formData.phone.trim()) {
-      setError('Phone Number is required')
-      return false
-    }
-    if (!formData.dateOfBirth) {
-      setError('Date of Birth is required')
-      return false
-    }
-
-    // Address Information
-    if (!formData.residentialAddress.trim()) {
-      setError('Residential Address is required')
-      return false
-    }
-    if (!formData.city.trim()) {
-      setError('City is required')
-      return false
-    }
-    if (!formData.country.trim()) {
-      setError('Country is required')
-      return false
-    }
-
-    // Loan Details
-    if (!formData.loanAmount.trim() || parseFloat(formData.loanAmount) <= 0) {
-      setError('Valid Loan Amount is required')
-      return false
-    }
-    if (!formData.loanPurpose.trim()) {
-      setError('Loan Purpose is required')
-      return false
-    }
-
-    // Identity Verification Files
-    if (!files.governmentId) {
-      setError('Government-Issued ID is required')
-      return false
-    }
-    if (!files.proofOfAddress) {
-      setError('Proof of Address is required')
-      return false
-    }
-    if (!files.selfie) {
-      setError('Selfie / Live Photo is required')
-      return false
-    }
-
-    // Declarations
-    if (!declarations.accurateInfo) {
-      setError('Please confirm that the information provided is accurate')
-      return false
-    }
-    if (!declarations.termsAndConditions) {
-      setError('Please agree to the Terms & Conditions')
-      return false
-    }
-    if (!declarations.identityVerification) {
-      setError('Please consent to identity verification')
-      return false
-    }
-
-    return true
-  }
-
-  const uploadFile = async (file: File, fileName: string, path: string): Promise<string> => {
-    const timestamp = Date.now()
-    const sanitizedFileName = `${timestamp}_${fileName.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-    const storageRef = ref(storage, `${path}/${sanitizedFileName}`)
-    
-    await uploadBytes(storageRef, file)
-    const downloadURL = await getDownloadURL(storageRef)
-    
-    return downloadURL
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    console.log('=== FORM SUBMISSION STARTED ===')
-
-    if (!validateForm()) {
-      console.log('❌ Validation failed')
-      return
-    }
-    console.log('✅ Validation passed')
-
-    if (!currentUser) {
-      console.log('❌ No user logged in')
-      setError('You must be logged in to submit an application')
-      router.push('/login?redirect=/apply')
-      return
-    }
-    console.log('✅ User authenticated:', currentUser.email)
-
-    setIsSubmitting(true)
+    form.clearErrors();
 
     try {
-      const userId = currentUser.uid
-      const basePath = `loan-applications/${userId}`
-      console.log('📁 Upload path:', basePath)
-
-      // Upload files with progress updates
-      console.log('📤 Starting file uploads...')
+      const basePath = `loan-applications/${user.uid}/${Date.now()}`;
       
-      setUploadProgress('Uploading Government ID...')
-      console.log('Uploading Government ID...')
-      const governmentIdUrl = await uploadFile(
-        files.governmentId!,
-        files.governmentId!.name,
-        basePath
-      )
-      console.log('✅ Government ID uploaded:', governmentIdUrl)
+      setUploadProgress('Uploading Government ID...');
+      const governmentIdUrl = await uploadFile(data.governmentIdFile[0], `${basePath}_govId`);
+      
+      setUploadProgress('Uploading Proof of Address...');
+      const proofOfAddressUrl = await uploadFile(data.proofOfAddressFile[0], `${basePath}_proofOfAddress`);
+      
+      setUploadProgress('Uploading Selfie...');
+      const selfieUrl = await uploadFile(data.selfieFile[0], `${basePath}_selfie`);
 
-      setUploadProgress('Uploading Proof of Address...')
-      console.log('Uploading Proof of Address...')
-      const proofOfAddressUrl = await uploadFile(
-        files.proofOfAddress!,
-        files.proofOfAddress!.name,
-        basePath
-      )
-      console.log('✅ Proof of Address uploaded:', proofOfAddressUrl)
+      setUploadProgress('Saving application...');
 
-      setUploadProgress('Uploading Selfie...')
-      console.log('Uploading Selfie...')
-      const selfieUrl = await uploadFile(
-        files.selfie!,
-        files.selfie!.name,
-        basePath
-      )
-      console.log('✅ Selfie uploaded:', selfieUrl)
-
-      setUploadProgress('Saving application...')
-      console.log('💾 Saving to Firestore...')
-
-      // Save to Firestore
-      const docRef = await addDoc(collection(firestore, 'loanApplications'), {
-        // User Identity
-        userId: userId,
-        userEmail: currentUser.email,
-
-        // Personal Information
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        dateOfBirth: formData.dateOfBirth,
-
-        // Address Information
-        residentialAddress: formData.residentialAddress.trim(),
-        city: formData.city.trim(),
-        country: formData.country.trim(),
-
-        // Loan Details
-        loanAmount: parseFloat(formData.loanAmount),
-        loanPurpose: formData.loanPurpose.trim(),
-        repaymentDuration: parseInt(formData.repaymentDuration),
-
-        // Identity Verification Documents
+      const submissionData = {
+        userId: user.uid,
+        userEmail: user.email,
+        fullName: data.fullName,
+        email: data.email,
+        phone: data.phone,
+        dateOfBirth: data.dateOfBirth,
+        residentialAddress: data.residentialAddress,
+        city: data.city,
+        country: data.country,
+        loanAmount: data.loanAmount,
+        loanPurpose: data.loanPurpose,
+        repaymentDuration: parseInt(data.repaymentDuration),
         documents: {
           governmentId: governmentIdUrl,
           proofOfAddress: proofOfAddressUrl,
           selfie: selfieUrl,
         },
-
-        // Declarations
         declarations: {
-          accurateInfo: declarations.accurateInfo,
-          termsAndConditions: declarations.termsAndConditions,
-          identityVerification: declarations.identityVerification,
+          accurateInfo: data.accurateInfo,
+          termsAndConditions: data.termsAndConditions,
+          identityVerification: data.identityVerification,
           acceptedAt: new Date().toISOString(),
         },
-
-        // Application Status
         status: 'Processing',
-
-        // Timestamps
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      })
+      };
 
-      console.log('✅ Application saved! Doc ID:', docRef.id)
-      console.log('🎉 SUCCESS! Redirecting...')
+      const docRef = await addDoc(collection(firestore, 'loanApplications'), submissionData);
 
-      // Success - redirect to confirmation page
-      router.push(`/application-success?id=${docRef.id}`)
+      toast.success('Application Submitted!', {
+        description: 'We will review your application and get back to you shortly.',
+      });
+      router.push(`/application-success?id=${docRef.id}`);
 
     } catch (error: any) {
-      console.error('❌ SUBMISSION ERROR:', error)
-      console.error('Error code:', error.code)
-      console.error('Error message:', error.message)
-      console.error('Full error:', JSON.stringify(error, null, 2))
-      
-      if (error.code === 'permission-denied') {
-        setError('Permission denied. Please contact support.')
-      } else if (error.message?.includes('storage')) {
-        setError('Failed to upload documents. Please try again.')
-      } else {
-        setError(`Failed to submit application: ${error.message || 'Please try again'}`)
-      }
+      console.error("Submission error:", error);
+      toast.error('Submission Failed', {
+        description: error.message || 'An unexpected error occurred. Please try again.',
+      });
     } finally {
-      console.log('=== FORM SUBMISSION ENDED ===')
-      setIsSubmitting(false)
-      setUploadProgress('')
+        setUploadProgress('');
     }
-  }
+  };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-slate-900 to-slate-800 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+  if (isUserLoading || !user) {
+     return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <Spinner size="large" />
+        <p className="text-lg mt-4">Loading Form...</p>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-slate-900 to-slate-800 py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-white/20">
-          <h1 className="text-4xl font-bold text-white mb-2">Loan Application</h1>
-          <p className="text-blue-200">
-            Complete this form to apply for a loan and verify your identity.
-          </p>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-400 rounded-lg text-red-100 backdrop-blur-sm">
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Upload Progress */}
-        {uploadProgress && (
-          <div className="mb-6 p-4 bg-blue-500/20 border border-blue-400 rounded-lg text-blue-100 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              {uploadProgress}
-            </div>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 space-y-8">
-          
-          {/* A. Personal Information */}
-          <section>
-            <h2 className="text-2xl font-bold text-white mb-4">Personal Information</h2>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-blue-200 mb-2">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  id="fullName"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  placeholder="John Doe"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-blue-200 mb-2">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  placeholder="john@example.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-blue-200 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  placeholder="+234 800 000 0000"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-blue-200 mb-2">
-                  Date of Birth *
-                </label>
-                <input
-                  type="date"
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  value={formData.dateOfBirth}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* B. Address Information */}
-          <section>
-            <h2 className="text-2xl font-bold text-white mb-4">Address Information</h2>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="residentialAddress" className="block text-sm font-medium text-blue-200 mb-2">
-                  Residential Address *
-                </label>
-                <input
-                  type="text"
-                  id="residentialAddress"
-                  name="residentialAddress"
-                  value={formData.residentialAddress}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  placeholder="123 Main Street, Apartment 4B"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-blue-200 mb-2">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    disabled={isSubmitting}
-                    required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    placeholder="Lagos"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="country" className="block text-sm font-medium text-blue-200 mb-2">
-                    Country *
-                  </label>
-                  <input
-                    type="text"
-                    id="country"
-                    name="country"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                    disabled={isSubmitting}
-                    required
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    placeholder="Nigeria"
-                  />
+    <div className="flex min-h-screen flex-col bg-secondary/50">
+      <Header />
+      <main className="flex-1 container py-12">
+        <Card className="max-w-4xl mx-auto">
+          <CardHeader>
+            <CardTitle className="font-headline text-3xl">Loan Application</CardTitle>
+            <CardDescription>Complete this form to apply for a loan. All fields marked with * are required.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {uploadProgress && (
+              <div className="mb-6 p-4 bg-blue-500/20 border border-blue-400 rounded-lg text-blue-600">
+                <div className="flex items-center gap-3">
+                  <Spinner size="small" />
+                  {uploadProgress}
                 </div>
               </div>
-            </div>
-          </section>
-
-          {/* C. Loan Details */}
-          <section>
-            <h2 className="text-2xl font-bold text-white mb-4">Loan Details</h2>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="loanAmount" className="block text-sm font-medium text-blue-200 mb-2">
-                  Loan Amount Requested (₦) *
-                </label>
-                <input
-                  type="number"
-                  id="loanAmount"
-                  name="loanAmount"
-                  value={formData.loanAmount}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  min="1"
-                  step="0.01"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  placeholder="50000"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="loanPurpose" className="block text-sm font-medium text-blue-200 mb-2">
-                  Loan Purpose *
-                </label>
-                <select
-                  id="loanPurpose"
-                  name="loanPurpose"
-                  value={formData.loanPurpose}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 [&>option]:bg-slate-800 [&>option]:text-white"
-                >
-                  <option value="" className="bg-slate-800 text-gray-400">Select Purpose</option>
-                  <option value="business" className="bg-slate-800 text-white">Business</option>
-                  <option value="education" className="bg-slate-800 text-white">Education</option>
-                  <option value="medical" className="bg-slate-800 text-white">Medical</option>
-                  <option value="home" className="bg-slate-800 text-white">Home Improvement</option>
-                  <option value="personal" className="bg-slate-800 text-white">Personal</option>
-                  <option value="other" className="bg-slate-800 text-white">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="repaymentDuration" className="block text-sm font-medium text-blue-200 mb-2">
-                  Preferred Repayment Duration *
-                </label>
-                <select
-                  id="repaymentDuration"
-                  name="repaymentDuration"
-                  value={formData.repaymentDuration}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 [&>option]:bg-slate-800 [&>option]:text-white"
-                >
-                  <option value="3" className="bg-slate-800 text-white">3 months</option>
-                  <option value="6" className="bg-slate-800 text-white">6 months</option>
-                  <option value="12" className="bg-slate-800 text-white">12 months</option>
-                  <option value="18" className="bg-slate-800 text-white">18 months</option>
-                  <option value="24" className="bg-slate-800 text-white">24 months</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          {/* D. Identity Verification */}
-          <section>
-            <h2 className="text-2xl font-bold text-white mb-4">Identity Verification</h2>
-            <p className="text-blue-200 mb-4 text-sm">All documents must be clear and valid. Maximum file size: 10MB.</p>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="governmentId" className="block text-sm font-medium text-blue-200 mb-2">
-                  Government-Issued ID * (Passport, National ID, or Driver's License)
-                </label>
-                <input
-                  type="file"
-                  id="governmentId"
-                  accept="image/*,.pdf"
-                  onChange={(e) => handleFileChange(e, 'governmentId')}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50"
-                />
-                {files.governmentId && (
-                  <p className="mt-2 text-sm text-green-400">✓ {files.governmentId.name}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="proofOfAddress" className="block text-sm font-medium text-blue-200 mb-2">
-                  Proof of Address * (Utility bill or bank statement)
-                </label>
-                <input
-                  type="file"
-                  id="proofOfAddress"
-                  accept="image/*,.pdf"
-                  onChange={(e) => handleFileChange(e, 'proofOfAddress')}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50"
-                />
-                {files.proofOfAddress && (
-                  <p className="mt-2 text-sm text-green-400">✓ {files.proofOfAddress.name}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="selfie" className="block text-sm font-medium text-blue-200 mb-2">
-                  Selfie / Live Photo * (Clear photo of your face)
-                </label>
-                <input
-                  type="file"
-                  id="selfie"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange(e, 'selfie')}
-                  disabled={isSubmitting}
-                  required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50"
-                />
-                {files.selfie && (
-                  <p className="mt-2 text-sm text-green-400">✓ {files.selfie.name}</p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* E. Declarations & Consent */}
-          <section>
-            <h2 className="text-2xl font-bold text-white mb-4">Declarations & Consent</h2>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/10">
-                <input
-                  type="checkbox"
-                  id="accurateInfo"
-                  checked={declarations.accurateInfo}
-                  onChange={() => handleDeclarationChange('accurateInfo')}
-                  disabled={isSubmitting}
-                  required
-                  className="mt-1 w-5 h-5 accent-blue-600"
-                />
-                <label htmlFor="accurateInfo" className="text-white cursor-pointer text-sm">
-                  I confirm the information provided is accurate and complete. *
-                </label>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/10">
-                <input
-                  type="checkbox"
-                  id="termsAndConditions"
-                  checked={declarations.termsAndConditions}
-                  onChange={() => handleDeclarationChange('termsAndConditions')}
-                  disabled={isSubmitting}
-                  required
-                  className="mt-1 w-5 h-5 accent-blue-600"
-                />
-                <label htmlFor="termsAndConditions" className="text-white cursor-pointer text-sm">
-                  I agree to the{' '}
-                  <a href="/terms" target="_blank" className="text-blue-400 underline hover:text-blue-300">
-                    Terms & Conditions
-                  </a>
-                  . *
-                </label>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/10">
-                <input
-                  type="checkbox"
-                  id="identityVerification"
-                  checked={declarations.identityVerification}
-                  onChange={() => handleDeclarationChange('identityVerification')}
-                  disabled={isSubmitting}
-                  required
-                  className="mt-1 w-5 h-5 accent-blue-600"
-                />
-                <label htmlFor="identityVerification" className="text-white cursor-pointer text-sm">
-                  I consent to identity verification and understand my documents will be reviewed. *
-                </label>
-              </div>
-            </div>
-          </section>
-
-          {/* F. Submit Button */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-lg font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-          >
-            {isSubmitting ? (
-              <span className="flex items-center justify-center gap-3">
-                <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Submitting...
-              </span>
-            ) : (
-              'Submit Loan Application'
             )}
-          </button>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                {/* Personal Info */}
+                <section className="space-y-4">
+                    <h3 className="text-xl font-semibold text-primary">Personal Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="fullName" render={({ field }) => (
+                            <FormItem><FormLabel>Full Name *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="email" render={({ field }) => (
+                            <FormItem><FormLabel>Email Address *</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="phone" render={({ field }) => (
+                            <FormItem><FormLabel>Phone Number *</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
+                            <FormItem><FormLabel>Date of Birth *</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                    </div>
+                </section>
+                
+                 {/* Address Info */}
+                <section className="space-y-4">
+                    <h3 className="text-xl font-semibold text-primary">Address Information</h3>
+                     <FormField control={form.control} name="residentialAddress" render={({ field }) => (
+                        <FormItem><FormLabel>Residential Address *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="city" render={({ field }) => (
+                            <FormItem><FormLabel>City *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="country" render={({ field }) => (
+                            <FormItem><FormLabel>Country *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                    </div>
+                </section>
 
-          <p className="text-center text-sm text-blue-300">
-            * Required fields
-          </p>
-        </form>
-      </div>
+                {/* Loan Details */}
+                <section className="space-y-4">
+                    <h3 className="text-xl font-semibold text-primary">Loan Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="loanAmount" render={({ field }) => (
+                            <FormItem><FormLabel>Loan Amount Requested (₦) *</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                         <FormField control={form.control} name="loanPurpose" render={({ field }) => (
+                            <FormItem><FormLabel>Loan Purpose *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select purpose" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="business">Business</SelectItem>
+                                        <SelectItem value="education">Education</SelectItem>
+                                        <SelectItem value="medical">Medical</SelectItem>
+                                        <SelectItem value="home">Home Improvement</SelectItem>
+                                        <SelectItem value="personal">Personal</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            <FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="repaymentDuration" render={({ field }) => (
+                            <FormItem><FormLabel>Repayment Duration *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="3">3 months</SelectItem>
+                                        <SelectItem value="6">6 months</SelectItem>
+                                        <SelectItem value="12">12 months</SelectItem>
+                                        <SelectItem value="18">18 months</SelectItem>
+                                        <SelectItem value="24">24 months</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            <FormMessage /></FormItem>
+                        )}/>
+                    </div>
+                </section>
+                
+                 {/* Document Upload */}
+                <section className="space-y-4">
+                    <h3 className="text-xl font-semibold text-primary">Identity Verification</h3>
+                    <p className="text-sm text-muted-foreground">All documents must be clear and valid. Max file size: 5MB. Accepted formats: JPG, PNG, PDF.</p>
+                    <FormField control={form.control} name="governmentIdFile" render={({ field }) => (
+                        <FormItem><FormLabel>Government ID Upload * <span className="text-muted-foreground text-xs">(e.g., Passport, NIN Slip)</span></FormLabel><FormControl><Input type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                     <FormField control={form.control} name="proofOfAddressFile" render={({ field }) => (
+                        <FormItem><FormLabel>Proof of Address Upload * <span className="text-muted-foreground text-xs">(e.g., Utility Bill)</span></FormLabel><FormControl><Input type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                     <FormField control={form.control} name="selfieFile" render={({ field }) => (
+                        <FormItem><FormLabel>Selfie Photo *</FormLabel><FormControl><Input type="file" accept="image/jpeg,image/png" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </section>
+                
+                {/* Declarations */}
+                 <section className="space-y-4">
+                    <h3 className="text-xl font-semibold text-primary">Declarations & Consent</h3>
+                    <FormField control={form.control} name="accurateInfo" render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                           <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                           <div className="space-y-1 leading-none"><FormLabel>I confirm the information provided is accurate and complete. *</FormLabel></div>
+                        </FormItem>
+                    )}/>
+                     <FormField control={form.control} name="termsAndConditions" render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                           <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                           <div className="space-y-1 leading-none"><FormLabel>I agree to the <Link href="/terms-of-service" className="underline" target="_blank">Terms and Conditions</Link> *</FormLabel></div>
+                        </FormItem>
+                    )}/>
+                     <FormField control={form.control} name="identityVerification" render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                           <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                           <div className="space-y-1 leading-none"><FormLabel>I consent to identity verification and understand my documents will be reviewed. *</FormLabel></div>
+                        </FormItem>
+                    )}/>
+                </section>
+
+                <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? <><Spinner size="small" /> Submitting...</> : 'Submit Loan Application'}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </main>
+      <Footer />
     </div>
-  )
+  );
 }

@@ -31,8 +31,7 @@ export default function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
-  // The admin UID for the designated admin user.
-  const adminUid = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
+  const ADMIN_UID = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -46,8 +45,8 @@ export default function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo />
 
-        {/* Desktop Navigation (now hidden to enforce hamburger menu) */}
-        <nav className="hidden">
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6">
           {navLinks.map((link) => (
             <NavLink key={link.name} href={link.href}>
               {link.name}
@@ -56,8 +55,8 @@ export default function Header() {
         </nav>
         
         <div className="flex items-center gap-2">
-           {/* Desktop Auth Buttons (now hidden to enforce hamburger menu) */}
-           <div className="hidden">
+           {/* Desktop Auth Buttons */}
+           <div className="hidden md:flex items-center gap-2">
              {isUserLoading ? (
                 <div className="flex items-center gap-2">
                     <Skeleton className="h-10 w-20" />
@@ -69,13 +68,13 @@ export default function Header() {
                         <Link href="/login">Login</Link>
                     </Button>
                     <Button asChild>
-                        <Link href="/apply">Sign Up</Link>
+                        <Link href="/signup">Sign Up</Link>
                     </Button>
                 </>
              ) : (
                 <>
                     <Button asChild variant="secondary">
-                        <Link href={user.uid === adminUid ? '/admin' : '/dashboard'}>My Dashboard</Link>
+                        <Link href={user.uid === ADMIN_UID ? '/admin' : '/dashboard'}>My Dashboard</Link>
                     </Button>
                     <Button onClick={handleLogout} variant="ghost">
                         Logout
@@ -84,9 +83,9 @@ export default function Header() {
              )}
            </div>
 
-          {/* Site Menu (visible on all screen sizes) */}
+          {/* Mobile Menu */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild>
+            <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open menu</span>
@@ -125,7 +124,7 @@ export default function Header() {
                   ) : (
                     <>
                       <Button asChild variant="secondary" className="w-full text-lg h-12">
-                        <Link href={user.uid === adminUid ? '/admin' : '/dashboard'} onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
+                        <Link href={user.uid === ADMIN_UID ? '/admin' : '/dashboard'} onClick={() => setIsMenuOpen(false)}>My Dashboard</Link>
                       </Button>
                       <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-lg h-12 p-2">
                         Logout
