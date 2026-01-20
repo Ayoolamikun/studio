@@ -1,8 +1,7 @@
-
 'use client';
 import { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -22,7 +21,7 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from '@/components/Spinner';
-import { useCollection, useMemoFirebase, updateDocumentNonBlocking, useAuth, useFirestore, WithId } from '@/firebase';
+import { useCollection, useMemoFirebase, useAuth, useFirestore, WithId } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
@@ -96,7 +95,7 @@ function LoanApplicationsTab() {
       setProcessingId(applicationId);
       const docRef = doc(firestore, 'loanApplications', applicationId);
       try {
-        updateDocumentNonBlocking(docRef, { status: 'Rejected', updatedAt: serverTimestamp() });
+        await updateDoc(docRef, { status: 'Rejected', updatedAt: serverTimestamp() });
         toast.warning('Application Rejected', {
             description: 'The application has been marked as rejected.'
         });
@@ -222,7 +221,7 @@ function InvestmentApplicationsTab() {
         setProcessingId(applicationId);
         const docRef = doc(firestore, 'investmentApplications', applicationId);
         try {
-            updateDocumentNonBlocking(docRef, { status: 'Rejected', updatedAt: serverTimestamp() });
+            await updateDoc(docRef, { status: 'Rejected', updatedAt: serverTimestamp() });
             toast.warning('Application Rejected', {
                 description: 'The application has been marked as rejected.'
             });
