@@ -37,7 +37,8 @@
         },
         "status": { "type": "string", "description": "The current status of the application.", "enum": ["Processing", "Approved", "Rejected"], "default": "Processing"},
         "createdAt": { "type": "string", "description": "Date and time the application was submitted.", "format": "date-time" },
-        "updatedAt": { "type": "string", "description": "Date and time the application was last updated.", "format": "date-time" }
+        "updatedAt": { "type": "string", "description": "Date and time the application was last updated.", "format": "date-time" },
+        "adminNotes": { "type": "string", "description": "Internal notes for admin use." }
       },
       "required": [
         "userId", "userEmail", "fullName", "email", "phone", "dateOfBirth", "residentialAddress", "city", "country", "loanAmount", "loanPurpose", "repaymentDuration", "documents", "declarations", "status", "createdAt"
@@ -98,6 +99,7 @@
         "passportPhotoUrl": { "type": "string" },
         "referralCode": { "type": "string" },
         "notes": { "type": "string" },
+        "adminNotes": { "type": "string", "description": "Internal notes from the admin regarding this application." },
         "status": { "type": "string", "enum": ["Processing", "Approved", "Rejected"], "default": "Processing"},
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }

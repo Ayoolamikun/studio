@@ -1,7 +1,4 @@
 'use client';
-import { useState } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -21,12 +18,12 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from '@/components/Spinner';
-import { useCollection, useMemoFirebase, useAuth, useFirestore, WithId } from '@/firebase';
+import { useCollection, useMemoFirebase, useFirestore } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
-import { Check, HandCoins, Briefcase, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { HandCoins, Briefcase, Eye } from 'lucide-react';
+import Link from 'next/link';
 
 type LoanApplication = {
   fullName: string;
@@ -47,12 +44,8 @@ type InvestmentApplication = {
   status?: 'Approved' | 'Rejected' | 'Processing';
 }
 
-
 function LoanApplicationsTab() {
   const firestore = useFirestore();
-  const auth = useAuth();
-  const functions = auth ? getFunctions(auth.app) : null;
-  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const applicationsQuery = useMemoFirebase(
     () => firestore ? query(
@@ -64,49 +57,6 @@ function LoanApplicationsTab() {
   );
   
   const { data: applications, isLoading: applicationsLoading } = useCollection<LoanApplication>(applicationsQuery);
-
-  const handleApprove = async (applicationId: string) => {
-    if (!functions) return;
-    setProcessingId(applicationId);
-    
-    try {
-        const approveApplication = httpsCallable(functions, 'approveApplication');
-        const result = await approveApplication({ applicationId });
-        const data = result.data as {success: boolean; message: string};
-
-        if (data.success) {
-            toast.success('Success', {
-                description: data.message
-            });
-        } else {
-             throw new Error(data.message);
-        }
-    } catch (error: any) {
-         toast.error('Approval Failed', {
-            description: error.message || "An unexpected error occurred.",
-        });
-    } finally {
-        setProcessingId(null);
-    }
-  };
-
-  const handleReject = async (applicationId: string) => {
-      if (!firestore) return;
-      setProcessingId(applicationId);
-      const docRef = doc(firestore, 'loanApplications', applicationId);
-      try {
-        await updateDoc(docRef, { status: 'Rejected', updatedAt: serverTimestamp() });
-        toast.warning('Application Rejected', {
-            description: 'The application has been marked as rejected.'
-        });
-      } catch (error: any) {
-        toast.error('Update Failed', {
-            description: error.message || "Could not update the application status.",
-        });
-      } finally {
-        setProcessingId(null);
-      }
-  };
 
   if (applicationsLoading) {
     return (
@@ -125,7 +75,7 @@ function LoanApplicationsTab() {
                 <TableHead>Details</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Submitted</TableHead>
-                <TableHead className="text-right min-w-[200px]">Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
             </TableRow>
             </TableHeader>
             <TableBody>
@@ -140,26 +90,12 @@ function LoanApplicationsTab() {
                     <TableCell>{formatCurrency(item.loanAmount)}</TableCell>
                     <TableCell>{item.createdAt?.toDate ? format(item.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                     <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                            <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleApprove(item.id)}
-                            disabled={processingId === item.id}
-                            >
-                                {processingId === item.id ? <Spinner size="small" /> : <Check className="mr-2 h-4 w-4" />}
-                                Approve
-                            </Button>
-                            <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleReject(item.id)}
-                            disabled={processingId === item.id}
-                            >
-                                {processingId === item.id ? <Spinner size="small" /> : <X className="mr-2 h-4 w-4" />}
-                                Reject
-                            </Button>
-                        </div>
+                       <Button asChild variant="outline" size="sm">
+                          <Link href={`/admin/applications/${item.id}?type=loan`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                          </Link>
+                        </Button>
                     </TableCell>
                     </TableRow>
                 ))
@@ -176,9 +112,6 @@ function LoanApplicationsTab() {
 
 function InvestmentApplicationsTab() {
     const firestore = useFirestore();
-    const auth = useAuth();
-    const functions = auth ? getFunctions(auth.app) : null;
-    const [processingId, setProcessingId] = useState<string | null>(null);
 
     const applicationsQuery = useMemoFirebase(
     () => firestore ? query(
@@ -191,48 +124,6 @@ function InvestmentApplicationsTab() {
     
     const { data: applications, isLoading: applicationsLoading } = useCollection<InvestmentApplication>(applicationsQuery);
 
-    const handleApprove = async (applicationId: string) => {
-        if (!functions) return;
-        setProcessingId(applicationId);
-        
-        try {
-            const approveInvestment = httpsCallable(functions, 'approveInvestmentApplication');
-            const result = await approveInvestment({ applicationId });
-            const data = result.data as {success: boolean; message: string};
-
-            if (data.success) {
-                toast.success('Success', {
-                    description: data.message
-                });
-            } else {
-                throw new Error(data.message);
-            }
-        } catch (error: any) {
-            toast.error('Approval Failed', {
-                description: error.message || "An unexpected error occurred.",
-            });
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
-    const handleReject = async (applicationId: string) => {
-        if (!firestore) return;
-        setProcessingId(applicationId);
-        const docRef = doc(firestore, 'investmentApplications', applicationId);
-        try {
-            await updateDoc(docRef, { status: 'Rejected', updatedAt: serverTimestamp() });
-            toast.warning('Application Rejected', {
-                description: 'The application has been marked as rejected.'
-            });
-        } catch (error: any) {
-            toast.error('Update Failed', {
-                description: error.message || "Could not update the application status.",
-            });
-        } finally {
-            setProcessingId(null);
-        }
-    };
 
     if (applicationsLoading) {
         return (
@@ -251,7 +142,7 @@ function InvestmentApplicationsTab() {
                    <TableHead>Plan</TableHead>
                    <TableHead>Amount</TableHead>
                    <TableHead>Submitted</TableHead>
-                   <TableHead className="text-right min-w-[200px]">Actions</TableHead>
+                   <TableHead className="text-right">Actions</TableHead>
                </TableRow>
                </TableHeader>
                <TableBody>
@@ -268,26 +159,12 @@ function InvestmentApplicationsTab() {
                        <TableCell>{formatCurrency(item.investmentAmount)} ({item.currency})</TableCell>
                        <TableCell>{item.createdAt?.toDate ? format(item.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                        <TableCell className="text-right">
-                           <div className="flex gap-2 justify-end">
-                               <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => handleApprove(item.id)}
-                                   disabled={processingId === item.id}
-                               >
-                                   {processingId === item.id ? <Spinner size="small" /> : <Check className="mr-2 h-4 w-4" />}
-                                   Approve
-                               </Button>
-                               <Button
-                                   variant="destructive"
-                                   size="sm"
-                                   onClick={() => handleReject(item.id)}
-                                   disabled={processingId === item.id}
-                               >
-                                   {processingId === item.id ? <Spinner size="small" /> : <X className="mr-2 h-4 w-4" />}
-                                   Reject
-                               </Button>
-                           </div>
+                         <Button asChild variant="outline" size="sm">
+                            <Link href={`/admin/applications/${item.id}?type=investment`}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </Link>
+                          </Button>
                        </TableCell>
                        </TableRow>
                    ))
