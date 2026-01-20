@@ -2,8 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import * as admin from 'firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import admin from 'firebase-admin';
 
 // Ensure the app is initialized only once.
 if (admin.apps.length === 0) {
@@ -49,7 +48,7 @@ export async function uploadExcelFile(formData: FormData) {
     await db.collection('ExcelFiles').add({
       fileName: file.name,
       fileUrl: publicUrl,
-      uploadedAt: FieldValue.serverTimestamp(),
+      uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
       processed: false, // Mark as not processed
       status: 'uploaded',
     });
@@ -120,7 +119,7 @@ export async function addCustomer(formData: FormData) {
             email,
             phone,
             bvn: bvn || '',
-            createdAt: FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         const docRef = await db.collection('Customers').add(newCustomer);
