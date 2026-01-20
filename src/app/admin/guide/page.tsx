@@ -49,7 +49,7 @@ export default function AdminGuidePage() {
         description="How to review and approve new submissions."
       >
         <ol className="list-decimal list-inside space-y-4">
-          <li>Navigate to the <Badge variant="outline">Approvals</Badge> page from the sidebar.</li>
+          <li>Navigate to the <Badge variant="outline">Applications</Badge> page from the sidebar.</li>
           <li>This table lists all applications currently in the <Badge variant="secondary">Processing</Badge> status.</li>
           <li>Review the applicant's name, email, loan amount, and customer type.</li>
           <li>
