@@ -363,6 +363,44 @@ export const updateLoanStatus = functions.https.onCall(async (data, context) => 
 });
 
 /**
+ * Updates the status of an investment. Admin-only.
+ */
+export const updateInvestmentStatus = functions.https.onCall(async (data, context) => {
+    // This is the UID for the designated admin user.
+    const adminUid = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
+    if (!context.auth || context.auth.uid !== adminUid) {
+        throw new functions.https.HttpsError("permission-denied", "Only admins can update investment status.");
+    }
+
+    const { investmentId, status } = data;
+    if (!investmentId || !status) {
+        throw new functions.https.HttpsError("invalid-argument", "The function must be called with 'investmentId' and 'status'.");
+    }
+
+    const validStatuses = ["Active", "Matured", "Withdrawn"];
+    if (!validStatuses.includes(status)) {
+        throw new functions.https.HttpsError("invalid-argument", `Invalid status provided. Must be one of: ${validStatuses.join(", ")}`);
+    }
+
+    const investmentRef = db.collection("Investments").doc(investmentId);
+
+    try {
+        const payload = {
+            status: status,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        await investmentRef.update(payload);
+
+        return { success: true, message: `Investment status successfully updated to ${payload.status}.` };
+    } catch (error: any) {
+        console.error("Update Investment Status Error:", error);
+        throw new functions.https.HttpsError("internal", error.message || "Failed to update investment status.");
+    }
+});
+
+
+/**
  * Saves a new investment application to Firestore.
  */
 export const submitInvestmentApplication = functions.https.onCall(async (data, context) => {
