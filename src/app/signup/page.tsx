@@ -30,7 +30,7 @@ const signupSchema = z.object({
 
 type SignupValues = z.infer<typeof signupSchema>;
 
-const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+const ADMIN_UID = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
 
 export default function SignupPage() {
   const auth = useAuth();

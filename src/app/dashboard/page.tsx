@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LoanDetails } from '@/components/dashboard/LoanDetails';
 import { LoanHistory } from '@/components/dashboard/LoanHistory';
 import { RepaymentSchedule } from '@/components/dashboard/RepaymentSchedule';
@@ -11,7 +11,7 @@ import { collection, query, where, limit } from 'firebase/firestore';
 import { Spinner } from '@/components/Spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Briefcase, HandCoins } from 'lucide-react';
+import { PlusCircle, Briefcase, HandCoins, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const [uidCopied, setUidCopied] = useState(false);
 
   const activeLoanQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -116,6 +117,15 @@ export default function DashboardPage() {
 
   const isLoading = isUserLoading || (user && (activeLoading || pastLoading || pendingLoansLoading || pendingInvestmentsLoading || investmentsLoading));
 
+  const handleCopyUid = () => {
+    if (user?.uid) {
+      navigator.clipboard.writeText(user.uid);
+      toast.success("User ID copied to clipboard!");
+      setUidCopied(true);
+      setTimeout(() => setUidCopied(false), 2000);
+    }
+  };
+
   if (isLoading) {
     return (
         <div className="flex h-screen flex-col items-center justify-center gap-4">
@@ -160,6 +170,23 @@ export default function DashboardPage() {
                     </Button>
                 )}
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Account Information</CardTitle>
+                <CardDescription>
+                  This is your unique User ID (UID). If you need to be assigned as an administrator, please copy this value and provide it.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between space-x-4 rounded-md border bg-secondary p-4">
+                  <p className="truncate font-mono text-sm">{user.uid}</p>
+                  <Button variant="outline" size="icon" onClick={handleCopyUid}>
+                    {uidCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             <Tabs defaultValue="loans" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
