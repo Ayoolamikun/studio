@@ -13,7 +13,7 @@ service firebase.storage {
     }
 
     // The admin UID for the designated admin user.
-    let ADMIN_UID = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID"; 
+    let ADMIN_UID = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2"; 
 
     function isAdmin() {
       return isSignedIn() && request.auth.uid == ADMIN_UID;

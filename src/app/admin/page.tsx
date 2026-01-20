@@ -5,7 +5,7 @@ import { useUser } from '@/firebase';
 import { Spinner } from '@/components/Spinner';
 
 // The admin UID for the designated admin user.
-const ADMIN_UID = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
+const ADMIN_UID = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
 
 export default function AdminRootPage() {
   const router = useRouter();

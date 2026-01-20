@@ -13,7 +13,7 @@ service cloud.firestore {
     // The admin UID for the designated admin user.
     function isAdmin() {
       return isSignedIn()
-        && request.auth.uid == "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
+        && request.auth.uid == "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
     }
 
     /* ==========================
