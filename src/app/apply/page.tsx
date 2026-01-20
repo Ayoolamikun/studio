@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -287,7 +286,7 @@ export default function LoanApplicationPage() {
         },
 
         // Application Status
-        status: 'pending',
+        status: 'Processing',
 
         // Timestamps
         createdAt: serverTimestamp(),

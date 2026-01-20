@@ -34,7 +34,7 @@ type Loan = {
 type LoanApplication = {
   loanAmount: number;
   createdAt: any;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'Processing' | 'Approved' | 'Rejected';
 };
 
 type InvestmentApplication = {
@@ -75,7 +75,7 @@ export default function DashboardPage() {
     return query(
         collection(firestore, 'loanApplications'),
         where('userId', '==', user.uid),
-        where('status', '==', 'pending')
+        where('status', '==', 'Processing')
     );
   }, [firestore, user?.uid]);
 

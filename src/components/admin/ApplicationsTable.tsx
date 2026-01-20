@@ -58,7 +58,7 @@ function LoanApplicationsTab() {
   const applicationsQuery = useMemoFirebase(
     () => firestore ? query(
         collection(firestore, 'loanApplications'), 
-        where('status', '==', 'pending'),
+        where('status', '==', 'Processing'),
         orderBy('createdAt', 'desc')
     ) : null,
     [firestore]
