@@ -2,12 +2,41 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import admin from 'firebase-admin';
+import * as admin from 'firebase-admin';
 
-// Ensure the app is initialized only once.
+// --- Firebase Admin SDK Initialization ---
+// This pattern uses service account credentials from environment variables if available,
+// falling back to Application Default Credentials in managed environments.
 if (admin.apps.length === 0) {
-  admin.initializeApp();
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+
+  if (privateKey && clientEmail && projectId) {
+    // Use explicit credentials if provided
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
+      }),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
+  } else {
+    // Otherwise, use Application Default Credentials
+    // This is the default for App Hosting and other Google Cloud environments.
+    try {
+        admin.initializeApp({
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        });
+    } catch(e: any) {
+        console.error("Firebase Admin initialization failed.", e);
+        throw new Error("Could not initialize Firebase Admin SDK. Ensure you have set up your environment credentials correctly.");
+    }
+  }
 }
+// --- End of Initialization ---
+
 
 const db = admin.firestore();
 const storage = admin.storage();
