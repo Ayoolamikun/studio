@@ -15,7 +15,7 @@ export default function DashboardLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+  const ADMIN_UID = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
 
   useEffect(() => {
     if (isUserLoading) return; // Wait until user status is resolved

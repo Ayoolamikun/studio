@@ -12,8 +12,8 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // The admin UID for corporatemagnatecoop@outlook.com
-    let ADMIN_UID = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2"; 
+    // The admin UID for the designated admin user.
+    let ADMIN_UID = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID"; 
 
     function isAdmin() {
       return isSignedIn() && request.auth.uid == ADMIN_UID;

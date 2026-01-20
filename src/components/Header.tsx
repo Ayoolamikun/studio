@@ -31,8 +31,8 @@ export default function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
-  // The admin UID for corporatemagnatecoop@outlook.com
-  const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+  // The admin UID for the designated admin user.
+  const adminUid = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
 
   const handleLogout = async () => {
     if (!auth) return;

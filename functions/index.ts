@@ -180,8 +180,8 @@ export const processExcelUpload = functions.storage
  * Approves a loan application, creating a Customer and a Loan document.
  */
 export const approveApplication = functions.https.onCall(async (data, context) => {
-    // This is the UID for the user: corporatemagnatecoop@outlook.com
-    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+    // This is the UID for the designated admin user.
+    const adminUid = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
     }
@@ -258,8 +258,8 @@ export const approveApplication = functions.https.onCall(async (data, context) =
  * Updates the status of a loan. Admin-only.
  */
 export const updateLoanStatus = functions.https.onCall(async (data, context) => {
-    // This is the UID for the user: corporatemagnatecoop@outlook.com
-    const adminUid = "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+    // This is the UID for the designated admin user.
+    const adminUid = "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
     if (!context.auth || context.auth.uid !== adminUid) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
     }

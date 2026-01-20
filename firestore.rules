@@ -10,10 +10,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // The admin UID for corporatemagnatecoop@outlook.com
+    // The admin UID for the designated admin user.
     function isAdmin() {
       return isSignedIn()
-        && request.auth.uid == "1EW8TCRo2LOdJEHrWrrVOTvJZJE2";
+        && request.auth.uid == "MUST_BE_REPLACED_WITH_NEW_ADMIN_UID";
     }
 
     /* ==========================

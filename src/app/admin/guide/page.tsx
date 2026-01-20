@@ -19,13 +19,14 @@ export default function AdminGuidePage() {
         title="0. Accessing the Admin Dashboard"
         description="How to log in and access the administrative features."
       >
-        <p>The admin dashboard is restricted to a specific, pre-configured user account. To access the admin features, you must log in using the designated admin credentials.</p>
+        <p>The admin dashboard is restricted to a specific user account identified by a unique Firebase UID, which is configured in the application's code and security rules.</p>
+        <p className="mt-4">To access the admin features, you must log in with that designated account:</p>
         <ul className="list-disc list-inside space-y-2 mt-4">
-          <li><strong>Admin Email:</strong> <code className="bg-muted px-2 py-1 rounded">corporatemagnatecoop@outlook.com</code></li>
-          <li><strong>Login URL:</strong> Navigate to the <Link href="/login" className="font-semibold text-primary underline">/login</Link> page.</li>
-          <li>Upon successful login with the admin account, you will be automatically redirected to the admin dashboard.</li>
+          <li>Navigate to the <Link href="/login" className="font-semibold text-primary underline">/login</Link> page.</li>
+          <li>Sign in using the email and password for the account you wish to be the administrator.</li>
+          <li>Upon successful login with the correct account, you will be automatically redirected to the admin dashboard.</li>
         </ul>
-        <p className="mt-4 text-sm text-muted-foreground">If you do not have access to this account, you will be unable to manage the platform. This user's identity is configured in the security rules and backend functions.</p>
+        <p className="mt-4 text-sm text-muted-foreground">If you need to change the admin user, you must provide the new user's Firebase UID to have it updated in the codebase.</p>
       </GuideSection>
 
       <GuideSection
