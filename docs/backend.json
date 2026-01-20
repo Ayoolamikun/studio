@@ -118,6 +118,24 @@
         "createdAt",
         "status"
       ]
+    },
+    "Investment": {
+      "title": "Investment",
+      "description": "Represents an active investment for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "plan": { "type": "string", "enum": ["Gold", "Platinum"] },
+        "amount": { "type": "number" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "duration": { "type": "number", "description": "Duration in months" },
+        "expectedReturn": { "type": "number" },
+        "maturityDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Active", "Matured", "Withdrawn"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "plan", "amount", "startDate", "duration", "status", "createdAt"]
     }
   },
   "auth": {
@@ -139,6 +157,10 @@
     "/Loans/{loanId}": {
       "schema": { "$ref": "#/entities/Loan" },
       "description": "Stores all loan records for customers."
+    },
+    "/Investments/{investmentId}": {
+      "schema": { "$ref": "#/entities/Investment" },
+      "description": "Stores all active investment records for users."
     }
   }
 }

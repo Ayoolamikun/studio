@@ -6,10 +6,10 @@ const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
 const fileSchema = z
   .any()
-  .refine((file) => file instanceof File, "File is required.")
-  .refine((file) => file?.size <= MAX_FILE_SIZE, `File size must be less than 5MB.`)
+  .refine((files) => files?.length == 1, "File is required.")
+  .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
   .refine(
-    (file) => ALLOWED_FILE_TYPES.includes(file?.type),
+    (files) => ALLOWED_FILE_TYPES.includes(files?.[0]?.type),
     "Only .jpg, .png, and .pdf formats are supported."
   );
 
@@ -39,7 +39,7 @@ export const InvestmentApplicationSchema = z.object({
     errorMap: () => ({ message: "You must accept the Privacy Policy." }),
   }),
   acceptRisks: z.literal(true, {
-    errorMap: () => ({ message: "You must acknowledge the risks." }),
+    errorMap: () => ({ message: "You must acknowledge the investment risks." }),
   }),
 });
 

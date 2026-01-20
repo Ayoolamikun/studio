@@ -54,7 +54,7 @@ const InvestmentPlansSection = ({ className }: { className?: string }) => {
               </CardContent>
               <CardFooter>
                 <Button asChild className={cn('w-full font-bold', tier.featured ? 'bg-primary' : 'bg-accent text-accent-foreground hover:bg-accent/90')}>
-                  <Link href="/apply">Get Started</Link>
+                  <Link href="/invest/apply">Get Started</Link>
                 </Button>
               </CardFooter>
             </Card>

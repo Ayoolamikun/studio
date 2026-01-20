@@ -51,6 +51,19 @@ service cloud.firestore {
       // Only Admins can update or delete investment applications.
       allow update, delete: if isAdmin();
     }
+    
+    /* ==========================
+       Investments (Active)
+    ========================== */
+
+    match /Investments/{investmentId} {
+      // Users can read their own investment details; Admins can read any.
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      // All investment creation/updates are handled by admin functions.
+      allow write: if isAdmin();
+    }
 
     /* ==========================
        Customers (Admin Only)

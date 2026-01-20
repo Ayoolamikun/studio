@@ -20,7 +20,7 @@ export default function InvestPage() {
               Ready to grow your wealth? Contact us or apply below to start with an investment plan. Our team will guide you through the next steps.
             </p>
              <Button asChild size="lg" className="mt-8">
-                <Link href="/apply">Apply Now</Link>
+                <Link href="/invest/apply">Apply Now</Link>
              </Button>
           </div>
         </div>
