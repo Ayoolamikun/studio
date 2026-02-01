@@ -13,32 +13,16 @@ export function formatCurrency(amount: number) {
 }
 
 /**
- * Calculates the simple interest rate based on the loan amount.
- * This is the single source of truth for interest rate calculations.
- * @param {number} amount The principal loan amount.
- * @return {number} The interest rate (e.g., 0.15 for 15%).
- */
-export function getInterestRate(amount: number): number {
-  if (amount >= 10000 && amount <= 50000) {
-    return 0.15; // 15%
-  } else if (amount > 50000 && amount <= 150000) {
-    return 0.10; // 10%
-  } else if (amount > 150000) {
-    return 0.07; // 7%
-  }
-  // Fallback for amounts outside the defined tiers, though UI should prevent this.
-  return 0.20; 
-}
-
-
-/**
- * Calculates the total repayment amount for a given principal.
- * Uses the centralized getInterestRate function.
+ * This function is now the single source of truth for flat interest calculations on the client-side.
+ * It mirrors the backend Cloud Function logic.
  * @param {number} principal The principal loan amount.
- * @return {number} The total amount to be repaid.
+ * @param {number} duration The duration of the loan in months.
+ * @returns An object with totalInterest, totalRepayment, and monthlyRepayment.
  */
-export function calculateTotalRepayment(principal: number): number {
-  const interestRate = getInterestRate(principal);
-  const total = principal + (principal * interestRate);
-  return total;
+export function calculateLoanDetails(principal: number, duration: number) {
+    const interestRate = 0.05; // 5% flat monthly interest
+    const totalInterest = principal * interestRate * duration;
+    const totalRepayment = principal + totalInterest;
+    const monthlyRepayment = totalRepayment / duration;
+    return { interestRate, totalInterest, totalRepayment, monthlyRepayment };
 }
