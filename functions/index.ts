@@ -301,8 +301,11 @@ export const approveInvestmentApplication = functions.https.onCall(async (data, 
         const durationInMonths = parseInt(appData.expectedDuration.split(" ")[0]);
         const maturityDate = new Date(startDate.getFullYear(), startDate.getMonth() + durationInMonths, startDate.getDate());
 
-        // Simple ROI calculation for now
-        const expectedReturn = appData.investmentAmount * (appData.investmentPlan === 'Gold' ? 1.15 : 1.25);
+        // Aligned ROI calculation with UI and requirements (e.g., 2.9% for Gold, 3.5% for Platinum, annually)
+        const annualRate = appData.investmentPlan === 'Gold' ? 0.029 : 0.035;
+        const durationInYears = durationInMonths / 12;
+        const expectedReturn = appData.investmentAmount * (1 + (annualRate * durationInYears));
+
 
         const investmentRef = db.collection("Investments").doc();
         batch.set(investmentRef, {
