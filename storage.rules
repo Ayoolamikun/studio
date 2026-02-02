@@ -18,9 +18,9 @@ service firebase.storage {
     }
 
     // --- File Validation Helpers ---
-    // Max file size: 10MB (matches client-side validation)
+    // Max file size: 5MB (matches client-side validation)
     function isValidSize() {
-      return request.resource.size <= 10 * 1024 * 1024;
+      return request.resource.size <= 5 * 1024 * 1024;
     }
     
     // Allowed file types: images and PDFs (matches client-side validation)
