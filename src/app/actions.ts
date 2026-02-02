@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { db, adminAuth, adminStorage } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import ExcelJS from 'exceljs';
 
 const bucket = adminStorage.bucket();
 const ADMIN_UID = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
@@ -90,7 +91,6 @@ export async function approveLoanApplicationAction(applicationId: string, idToke
     }
 }
 
-
 export async function uploadExcelFile(formData: FormData) {
   try {
     const file = formData.get('excelFile') as File;
@@ -98,43 +98,71 @@ export async function uploadExcelFile(formData: FormData) {
       return { success: false, message: 'No file provided.' };
     }
 
-    // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    
+    // --- Begin Excel Processing ---
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.worksheets[0];
 
-    // Get a reference to the storage bucket
-    const fileName = `excel-imports/${Date.now()}-${file.name}`;
-    const fileUpload = bucket.file(fileName);
+    if (!worksheet) {
+      return { success: false, message: 'No worksheet found in the Excel file.' };
+    }
 
-    // Stream the file to Firebase Storage
-    const stream = fileUpload.createWriteStream({
-      metadata: {
-        contentType: file.type,
-      },
-    });
+    const updates: Promise<any>[] = [];
+    const errors: string[] = [];
 
-    await new Promise((resolve, reject) => {
-      stream.on('error', reject);
-      stream.on('finish', resolve);
-      stream.end(buffer);
-    });
+    // Assuming headers are in the first row. Data starts from row 2.
+    // Assuming Column A: Customer ID, Column B: Amount Repaid
+    for (let i = 2; i <= worksheet.rowCount; i++) {
+      const row = worksheet.getRow(i);
+      const customerId = row.getCell('A').value as string;
+      const amountPaid = row.getCell('B').value as number;
 
-    const publicUrl = `gs://${bucket.name}/${fileName}`;
+      if (!customerId || typeof amountPaid !== 'number' || amountPaid <= 0) {
+        // Skip rows with invalid data
+        continue;
+      }
+      
+      const loansRef = db.collection('Loans');
+      const q = loansRef.where('borrowerId', '==', customerId).where('status', 'in', ['Active', 'Overdue']).limit(1);
+      
+      const loanQuerySnapshot = await q.get();
 
-    // Create a record in Firestore
-    await db.collection('ExcelFiles').add({
-      fileName: file.name,
-      fileUrl: publicUrl,
-      uploadedAt: FieldValue.serverTimestamp(),
-      processed: false, // Mark as not processed
-      status: 'uploaded',
-    });
+      if (!loanQuerySnapshot.empty) {
+        const loanDoc = loanQuerySnapshot.docs[0];
+        const loanData = loanDoc.data();
+        
+        const newAmountPaid = (loanData.amountPaid || 0) + amountPaid;
+        const newOutstandingBalance = Math.max(0, loanData.totalRepayment - newAmountPaid);
+        const newStatus = newOutstandingBalance <= 0 ? 'Completed' : loanData.status;
 
-    revalidatePath('/admin/excel');
-    return { success: true, message: 'File uploaded successfully. Processing will begin shortly.' };
+        updates.push(loanDoc.ref.update({
+            amountPaid: newAmountPaid,
+            outstandingBalance: newOutstandingBalance,
+            status: newStatus,
+            updatedAt: FieldValue.serverTimestamp()
+        }));
+      } else {
+        errors.push(`No active loan found for customer ID in row ${i}: ${customerId}`);
+      }
+    }
+    
+    await Promise.all(updates);
+    
+    if (errors.length > 0) {
+        console.warn("Excel processing warnings:", errors);
+    }
+    
+    revalidatePath('/admin/loans');
+    revalidatePath('/admin/customers');
+
+    return { success: true, message: `Successfully processed ${updates.length} repayment records. ${errors.length > 0 ? `(${errors.length} rows skipped).` : ''}` };
+
   } catch (error: any) {
     console.error('Error in uploadExcelFile:', error);
-    return { success: false, message: error.message || 'An unexpected error occurred.' };
+    return { success: false, message: error.message || 'An unexpected error occurred while processing the file.' };
   }
 }
 

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { UploadCloud } from 'lucide-react';
+import { Spinner } from '@/components/Spinner';
 
 export default function ExcelImportPage() {
   const [fileName, setFileName] = useState('');
@@ -24,7 +25,7 @@ export default function ExcelImportPage() {
       setFileName('');
       setFormKey(Date.now()); // Reset form by changing key
     } else {
-      toast.error('Upload Failed', {
+      toast.error('Processing Failed', {
         description: result.message,
       });
     }
@@ -36,8 +37,7 @@ export default function ExcelImportPage() {
       <CardHeader>
         <CardTitle>Monthly Excel Import</CardTitle>
         <CardDescription>
-          Upload the monthly repayment Excel file here. The system will automatically parse it
-          and update borrower records.
+          Upload the monthly repayment Excel file here. The system will immediately process it and update borrower records. The first column should be the Customer ID, and the second should be the Amount Repaid.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -68,7 +68,7 @@ export default function ExcelImportPage() {
                   <p className="mb-2 text-sm text-muted-foreground">
                     <span className="font-semibold">Click to upload</span> or drag and drop
                   </p>
-                  <p className="text-xs text-muted-foreground">XLSX, XLS, or CSV files</p>
+                  <p className="text-xs text-muted-foreground">XLSX files only</p>
                   {fileName && <p className="mt-4 text-sm font-medium text-primary">{fileName}</p>}
                 </div>
                 <Input
@@ -77,13 +77,13 @@ export default function ExcelImportPage() {
                   type="file"
                   className="hidden"
                   onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
-                  accept=".xlsx, .xls, .csv"
+                  accept=".xlsx"
                 />
               </label>
             </div>
           </div>
            <Button type="submit" disabled={isUploading} className="w-full mt-4">
-            {isUploading ? 'Uploading...' : 'Upload and Process File'}
+            {isUploading ? <><Spinner size='small' /> Processing...</> : 'Upload and Process File'}
           </Button>
         </form>
       </CardContent>

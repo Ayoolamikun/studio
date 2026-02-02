@@ -42,7 +42,6 @@
     "exceljs": "^4.4.0",
     "firebase": "latest",
     "firebase-admin": "latest",
-    "firebase-functions": "latest",
     "lucide-react": "^0.475.0",
     "next": "latest",
     "patch-package": "^8.0.0",

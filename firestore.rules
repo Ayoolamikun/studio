@@ -83,12 +83,5 @@ service cloud.firestore {
       // All investment creation/updates are handled by admin-only backend functions.
       allow write: if isAdmin();
     }
-
-    /* ==========================
-       Admin-Only Collections
-    ========================== */
-    match /ExcelFiles/{fileId} {
-      allow read, write: if isAdmin();
-    }
   }
 }
