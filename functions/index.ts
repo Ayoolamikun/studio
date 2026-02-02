@@ -5,10 +5,10 @@
  * loan and borrower information in Firestore.
  */
 
-import * as functions from "firebase-functions";
+import { onObjectFinalized } from "firebase-functions/v2/storage";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as xlsx from "xlsx";
-import axios from "axios";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -29,16 +29,16 @@ function calculateLoanDetails(principal: number, duration: number, interestRate:
  * This function downloads the Excel file, parses it, and updates Firestore.
  * This optimized version fetches all loans and customers first to reduce DB reads inside the loop.
  */
-export const processExcelUpload = functions.storage
-  .object()
-  .onFinalize(async (object) => {
-    const filePath = object.name;
+export const processExcelUpload = onObjectFinalized(async (event) => {
+    const filePath = event.data.name;
+    const contentType = event.data.contentType;
+    const bucketName = event.data.bucket;
+
     if (!filePath || !filePath.startsWith("excel-imports/")) {
       console.log(`File ${filePath} is not in the excel-imports/ directory. Exiting.`);
       return null;
     }
 
-    const contentType = object.contentType;
     if (!contentType ||
        (!contentType.includes("spreadsheet") && !contentType.includes("csv"))
     ) {
@@ -47,7 +47,7 @@ export const processExcelUpload = functions.storage
     }
 
     console.log(`Processing file: ${filePath}`);
-    const fileUrl = `gs://${object.bucket}/${filePath}`;
+    const fileUrl = `gs://${bucketName}/${filePath}`;
     const excelFileQuery = await db.collection("ExcelFiles").where("fileUrl", "==", fileUrl).limit(1).get();
 
     if (excelFileQuery.empty) {
@@ -62,8 +62,9 @@ export const processExcelUpload = functions.storage
 
     try {
       // 1. Download and parse the Excel file
-      const response = await axios.get(object.mediaLink, {responseType: "arraybuffer"});
-      const fileBuffer = Buffer.from(response.data);
+      const bucket = admin.storage().bucket(bucketName);
+      const file = bucket.file(filePath);
+      const [fileBuffer] = await file.download();
 
       const workbook = xlsx.read(fileBuffer, {type: "buffer"});
       const sheetName = workbook.SheetNames[0];
@@ -190,16 +191,16 @@ export const processExcelUpload = functions.storage
 /**
  * Approves a loan application, creating a Customer and a Loan document.
  */
-export const approveApplication = functions.https.onCall(async (data, context) => {
+export const approveApplication = onCall(async (request) => {
     // This is the UID for the designated admin user.
     const adminUid = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
-    if (!context.auth || context.auth.uid !== adminUid) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can approve applications.");
+    if (!request.auth || request.auth.uid !== adminUid) {
+        throw new HttpsError("permission-denied", "Only admins can approve applications.");
     }
 
-    const { applicationId } = data;
+    const { applicationId } = request.data;
     if (!applicationId) {
-        throw new functions.https.HttpsError("invalid-argument", "The function must be called with an 'applicationId'.");
+        throw new HttpsError("invalid-argument", "The function must be called with an 'applicationId'.");
     }
     
     const applicationRef = db.collection("loanApplications").doc(applicationId);
@@ -207,12 +208,12 @@ export const approveApplication = functions.https.onCall(async (data, context) =
     try {
         const applicationDoc = await applicationRef.get();
         if (!applicationDoc.exists) {
-            throw new functions.https.HttpsError("not-found", "Loan application not found.");
+            throw new HttpsError("not-found", "Loan application not found.");
         }
         const appData = applicationDoc.data()!;
 
         if (appData.status === "Approved") {
-            throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
+            throw new HttpsError("already-exists", "This application has already been approved.");
         }
 
         const batch = db.batch();
@@ -262,7 +263,10 @@ export const approveApplication = functions.https.onCall(async (data, context) =
 
     } catch (error: any) {
         console.error("Approval Error:", error);
-        throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        throw new HttpsError("internal", error.message || "An unexpected server error occurred.");
     }
 });
 
@@ -270,16 +274,16 @@ export const approveApplication = functions.https.onCall(async (data, context) =
 /**
  * Approves an investment application, creating an Investment document.
  */
-export const approveInvestmentApplication = functions.https.onCall(async (data, context) => {
+export const approveInvestmentApplication = onCall(async (request) => {
     // This is the UID for the designated admin user.
     const adminUid = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
-    if (!context.auth || context.auth.uid !== adminUid) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can approve investments.");
+    if (!request.auth || request.auth.uid !== adminUid) {
+        throw new HttpsError("permission-denied", "Only admins can approve investments.");
     }
 
-    const { applicationId } = data;
+    const { applicationId } = request.data;
     if (!applicationId) {
-        throw new functions.https.HttpsError("invalid-argument", "The function must be called with an 'applicationId'.");
+        throw new HttpsError("invalid-argument", "The function must be called with an 'applicationId'.");
     }
 
     const applicationRef = db.collection("investmentApplications").doc(applicationId);
@@ -287,12 +291,12 @@ export const approveInvestmentApplication = functions.https.onCall(async (data, 
     try {
         const applicationDoc = await applicationRef.get();
         if (!applicationDoc.exists) {
-            throw new functions.https.HttpsError("not-found", "Investment application not found.");
+            throw new HttpsError("not-found", "Investment application not found.");
         }
         const appData = applicationDoc.data()!;
 
         if (appData.status === "Approved") {
-            throw new functions.https.HttpsError("already-exists", "This application has already been approved.");
+            throw new HttpsError("already-exists", "This application has already been approved.");
         }
 
         const batch = db.batch();
@@ -329,7 +333,10 @@ export const approveInvestmentApplication = functions.https.onCall(async (data, 
 
     } catch (error: any) {
         console.error("Investment Approval Error:", error);
-        throw new functions.https.HttpsError("internal", error.message || "An unexpected server error occurred.");
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        throw new HttpsError("internal", error.message || "An unexpected server error occurred.");
     }
 });
 
@@ -337,21 +344,21 @@ export const approveInvestmentApplication = functions.https.onCall(async (data, 
 /**
  * Updates the status of a loan. Admin-only.
  */
-export const updateLoanStatus = functions.https.onCall(async (data, context) => {
+export const updateLoanStatus = onCall(async (request) => {
     // This is the UID for the designated admin user.
     const adminUid = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
-    if (!context.auth || context.auth.uid !== adminUid) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can update loan status.");
+    if (!request.auth || request.auth.uid !== adminUid) {
+        throw new HttpsError("permission-denied", "Only admins can update loan status.");
     }
 
-    const { loanId, status } = data;
+    const { loanId, status } = request.data;
     if (!loanId || !status) {
-        throw new functions.https.HttpsError("invalid-argument", "The function must be called with 'loanId' and 'status'.");
+        throw new HttpsError("invalid-argument", "The function must be called with 'loanId' and 'status'.");
     }
 
     const validStatuses = ["Disbursed", "Active", "Overdue", "Completed", "Rejected"];
     if (!validStatuses.includes(status)) {
-        throw new functions.https.HttpsError("invalid-argument", `Invalid status provided. Must be one of: ${validStatuses.join(", ")}`);
+        throw new HttpsError("invalid-argument", `Invalid status provided. Must be one of: ${validStatuses.join(", ")}`);
     }
 
     const loanRef = db.collection("Loans").doc(loanId);
@@ -372,28 +379,31 @@ export const updateLoanStatus = functions.https.onCall(async (data, context) => 
         return { success: true, message: `Loan status successfully updated to ${payload.status}.` };
     } catch (error: any) {
         console.error("Update Loan Status Error:", error);
-        throw new functions.https.HttpsError("internal", error.message || "Failed to update loan status.");
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        throw new HttpsError("internal", error.message || "Failed to update loan status.");
     }
 });
 
 /**
  * Updates the status of an investment. Admin-only.
  */
-export const updateInvestmentStatus = functions.https.onCall(async (data, context) => {
+export const updateInvestmentStatus = onCall(async (request) => {
     // This is the UID for the designated admin user.
     const adminUid = "pMju3hGH6SaCOJjJ6hW0BSKzBmS2";
-    if (!context.auth || context.auth.uid !== adminUid) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can update investment status.");
+    if (!request.auth || request.auth.uid !== adminUid) {
+        throw new HttpsError("permission-denied", "Only admins can update investment status.");
     }
 
-    const { investmentId, status } = data;
+    const { investmentId, status } = request.data;
     if (!investmentId || !status) {
-        throw new functions.https.HttpsError("invalid-argument", "The function must be called with 'investmentId' and 'status'.");
+        throw new HttpsError("invalid-argument", "The function must be called with 'investmentId' and 'status'.");
     }
 
     const validStatuses = ["Active", "Matured", "Withdrawn"];
     if (!validStatuses.includes(status)) {
-        throw new functions.https.HttpsError("invalid-argument", `Invalid status provided. Must be one of: ${validStatuses.join(", ")}`);
+        throw new HttpsError("invalid-argument", `Invalid status provided. Must be one of: ${validStatuses.join(", ")}`);
     }
 
     const investmentRef = db.collection("Investments").doc(investmentId);
@@ -409,7 +419,10 @@ export const updateInvestmentStatus = functions.https.onCall(async (data, contex
         return { success: true, message: `Investment status successfully updated to ${payload.status}.` };
     } catch (error: any) {
         console.error("Update Investment Status Error:", error);
-        throw new functions.https.HttpsError("internal", error.message || "Failed to update investment status.");
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        throw new HttpsError("internal", error.message || "Failed to update investment status.");
     }
 });
 
@@ -417,10 +430,11 @@ export const updateInvestmentStatus = functions.https.onCall(async (data, contex
 /**
  * Saves a new investment application to Firestore.
  */
-export const submitInvestmentApplication = functions.https.onCall(async (data, context) => {
+export const submitInvestmentApplication = onCall(async (request) => {
+    const { data, auth } = request;
     // 1. Authentication Check
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in to submit an application.");
+    if (!auth) {
+        throw new HttpsError("unauthenticated", "You must be logged in to submit an application.");
     }
 
     // 2. Data Validation (basic check, more complex validation is on client)
@@ -431,7 +445,7 @@ export const submitInvestmentApplication = functions.https.onCall(async (data, c
     ];
     for (const field of requiredFields) {
         if (!data[field]) {
-            throw new functions.https.HttpsError("invalid-argument", `The function must be called with the '${field}' argument.`);
+            throw new HttpsError("invalid-argument", `The function must be called with the '${field}' argument.`);
         }
     }
     
@@ -451,7 +465,7 @@ export const submitInvestmentApplication = functions.https.onCall(async (data, c
         passportPhotoUrl: data.passportPhotoUrl,
         referralCode: data.referralCode || "", // Sanitize optional field
         notes: data.notes || "", // Sanitize optional field
-        userId: context.auth.uid, // Ensure the userId is the authenticated user's ID
+        userId: auth.uid, // Ensure the userId is the authenticated user's ID
         status: "Processing", // Set initial status
         createdAt: admin.firestore.FieldValue.serverTimestamp(), // Use server timestamp
     };
@@ -462,6 +476,9 @@ export const submitInvestmentApplication = functions.https.onCall(async (data, c
         return { success: true, applicationId: docRef.id };
     } catch (error: any) {
         console.error("Error submitting investment application:", error);
-        throw new functions.https.HttpsError("internal", "An error occurred while saving your application. Please try again.");
+        if (error instanceof HttpsError) {
+          throw error;
+        }
+        throw new HttpsError("internal", "An error occurred while saving your application. Please try again.");
     }
 });
