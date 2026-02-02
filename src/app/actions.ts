@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -103,7 +104,7 @@ export async function uploadExcelFile(formData: FormData) {
     
     // --- Begin Excel Processing ---
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(Buffer.from(buffer));
     const worksheet = workbook.worksheets[0];
 
     if (!worksheet) {
