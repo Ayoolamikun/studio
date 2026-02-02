@@ -4,13 +4,12 @@
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { InvestmentApplicationSchema, type InvestmentApplicationValues } from '@/lib/schemas';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore, useStorage, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useStorage } from '@/firebase/provider';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -26,6 +25,7 @@ import Link from 'next/link';
 export default function InvestmentApplyPage() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const storage = useStorage();
   const { user, isUserLoading } = useUser();
   const [uploadProgress, setUploadProgress] = useState('');
@@ -59,19 +59,18 @@ export default function InvestmentApplyPage() {
   }, [user, isUserLoading, router, form]);
 
   const uploadFile = async (file: File, path: string): Promise<string> => {
+    if (!storage) throw new Error("Firebase Storage is not available.");
     const storageRef = ref(storage, path);
     await uploadBytes(storageRef, file);
     return await getDownloadURL(storageRef);
   };
   
   const onSubmit: SubmitHandler<InvestmentApplicationValues> = async (data) => {
-    if (!user || !auth) {
+    if (!user || !auth || !firestore) {
       toast.error('Authentication Error', { description: 'You must be logged in to submit.' });
       return;
     }
-
-    const functions = getFunctions(auth.app);
-    const submitApplication = httpsCallable(functions, 'submitInvestmentApplication');
+    form.clearErrors();
 
     try {
       const basePath = `investment-uploads/${user.uid}/${Date.now()}`;
@@ -87,24 +86,50 @@ export default function InvestmentApplyPage() {
 
       setUploadProgress('Saving application...');
 
+      const newDocRef = doc(collection(firestore, 'investmentApplications'));
+
       const submissionData = {
-        ...data,
+        userId: user.uid,
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        country: data.country,
+        investmentPlan: data.investmentPlan,
+        investmentAmount: data.investmentAmount,
+        currency: data.currency,
+        expectedDuration: data.expectedDuration,
+        govIdType: data.govIdType,
         govIdUrl,
         proofOfAddressUrl,
         passportPhotoUrl,
+        referralCode: data.referralCode || "",
+        notes: data.notes || "",
+        status: "Processing",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
 
-      const result = await submitApplication(submissionData);
-      const resultData = result.data as { success: boolean; applicationId?: string };
+      toast.success('Application Submitted!', {
+        description: 'We will review your application and get back to you shortly.',
+      });
+      router.push('/apply/thank-you');
 
-      if (resultData.success) {
-        toast.success('Application Submitted!', {
-          description: 'We will review your application and get back to you shortly.',
+      setDoc(newDocRef, submissionData)
+        .catch(error => {
+          console.error("Submission error:", error);
+          errorEmitter.emit(
+              'permission-error',
+              new FirestorePermissionError({
+                  path: newDocRef.path,
+                  operation: 'create',
+                  requestResourceData: submissionData,
+              })
+          );
+          toast.error('Save Failed in Background', {
+            description: "There was a problem saving your application. Please contact support.",
+          });
         });
-        router.push('/apply/thank-you');
-      } else {
-        throw new Error('The server rejected the application.');
-      }
+
     } catch (error: any) {
       console.error("Submission error:", error);
       toast.error('Submission Failed', {
@@ -270,8 +295,8 @@ export default function InvestmentApplyPage() {
                     )}/>
                 </div>
 
-                <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? <><Spinner size="small" /> Submitting...</> : 'Submit Investment Application'}
+                <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting || !!uploadProgress}>
+                  {uploadProgress ? <><Spinner size="small" /> {uploadProgress}</> : 'Submit Investment Application'}
                 </Button>
               </form>
             </Form>

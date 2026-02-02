@@ -15,12 +15,17 @@ function calculateLoanDetails(principal: number, duration: number, interestRate:
     return { totalInterest, totalRepayment, monthlyRepayment };
 }
 
+async function verifyAdmin(idToken: string) {
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    if (decodedToken.uid !== ADMIN_UID) {
+        throw new Error("Permission denied. User is not an admin.");
+    }
+    return decodedToken;
+}
+
 export async function approveLoanApplicationAction(applicationId: string, idToken: string) {
     try {
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
-        if (decodedToken.uid !== ADMIN_UID) {
-            return { success: false, message: "Permission denied. User is not an admin." };
-        }
+        await verifyAdmin(idToken);
 
         const applicationRef = db.collection("loanApplications").doc(applicationId);
         const applicationDoc = await applicationRef.get();
@@ -160,5 +165,108 @@ export async function addCustomer(formData: FormData) {
     } catch (error: any) {
         console.error('Error in addCustomer:', error);
         return { success: false, message: error.message || 'Failed to add customer.' };
+    }
+}
+
+
+export async function approveInvestmentApplicationAction(applicationId: string, idToken: string) {
+    try {
+        await verifyAdmin(idToken);
+        
+        const applicationRef = db.collection("investmentApplications").doc(applicationId);
+        const applicationDoc = await applicationRef.get();
+        if (!applicationDoc.exists) {
+            return { success: false, message: "Investment application not found." };
+        }
+        const appData = applicationDoc.data()!;
+
+        if (appData.status === "Approved") {
+            return { success: false, message: "This application has already been approved." };
+        }
+
+        const batch = db.batch();
+        
+        const startDate = new Date();
+        const durationInMonths = parseInt(appData.expectedDuration.split(" ")[0]);
+        const maturityDate = new Date(startDate.getFullYear(), startDate.getMonth() + durationInMonths, startDate.getDate());
+
+        const annualRate = appData.investmentPlan === 'Gold' ? 0.029 : 0.035;
+        const durationInYears = durationInMonths / 12;
+        const expectedReturn = appData.investmentAmount * (1 + (annualRate * durationInYears));
+
+        const investmentRef = db.collection("Investments").doc();
+        batch.set(investmentRef, {
+            userId: appData.userId,
+            applicationId: applicationId,
+            plan: appData.investmentPlan,
+            amount: appData.investmentAmount,
+            startDate: FieldValue.serverTimestamp(),
+            duration: durationInMonths,
+            maturityDate: maturityDate,
+            expectedReturn: expectedReturn,
+            status: "Active",
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+        });
+        
+        batch.update(applicationRef, { status: "Approved", updatedAt: FieldValue.serverTimestamp() });
+
+        await batch.commit();
+        revalidatePath('/admin/applications');
+        revalidatePath('/admin/investments');
+        return { success: true, message: "Investment application approved successfully!" };
+    } catch (error: any) {
+        return { success: false, message: error.message || 'An unexpected server error occurred.' };
+    }
+}
+
+export async function updateLoanStatusAction(loanId: string, status: string, idToken: string) {
+    try {
+        await verifyAdmin(idToken);
+
+        const validStatuses = ["Disbursed", "Active", "Overdue", "Completed", "Rejected"];
+        if (!validStatuses.includes(status)) {
+            return { success: false, message: `Invalid status provided. Must be one of: ${validStatuses.join(", ")}` };
+        }
+
+        const loanRef = db.collection("Loans").doc(loanId);
+        const payload: { status: string; updatedAt: FieldValue; disbursedAt?: FieldValue } = {
+            status: status,
+            updatedAt: FieldValue.serverTimestamp()
+        };
+
+        if (status === "Disbursed") {
+            payload.disbursedAt = FieldValue.serverTimestamp();
+            payload.status = "Active"; // Disbursed loans immediately become Active
+        }
+
+        await loanRef.update(payload);
+
+        revalidatePath('/admin/loans');
+        return { success: true, message: `Loan status successfully updated to ${payload.status}.` };
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Failed to update loan status.' };
+    }
+}
+
+export async function updateInvestmentStatusAction(investmentId: string, status: string, idToken: string) {
+    try {
+        await verifyAdmin(idToken);
+
+        const validStatuses = ["Active", "Matured", "Withdrawn"];
+        if (!validStatuses.includes(status)) {
+            return { success: false, message: `Invalid status provided. Must be one of: ${validStatuses.join(", ")}` };
+        }
+
+        const investmentRef = db.collection("Investments").doc(investmentId);
+        await investmentRef.update({
+            status: status,
+            updatedAt: FieldValue.serverTimestamp()
+        });
+
+        revalidatePath('/admin/investments');
+        return { success: true, message: `Investment status successfully updated to ${status}.` };
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Failed to update investment status.' };
     }
 }

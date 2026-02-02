@@ -1,7 +1,6 @@
 
 'use client';
 import { useState, useMemo } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   Table,
   TableBody,
@@ -36,6 +35,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { updateLoanStatusAction } from '@/app/actions';
 
 type Loan = {
   borrowerId: string;
@@ -82,7 +82,6 @@ const getStatusConfig = (status: Loan['status']) => {
 export function LoanManagementTable() {
   const firestore = useFirestore();
   const auth = useAuth();
-  const functions = auth ? getFunctions(auth.app) : null;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -146,20 +145,22 @@ export function LoanManagementTable() {
 
   
   const handleStatusChange = async (id: string, status: Loan['status']) => {
-    if (!functions) return;
+    if (!auth?.currentUser) {
+      toast.error('You must be logged in to perform this action.');
+      return;
+    }
     setProcessingId(id);
 
     try {
-        const updateLoanStatus = httpsCallable(functions, 'updateLoanStatus');
-        const result = await updateLoanStatus({ loanId: id, status });
-        const data = result.data as { success: boolean; message: string };
+        const idToken = await auth.currentUser.getIdToken();
+        const result = await updateLoanStatusAction(id, status, idToken);
 
-        if (data.success) {
+        if (result.success) {
             toast.success('Success', {
-                description: data.message,
+                description: result.message,
             });
         } else {
-            throw new Error(data.message);
+            throw new Error(result.message);
         }
     } catch (error: any) {
         toast.error('Update Failed', {
@@ -281,5 +282,6 @@ export function LoanManagementTable() {
       </Card>
   );
 }
+
 
 
