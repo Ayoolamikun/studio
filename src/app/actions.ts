@@ -104,7 +104,8 @@ export async function uploadExcelFile(formData: FormData) {
     
     // --- Begin Excel Processing ---
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer as unknown as Buffer);
+    const nodeBuffer = Buffer.from(buffer);
+    await workbook.xlsx.load(nodeBuffer);
 
     const worksheet = workbook.worksheets[0];
 
