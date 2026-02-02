@@ -10,6 +10,7 @@ import { useDoc, useMemoFirebase, useAuth, useFirestore, WithId, errorEmitter, F
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
+import { approveLoanApplicationAction } from '@/app/actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -111,26 +112,52 @@ export default function ApplicationDetailsPage() {
   }, [application]);
 
   const handleApprove = async () => {
-    if (!functions || !applicationId) return;
+    if (!applicationId || !type) return;
     setIsProcessing(true);
-    
-    const functionName = type === 'loan' ? 'approveApplication' : 'approveInvestmentApplication';
 
-    try {
-      const approveFunction = httpsCallable(functions, functionName);
-      const result = await approveFunction({ applicationId });
-      const data = result.data as { success: boolean; message: string };
+    if (type === 'loan') {
+        if (!auth?.currentUser) {
+            toast.error('Authentication Error', { description: 'You must be logged in to approve.' });
+            setIsProcessing(false);
+            return;
+        }
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const result = await approveLoanApplicationAction(applicationId, idToken);
 
-      if (data.success) {
-        toast.success('Approval Successful', { description: data.message });
-        router.push('/admin/applications');
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error: any) {
-      toast.error('Approval Failed', { description: error.message || "An unexpected error occurred." });
-    } finally {
-      setIsProcessing(false);
+            if (result.success) {
+                toast.success('Approval Successful', { description: result.message });
+                router.push('/admin/applications');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error: any) {
+            toast.error('Approval Failed', { description: error.message || "An unexpected error occurred." });
+        } finally {
+            setIsProcessing(false);
+        }
+    } else if (type === 'investment') {
+        if (!functions) {
+            toast.error('Error', { description: 'Functions service not available.' });
+            setIsProcessing(false);
+            return;
+        }
+        try {
+            const approveFunction = httpsCallable(functions, 'approveInvestmentApplication');
+            const result = await approveFunction({ applicationId });
+            const data = result.data as { success: boolean; message: string };
+
+            if (data.success) {
+                toast.success('Approval Successful', { description: data.message });
+                router.push('/admin/applications');
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error: any) {
+            toast.error('Approval Failed', { description: error.message || "An unexpected error occurred." });
+        } finally {
+            setIsProcessing(false);
+        }
     }
   };
 
