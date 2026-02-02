@@ -8,7 +8,9 @@ if (!admin.apps.length) {
     // Fallback for environments where GOOGLE_APPLICATION_CREDENTIALS might be set
     // (like in some Google Cloud environments)
     console.log("Initializing Firebase Admin with default credentials...");
-    admin.initializeApp();
+    admin.initializeApp({
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
   } else {
     // Explicit initialization using service account details from .env
     console.log("Initializing Firebase Admin with service account...");
