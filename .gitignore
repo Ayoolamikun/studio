@@ -38,3 +38,4 @@ pnpm-debug.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+src/lib/serviceAccountKey.json
